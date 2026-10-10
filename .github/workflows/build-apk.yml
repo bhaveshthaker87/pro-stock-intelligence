@@ -43,23 +43,33 @@ jobs:
           set -euo pipefail
           test -s PRO_STOCK_INTELLIGENCE_V40_44_PROJECT_UPLOAD_FIXED.zip
           unzip -oq PRO_STOCK_INTELLIGENCE_V40_44_PROJECT_UPLOAD_FIXED.zip
-          test -f PSI_ANDROID_STANDALONE_V40_44/app/src/main/AndroidManifest.xml
-          test -f PSI_ANDROID_STANDALONE_V40_44/app/build.gradle
-          test -f PSI_ANDROID_STANDALONE_V40_44/settings.gradle
-          test -f PSI_ANDROID_STANDALONE_V40_44/build.gradle
-          echo 'Project extracted. Gradle files found:'
-          find PSI_ANDROID_STANDALONE_V40_44 -maxdepth 2 -name 'build.gradle' -print
+          PROJECT="PSI_ANDROID_STANDALONE_V40_44"
+          test -f "$PROJECT/app/src/main/AndroidManifest.xml"
+          test -f "$PROJECT/app/src/main/java/com/prostock/intelligence/MainActivity.kt"
+          test -f "$PROJECT/app/build.gradle"
+          test -f "$PROJECT/settings.gradle"
+          test -f "$PROJECT/build.gradle"
+          echo 'Android project extracted and required files verified.'
 
-      - name: Force consistent Java and Kotlin 17 targets
+      - name: Correct Kotlin source and enforce Java 17
         shell: bash
         run: |
           set -euo pipefail
-          cd PSI_ANDROID_STANDALONE_V40_44
+          PROJECT="PSI_ANDROID_STANDALONE_V40_44"
+          cd "$PROJECT"
+          SOURCE="app/src/main/java/com/prostock/intelligence/MainActivity.kt"
+
+          # JSONArray.getJSONObject() requires an integer index, not a String key.
+          # The Yahoo Finance quote field is a JSON array, so use getJSONArray("quote").
+          sed -i 's/getJSONObject("quote")/getJSONArray("quote")/g' "$SOURCE"
+
           cat > gradle.properties <<'PROPERTIES'
           android.useAndroidX=true
           android.enableJetifier=true
           org.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8
+          kotlin.compiler.execution.strategy=in-process
           PROPERTIES
+
           cat > app/build.gradle <<'GRADLE'
           plugins {
               id 'com.android.application'
@@ -92,7 +102,17 @@ jobs:
               implementation 'androidx.webkit:webkit:1.12.1'
           }
           GRADLE
-          echo '--- Actual app/build.gradle used for this build ---'
+
+          echo '--- MainActivity.kt lines 78-88 after correction ---'
+          nl -ba app/src/main/java/com/prostock/intelligence/MainActivity.kt | sed -n '78,88p'
+          echo '--- Verify no incorrect getJSONObject("quote") remains ---'
+          if grep -n 'getJSONObject("quote")' app/src/main/java/com/prostock/intelligence/MainActivity.kt; then
+            echo 'ERROR: Incorrect quote JSON accessor still exists.'
+            exit 1
+          else
+            echo 'Quote JSON accessor verified.'
+          fi
+          echo '--- app/build.gradle used for build ---'
           cat app/build.gradle
           echo '--- Java version ---'
           java -version
