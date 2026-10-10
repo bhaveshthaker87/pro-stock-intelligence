@@ -51,17 +51,35 @@ jobs:
           test -f "$PROJECT/build.gradle"
           echo 'Android project extracted and required files verified.'
 
-      - name: Correct Kotlin source and enforce Java 17
+      - name: Normalize Kotlin Yahoo Finance JSON parsing and enforce Java 17
         shell: bash
         run: |
           set -euo pipefail
           PROJECT="PSI_ANDROID_STANDALONE_V40_44"
           cd "$PROJECT"
           SOURCE="app/src/main/java/com/prostock/intelligence/MainActivity.kt"
+          test -s "$SOURCE"
 
-          # JSONArray.getJSONObject() requires an integer index, not a String key.
-          # The Yahoo Finance quote field is a JSON array, so use getJSONArray("quote").
-          sed -i 's/getJSONObject("quote")/getJSONArray("quote")/g' "$SOURCE"
+          # Replace the entire compact Yahoo parsing declaration, not a fragile
+          # method-name substring. This handles older malformed ZIP variants too.
+          python3 - <<'PYCODE'
+          from pathlib import Path
+          import re
+          p = Path("app/src/main/java/com/prostock/intelligence/MainActivity.kt")
+          lines = p.read_text(encoding="utf-8").splitlines()
+          matches = [i for i, line in enumerate(lines) if re.search(r"\bval\s+meta\s*=", line) and re.search(r"\bval\s+q\s*=", line) and re.search(r"\bval\s+ts\s*=", line)]
+          if len(matches) != 1:
+              raise SystemExit(f"Expected exactly one Yahoo JSON declaration line, found {len(matches)}")
+          i = matches[0]
+          indent = lines[i][:len(lines[i]) - len(lines[i].lstrip())]
+          lines[i:i+1] = [
+              indent + 'val meta = r.getJSONObject("meta")',
+              indent + 'val q = r.getJSONObject("indicators").getJSONArray("quote").getJSONObject(0)',
+              indent + 'val ts = r.getJSONArray("timestamp")',
+          ]
+          p.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          print(f"Normalized Yahoo JSON parsing at original line {i+1}.")
+          PYCODE
 
           cat > gradle.properties <<'PROPERTIES'
           android.useAndroidX=true
@@ -103,15 +121,10 @@ jobs:
           }
           GRADLE
 
-          echo '--- MainActivity.kt lines 78-88 after correction ---'
-          nl -ba app/src/main/java/com/prostock/intelligence/MainActivity.kt | sed -n '78,88p'
-          echo '--- Verify no incorrect getJSONObject("quote") remains ---'
-          if grep -n 'getJSONObject("quote")' app/src/main/java/com/prostock/intelligence/MainActivity.kt; then
-            echo 'ERROR: Incorrect quote JSON accessor still exists.'
-            exit 1
-          else
-            echo 'Quote JSON accessor verified.'
-          fi
+          echo '--- Actual normalized MainActivity.kt lines 78-91 ---'
+          nl -ba "$SOURCE" | sed -n '78,91p'
+          echo '--- Confirm corrected JSON declaration ---'
+          grep -F 'val q = r.getJSONObject("indicators").getJSONArray("quote").getJSONObject(0)' "$SOURCE"
           echo '--- app/build.gradle used for build ---'
           cat app/build.gradle
           echo '--- Java version ---'
