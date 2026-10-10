@@ -18,8 +18,14 @@ jobs:
           java-version: '17'
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
-      - name: Install Android SDK packages
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+        with:
+          accept-android-sdk-licenses: true
+          packages: 'platform-tools, platforms;android-35, build-tools;35.0.0'
+      - name: Verify Android SDK packages
+        run: |
+          sdkmanager --list_installed
+          test -d "$ANDROID_HOME/platforms/android-35"
+          test -d "$ANDROID_HOME/build-tools/35.0.0"
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -70,10 +76,10 @@ jobs:
         if: always() && hashFiles('app/build/outputs/psi-emulator.png') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-52-emulator-screenshot
+          name: PRO-STOCK-INTELLIGENCE-V40-53-emulator-screenshot
           path: app/build/outputs/psi-emulator.png
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-52-debug
+          name: PRO-STOCK-INTELLIGENCE-V40-53-debug
           path: app/build/outputs/apk/debug/app-debug.apk
