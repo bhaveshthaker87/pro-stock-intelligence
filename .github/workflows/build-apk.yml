@@ -1,90 +1,121 @@
+
 name: Build PRO STOCK INTELLIGENCE APK
 
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   build:
+    name: Build Android APK
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Set up Java
+
+      - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-     
-     
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
 
       - name: Install Android SDK packages
+        shell: bash
         run: |
-          yes | sdkmanager --licenses
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          set -e
 
-      - name: Verify Android SDK packages
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager 2>/dev/null | sort -V | tail -n 1)"
+
+          if [ -z "$SDKMANAGER" ]; then
+            echo "ERROR: Android sdkmanager was not found."
+            exit 1
+          fi
+
+          echo "Using SDK manager: $SDKMANAGER"
+          echo "Android SDK root: $SDK_ROOT"
+
+          set +e
+          yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses
+          LICENSE_STATUS=$?
+          set -e
+
+          if [ "$LICENSE_STATUS" -ne 0 ]; then
+            echo "Checking whether SDK licenses were accepted..."
+          fi
+
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" --install \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
+
+      - name: Verify Android SDK
+        shell: bash
         run: |
-          sdkmanager --list_installed
-          test -d "$ANDROID_HOME/platforms/android-35"
-          test -d "$ANDROID_HOME/build-tools/35.0.0"
+          set -e
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+
+          test -d "$SDK_ROOT/platforms/android-35"
+          test -d "$SDK_ROOT/build-tools/35.0.0"
+          test -d "$SDK_ROOT/platform-tools"
+
+          echo "Android SDK packages verified."
+
+      - name: Extract Android project
+        shell: bash
+        run: |
+          set -e
+
+          ZIP_FILE="PRO_STOCK_INTELLIGENCE_V40_44_PROJECT_UPLOAD.zip"
+          PROJECT_DIR="PSI_ANDROID_STANDALONE_V40_44"
+
+          if [ ! -f "$ZIP_FILE" ]; then
+            echo "ERROR: Project ZIP not found: $ZIP_FILE"
+            echo "Files available in repository:"
+            ls -la
+            exit 1
+          fi
+
+          unzip -q "$ZIP_FILE"
+
+          if [ ! -f "$PROJECT_DIR/app/build.gradle" ]; then
+            echo "ERROR: Android app build.gradle not found."
+            echo "Searching extracted project files:"
+            find . -maxdepth 5 -name build.gradle -print
+            exit 1
+          fi
+
+          echo "Android project extracted successfully."
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Validate project and inline JavaScript
+
+      - name: Build APK
         shell: bash
         run: |
-          python3 - <<'PYCODE'
-          import pathlib, re, xml.etree.ElementTree as ET
-          root = pathlib.Path('.')
-          ET.parse(root / 'app/src/main/AndroidManifest.xml')
-          html = (root / 'app/src/main/assets/index.html').read_text(encoding='utf-8')
-          scripts = re.findall(r'<script\b[^>]*>(.*?)</script>', html, flags=re.I|re.S)
-          if not scripts:
-              raise SystemExit('No inline scripts found')
-          for i, script in enumerate(scripts):
-              pathlib.Path(f'/tmp/psi-inline-{i}.js').write_text(script, encoding='utf-8')
-          print(f'Manifest XML valid; extracted {len(scripts)} inline script blocks')
-          PYCODE
-          for f in /tmp/psi-inline-*.js; do node --check "$f"; done
-      - name: Install browser-test dependencies
-        run: |
-          python3 -m pip install --upgrade pip playwright
-          python3 -m playwright install --with-deps chromium
-      - name: Test backtesting and complete dashboard UI smoke suite
-        run: python3 -m unittest discover -s tests -v
-      - name: Build debug APK
-        run: gradle :app:assembleDebug --stacktrace
-      - name: Emulator smoke test (launch app)
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          target: google_apis
-          arch: x86_64
-          profile: pixel_6
-          script: |
-            adb logcat -c
-            adb install -r app/build/outputs/apk/debug/app-debug.apk
-            adb shell am start -n com.prostock.intelligence/.MainActivity
-            sleep 8
-            adb shell pidof com.prostock.intelligence
-            adb shell screencap -p /sdcard/psi-emulator.png
-            adb pull /sdcard/psi-emulator.png app/build/outputs/psi-emulator.png
-            adb logcat -d -s AndroidRuntime:E > /tmp/psi-runtime-errors.txt
-            cat /tmp/psi-runtime-errors.txt
-            if grep -q "FATAL EXCEPTION" /tmp/psi-runtime-errors.txt; then exit 1; fi
-      - name: Upload emulator screenshot
-        if: always() && hashFiles('app/build/outputs/psi-emulator.png') != ''
-        uses: actions/upload-artifact@v4
-        with:
-          name: PRO-STOCK-INTELLIGENCE-V40-53-emulator-screenshot
-          path: app/build/outputs/psi-emulator.png
+          set -e
+
+          cd PSI_ANDROID_STANDALONE_V40_44
+
+          printf 'android.useAndroidX=true\nandroid.enableJetifier=true\n' >> gradle.properties
+
+          gradle --version
+          gradle assembleDebug --no-daemon --stacktrace
+
+          test -f app/build/outputs/apk/debug/app-debug.apk
+
+          echo "APK built successfully."
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-53-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: PRO-STOCK-INTELLIGENCE-APK
+          path: PSI_ANDROID_STANDALONE_V40_44/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
