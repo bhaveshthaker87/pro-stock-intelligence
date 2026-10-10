@@ -32,7 +32,7 @@ jobs:
 
       - name: Extract Android project
         run: |
-          unzip -q PRO_STOCK_INTELLIGENCE_V40_44_PROJECT_UPLOAD_FIXED.zip
+          unzip -q PRO_STOCK_INTELLIGENCE_V40_44_PROJECT_UPLOAD.zip
           test -f PSI_ANDROID_STANDALONE_V40_44/app/build.gradle
           echo "Android project extracted successfully"
 
