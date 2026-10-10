@@ -1,0 +1,19 @@
+plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.12.1'
+}
+
+android { namespace 'com.prostock.intelligence'; compileSdk 35
+    defaultConfig { applicationId 'com.prostock.intelligence'; minSdk 26; targetSdk 35; versionCode 52; versionName '40.52' }
+
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+}
