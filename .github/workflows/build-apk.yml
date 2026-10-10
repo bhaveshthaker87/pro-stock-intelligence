@@ -1,15 +1,14 @@
-```yaml
 name: Build Android APK
 
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,24 +32,18 @@ jobs:
           gradle-version: '8.9'
 
       - name: Extract Android project
-        shell: bash
         run: |
-          unzip -oq PRO_STOCK_INTELLIGENCE_V40_44_PROJECT_UPLOAD.zip
+          unzip -q PRO_STOCK_INTELLIGENCE_V40_44_PROJECT_UPLOAD.zip
           test -f PSI_ANDROID_STANDALONE_V40_44/app/build.gradle
-          cat PSI_ANDROID_STANDALONE_V40_44/app/build.gradle
 
       - name: Build APK
-        shell: bash
         run: |
           cd PSI_ANDROID_STANDALONE_V40_44
           printf 'android.useAndroidX=true\nandroid.enableJetifier=true\n' > gradle.properties
-          gradle clean assembleDebug --no-daemon --stacktrace --info
+          gradle assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: PRO-STOCK-INTELLIGENCE-APK
           path: PSI_ANDROID_STANDALONE_V40_44/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
-```
