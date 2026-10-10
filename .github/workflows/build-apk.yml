@@ -1,0 +1,79 @@
+name: Build PRO STOCK INTELLIGENCE APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Validate project and inline JavaScript
+        shell: bash
+        run: |
+          python3 - <<'PYCODE'
+          import pathlib, re, xml.etree.ElementTree as ET
+          root = pathlib.Path('.')
+          ET.parse(root / 'app/src/main/AndroidManifest.xml')
+          html = (root / 'app/src/main/assets/index.html').read_text(encoding='utf-8')
+          scripts = re.findall(r'<script\b[^>]*>(.*?)</script>', html, flags=re.I|re.S)
+          if not scripts:
+              raise SystemExit('No inline scripts found')
+          for i, script in enumerate(scripts):
+              pathlib.Path(f'/tmp/psi-inline-{i}.js').write_text(script, encoding='utf-8')
+          print(f'Manifest XML valid; extracted {len(scripts)} inline script blocks')
+          PYCODE
+          for f in /tmp/psi-inline-*.js; do node --check "$f"; done
+      - name: Install browser-test dependencies
+        run: |
+          python3 -m pip install --upgrade pip playwright
+          python3 -m playwright install --with-deps chromium
+      - name: Test backtesting and complete dashboard UI smoke suite
+        run: python3 -m unittest discover -s tests -v
+      - name: Build debug APK
+        run: gradle :app:assembleDebug --stacktrace
+      - name: Emulator smoke test (launch app)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          script: |
+            adb logcat -c
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb shell am start -n com.prostock.intelligence/.MainActivity
+            sleep 8
+            adb shell pidof com.prostock.intelligence
+            adb shell screencap -p /sdcard/psi-emulator.png
+            adb pull /sdcard/psi-emulator.png app/build/outputs/psi-emulator.png
+            adb logcat -d -s AndroidRuntime:E > /tmp/psi-runtime-errors.txt
+            cat /tmp/psi-runtime-errors.txt
+            if grep -q "FATAL EXCEPTION" /tmp/psi-runtime-errors.txt; then exit 1; fi
+      - name: Upload emulator screenshot
+        if: always() && hashFiles('app/build/outputs/psi-emulator.png') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: PRO-STOCK-INTELLIGENCE-V40-52-emulator-screenshot
+          path: app/build/outputs/psi-emulator.png
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: PRO-STOCK-INTELLIGENCE-V40-52-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
