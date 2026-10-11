@@ -57,7 +57,6 @@ jobs:
           html = (root / 'app/src/main/assets/index.html').read_text(
               encoding='utf-8'
           )
-
           scripts = re.findall(
               r'<script\b[^>]*>(.*?)</script>',
               html,
@@ -86,7 +85,7 @@ jobs:
           python3 -m pip install --upgrade pip playwright
           python3 -m playwright install --with-deps chromium
 
-      - name: Test backtesting and dashboard UI
+      - name: Test backtesting and complete dashboard UI smoke suite
         run: python3 -m unittest discover -s tests -v
 
       - name: Build debug APK
@@ -108,7 +107,7 @@ jobs:
           emulator-boot-timeout: 600
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: |
-            set -e
+            set -euo pipefail
 
             adb wait-for-device
 
@@ -165,27 +164,25 @@ jobs:
         if: always() && hashFiles('app/build/reports/lint-results-debug.html') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-lint-report
+          name: PRO-STOCK-INTELLIGENCE-V40-67-lint-report
           path: app/build/reports/lint-results-debug.html
 
       - name: Upload emulator screenshot
         if: always() && hashFiles('app/build/outputs/psi-emulator.png') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-emulator-screenshot
+          name: PRO-STOCK-INTELLIGENCE-V40-67-emulator-screenshot
           path: app/build/outputs/psi-emulator.png
 
       - name: Generate APK checksum
         if: always() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''
-        run: |
-          sha256sum app/build/outputs/apk/debug/app-debug.apk \
-            > app/build/outputs/apk/debug/app-debug.apk.sha256
+        run: sha256sum app/build/outputs/apk/debug/app-debug.apk > app/build/outputs/apk/debug/app-debug.apk.sha256
 
       - name: Upload APK and checksum
         if: always() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-debug-APK
+          name: PRO-STOCK-INTELLIGENCE-V40-67-debug
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/app-debug.apk.sha256
