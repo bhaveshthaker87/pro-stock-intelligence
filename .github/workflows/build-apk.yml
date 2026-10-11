@@ -65,10 +65,10 @@ jobs:
       - name: Emulator smoke test (launch app)
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: 34
           target: google_apis
           arch: x86_64
-          profile: pixel_6
+          profile: pixel_2
           script: |
             adb logcat -c
             adb install -r app/build/outputs/apk/debug/app-debug.apk
@@ -76,9 +76,18 @@ jobs:
             sleep 8
             adb shell pidof com.prostock.intelligence
             adb shell dumpsys activity activities | grep -E 'mResumedActivity|ResumedActivity' | grep 'com.prostock.intelligence'
-            adb shell screencap -p /sdcard/psi-emulator.png
-            adb pull /sdcard/psi-emulator.png app/build/outputs/psi-emulator.png
+            # Capture screenshot through ADB stdout. Some emulator images deny writes
+            # to /sdcard from shell; exec-out avoids that permission-dependent path.
+            mkdir -p app/build/outputs
+            adb exec-out screencap -p > app/build/outputs/psi-emulator.png
             test -s app/build/outputs/psi-emulator.png
+            python3 - <<'PYCODE'
+            from pathlib import Path
+            image = Path('app/build/outputs/psi-emulator.png').read_bytes()
+            if not image.startswith(bytes.fromhex('89504e470d0a1a0a')):
+                raise SystemExit('Emulator screenshot is not a valid PNG')
+            print(f'Emulator screenshot captured and PNG signature verified ({len(image)} bytes)')
+            PYCODE
             adb logcat -d -s AndroidRuntime:E PSI_WEB:E > /tmp/psi-runtime-errors.txt
             cat /tmp/psi-runtime-errors.txt
             if grep -Eq "FATAL EXCEPTION|Uncaught (ReferenceError|TypeError|SyntaxError)" /tmp/psi-runtime-errors.txt; then exit 1; fi
@@ -86,13 +95,13 @@ jobs:
         if: always() && hashFiles('app/build/reports/lint-results-debug.html') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-65-lint-report
+          name: PRO-STOCK-INTELLIGENCE-V40-67-lint-report
           path: app/build/reports/lint-results-debug.html
       - name: Upload emulator screenshot
         if: always() && hashFiles('app/build/outputs/psi-emulator.png') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-65-emulator-screenshot
+          name: PRO-STOCK-INTELLIGENCE-V40-67-emulator-screenshot
           path: app/build/outputs/psi-emulator.png
       - name: Generate APK checksum
         if: always() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''
@@ -100,7 +109,7 @@ jobs:
       - name: Upload APK and checksum
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-65-debug
+          name: PRO-STOCK-INTELLIGENCE-V40-67-debug
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/app-debug.apk.sha256
