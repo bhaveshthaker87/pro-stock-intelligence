@@ -649,7 +649,10 @@ private class NativeProvider {
         val executor = Executors.newFixedThreadPool(8)
         val completion = java.util.concurrent.ExecutorCompletionService<JSONObject>(executor)
         val submittedAt = System.nanoTime()
-        val jobs: List<java.util.concurrent.Future<JSONObject>> = stocks.map { stock -> completion.submit<JSONObject> {
+        // Explicit Callable avoids Kotlin selecting ExecutorService.submit(Runnable),
+        // which can fail type inference for the value-returning lambda in CI.
+        val jobs: List<java.util.concurrent.Future<JSONObject>> = stocks.map { stock ->
+            completion.submit(java.util.concurrent.Callable<JSONObject> {
             val y = yahoo(stock.symbol, "1y")
             val arr = y.optJSONArray("rows") ?: JSONArray()
             val closes = (0 until arr.length()).mapNotNull { i ->
@@ -674,7 +677,8 @@ private class NativeProvider {
                 out.put("Provider", "Yahoo Finance third-party daily-bar data; latest bar may be partial during market hours")
             }
             out
-        } }
+            })
+        }
         val found = mutableListOf<JSONObject>()
         var completed = 0
         try {
