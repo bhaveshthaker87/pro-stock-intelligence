@@ -16,7 +16,7 @@ except ImportError as exc:  # CI installs Playwright; keep the error explicit lo
     raise RuntimeError("Install Playwright and Chromium to run tests/test_ui_smoke.py") from exc
 
 HTML = Path(__file__).parents[1] / "app/src/main/assets/index.html"
-ENGINE = "V40.65 BRANDING + CHART"
+ENGINE = "V40.66 PRO HARDENING"
 
 
 def launch_chromium(playwright):
@@ -189,15 +189,15 @@ class DashboardUISmokeTests(unittest.TestCase):
 
     def test_version_code_and_name_are_aligned(self):
         gradle = (Path(__file__).parents[1] / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 64", gradle)
-        self.assertIn("versionName '40.65'", gradle)
+        self.assertIn("versionCode 65", gradle)
+        self.assertIn("versionName '40.66'", gradle)
 
     def test_workflow_artifact_names_match_release_version(self):
         workflow = (Path(__file__).parents[1] / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
         self.assertIn("Publish the APK immediately after a successful build", workflow)
         self.assertNotIn("Emulator smoke test (launch app and check runtime)", workflow)
         self.assertNotIn("screencap -p", workflow)
-        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-65-debug", workflow)
+        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-66-debug", workflow)
         self.assertLess(workflow.index("Upload APK and checksum"), workflow.index("Run Android lint"))
         self.assertNotIn("V40-57", workflow)
         self.assertIn("pull_request:", workflow)
@@ -212,8 +212,26 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIsNotNone(client)
         self.assertIsNotNone(server)
         self.assertEqual(client.group(1), server.group(1), "UI must not report a false server-version mismatch")
-        self.assertIn("V40.65", html)
-        self.assertIn("V40.65", source)
+        self.assertIn("V40.66", html)
+        self.assertIn("V40.66", source)
+
+
+    def test_indices_panel_never_presents_historical_fallback_as_live(self):
+        html = HTML.read_text(encoding="utf-8")
+        source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        required = ["NIFTY 50", "SENSEX", "NIFTY BANK", "NIFTY MIDCAP 100", "NIFTY SMALLCAP 100",
+                    "NIFTY IT", "NIFTY AUTO", "NIFTY FMCG", "NIFTY PHARMA", "NIFTY METAL",
+                    "NIFTY PSU BANK", "NIFTY PRIVATE BANK", "NIFTY ENERGY", "NIFTY INFRA",
+                    "NIFTY FIN SERVICE", "GOLD FUTURES (GLOBAL)", "SILVER FUTURES (GLOBAL)", "BRENT CRUDE (GLOBAL)"]
+        market_fn = source[source.index("private fun marketIndices()"):source.index("\\n    fun handle(path: String)")].replace("\\n", "\n")
+        for label in required:
+            self.assertIn(label, market_fn)
+            self.assertIn(label, html)
+        self.assertIn("HISTORICAL_ONLY_NOT_A_CURRENT_QUOTE", source)
+        self.assertIn("HISTORICAL BAR • NOT LIVE", html)
+        self.assertIn("QUOTE RETURNED • FRESHNESS UNVERIFIED", html)
+        self.assertIn("quoteTimestamp", market_fn)
+        self.assertIn("isExchangeCertifiedRealtime", market_fn)
 
 
     def test_webview_navigation_policy_blocks_non_https_and_external_pages_stay_outside_app(self):
