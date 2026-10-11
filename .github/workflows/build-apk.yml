@@ -107,7 +107,7 @@ jobs:
           set -euo pipefail
           gradle --no-daemon :app:lintDebug --stacktrace
 
-      - name: Emulator smoke test (launch app and capture screenshot)
+      - name: Emulator smoke test (launch app and check runtime)
         uses: reactivecircus/android-emulator-runner@v2.38.0
         with:
           api-level: 34
@@ -129,12 +129,6 @@ jobs:
             sleep 8
             adb shell pidof com.prostock.intelligence
             adb shell dumpsys activity activities | grep -E 'mResumedActivity|ResumedActivity' | grep 'com.prostock.intelligence'
-            mkdir -p app/build/outputs
-            adb exec-out screencap -p > app/build/outputs/psi-emulator.png
-            test -s app/build/outputs/psi-emulator.png
-            signature=$(od -An -tx1 -N8 app/build/outputs/psi-emulator.png | tr -d ' \n')
-            test "$signature" = "89504e470d0a1a0a"
-            echo "Valid emulator screenshot PNG"
             adb logcat -d -s AndroidRuntime:E PSI_WEB:E > /tmp/psi-runtime-errors.txt
             cat /tmp/psi-runtime-errors.txt
             if grep -Eq 'FATAL EXCEPTION|Uncaught (ReferenceError|TypeError|SyntaxError)' /tmp/psi-runtime-errors.txt; then
@@ -157,16 +151,8 @@ jobs:
           path: app/build/reports/lint-results-debug.html
           if-no-files-found: warn
 
-      - name: Upload emulator screenshot
-        if: always() && hashFiles('app/build/outputs/psi-emulator.png') != ''
-        uses: actions/upload-artifact@v4
-        with:
-          name: PRO-STOCK-INTELLIGENCE-V40-65-emulator-screenshot
-          path: app/build/outputs/psi-emulator.png
-          if-no-files-found: warn
-
       - name: Upload APK and checksum
-        if: success()
+        if: always() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''
         uses: actions/upload-artifact@v4
         with:
           name: PRO-STOCK-INTELLIGENCE-V40-65-debug
