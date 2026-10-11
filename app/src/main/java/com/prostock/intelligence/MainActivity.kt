@@ -726,33 +726,53 @@ private class NativeProvider {
     }
 
     private fun marketIndices(): JSONObject {
+        // Yahoo symbols are indicative third-party quotes, not exchange-certified live feeds.
+        // Keep global futures clearly labelled; never misrepresent them as MCX contract prices.
         val specs = linkedMapOf(
             "NIFTY 50" to "^NSEI", "SENSEX" to "^BSESN", "NIFTY BANK" to "^NSEBANK",
             "NIFTY MIDCAP 100" to "^CRSMID", "NIFTY SMALLCAP 100" to "^CRSSML", "NIFTY IT" to "^CNXIT",
             "NIFTY AUTO" to "^CNXAUTO", "NIFTY FMCG" to "^CNXFMCG", "NIFTY PHARMA" to "^CNXPHARMA",
             "NIFTY METAL" to "^CNXMETAL", "NIFTY PSU BANK" to "^CNXPSUBANK", "NIFTY PRIVATE BANK" to "^NIFTYPVTBANK",
             "NIFTY ENERGY" to "^CNXENERGY", "NIFTY INFRA" to "^CNXINFRA", "NIFTY FIN SERVICE" to "^CNXFINANCE",
-            "GOLD (MCX)" to "GC=F", "SILVER (MCX)" to "SI=F", "BRENT CRUDE" to "BZ=F"
+            "GOLD FUTURES (GLOBAL)" to "GC=F", "SILVER FUTURES (GLOBAL)" to "SI=F", "BRENT CRUDE (GLOBAL)" to "BZ=F"
         )
         val out = JSONObject()
-        specs.forEach { (label, _) -> out.put(label, JSONObject().put("value", JSONObject.NULL).put("changePct", JSONObject.NULL).put("status", "NOT_LOADED")) }
-        // Keep the mobile ribbon fast: retrieve only the three headline indices in parallel.
-        val executor = Executors.newFixedThreadPool(3)
+        specs.forEach { (label, _) ->
+            out.put(label, JSONObject().put("value", JSONObject.NULL).put("changePct", JSONObject.NULL)
+                .put("status", "NOT_LOADED").put("provider", "Yahoo Finance").put("sourceType", "THIRD_PARTY_DELAY_POSSIBLE"))
+        }
+        // Fetch every requested instrument concurrently; a single provider failure must not hide others.
+        val executor = Executors.newFixedThreadPool(6)
         try {
-            val jobs = listOf("NIFTY 50", "SENSEX", "NIFTY BANK").map { label ->
+            val jobs = specs.map { (label, symbol) ->
                 executor.submit<Pair<String, JSONObject>> {
-                    val rows = yahoo(specs.getValue(label), "5d").optJSONArray("rows") ?: JSONArray()
+                    val data = yahoo(symbol, "5d")
+                    val rows = data.optJSONArray("rows") ?: JSONArray()
                     val last = if (rows.length() > 0) rows.getJSONObject(rows.length() - 1) else JSONObject()
                     val prev = if (rows.length() > 1) rows.getJSONObject(rows.length() - 2) else JSONObject()
-                    val v = last.optDouble("close", Double.NaN); val p = prev.optDouble("close", Double.NaN)
-                    val obj = JSONObject().put("status", "OK")
-                    putFinite(obj, "value", v)
-                    if (finite(v) && finite(p) && p > 0) putFinite(obj, "changePct", (v / p - 1) * 100)
+                    val value = last.optDouble("close", Double.NaN)
+                    val previous = prev.optDouble("close", Double.NaN)
+                    val obj = JSONObject().put("status", if (finite(value) && value > 0) "OK" else "NO_VALID_PRICE")
+                        .put("provider", data.optString("provider", "Yahoo Finance"))
+                        .put("sourceType", "THIRD_PARTY_DELAY_POSSIBLE")
+                    putFinite(obj, "value", value)
+                    if (finite(value) && finite(previous) && previous > 0) putFinite(obj, "changePct", (value / previous - 1) * 100)
+                    if (data.has("quoteTimestamp")) obj.put("quoteTimestamp", data.optLong("quoteTimestamp"))
+                    else if (last.has("time")) obj.put("quoteTimestampMs", last.optLong("time"))
                     label to obj
                 }
             }
-            jobs.forEach { job -> try { val pair = job.get(3500, TimeUnit.MILLISECONDS); out.put(pair.first, pair.second) } catch (_: Exception) {} }
-        } finally { executor.shutdownNow() }
+            jobs.forEach { job ->
+                try {
+                    val (label, data) = job.get(7, TimeUnit.SECONDS)
+                    out.put(label, data)
+                } catch (_: Exception) {
+                    // Preserve the explicit NOT_LOADED state for this instrument.
+                }
+            }
+        } finally {
+            executor.shutdownNow()
+        }
         return out
     }
 
