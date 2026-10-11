@@ -161,7 +161,7 @@ jobs:
         if: always() && hashFiles('app/build/outputs/psi-emulator.png') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-67-emulator-screenshot
+          name: PRO-STOCK-INTELLIGENCE-V40-65-emulator-screenshot
           path: app/build/outputs/psi-emulator.png
           if-no-files-found: warn
 
