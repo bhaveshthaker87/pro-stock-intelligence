@@ -70,7 +70,7 @@ class DashboardUISmokeTests(unittest.TestCase):
             "/api/history": {"ok": True, "data": {"symbol": "INFY", "rows": cls.rows, "provider": "Mock", "chartMode": "OHLCV"}},
             "/api/peers": {"ok": True, "data": {"symbol": "INFY", "industry": "IT Services", "peers": [], "candidateCount": 0, "validatedCount": 0, "method": "mock", "partial": False}},
             "/api/news": {"ok": True, "data": {"symbol": "INFY", "news": [{"title": "Test headline", "publisher": "Mock", "link": "https://example.com", "time": int(time.time())}], "provider": "Mock"}},
-            "/api/indices": {"ok": True, "data": {"NIFTY 50": {"value": 25000, "changePct": .2}, "SENSEX": {"value": 82000, "changePct": .3}, "NIFTY BANK": {"value": 55000, "changePct": -.1}, "NIFTY MIDCAP 100": {"value": 59000, "changePct": .4}, "NIFTY SMALLCAP 100": {"value": 18000, "changePct": -.2}, "GOLD FUTURES (GLOBAL)": {"value": 4000, "changePct": .1}, "SILVER FUTURES (GLOBAL)": {"value": 45, "changePct": .2}}},
+            "/api/indices": {"ok": True, "data": {"NIFTY 50": {"value": 25000, "changePct": 0.2, "status": "QUOTE_RETURNED_FRESHNESS_UNVERIFIED", "priceSource": "NSE_PUBLIC_INDEX_SNAPSHOT", "provider": "Mock", "currency": "INR", "quoteTimestamp": int(time.time())}, "SENSEX": {"value": 25123.4, "changePct": -0.1, "status": "QUOTE_RETURNED_FRESHNESS_UNVERIFIED", "priceSource": "NSE_PUBLIC_INDEX_SNAPSHOT", "provider": "Mock", "currency": "INR", "quoteTimestamp": int(time.time())}, "NIFTY BANK": {"value": 25246.8, "changePct": 0.2, "status": "QUOTE_RETURNED_FRESHNESS_UNVERIFIED", "priceSource": "NSE_PUBLIC_INDEX_SNAPSHOT", "provider": "Mock", "currency": "INR", "quoteTimestamp": int(time.time())}, "NIFTY MIDCAP 100": {"value": 25370.2, "changePct": -0.1, "status": "QUOTE_RETURNED_FRESHNESS_UNVERIFIED", "priceSource": "NSE_PUBLIC_INDEX_SNAPSHOT", "provider": "Mock", "currency": "INR", "quoteTimestamp": int(time.time())}, "NIFTY SMALLCAP 100": {"value": 25493.6, "changePct": 0.2, "status": "QUOTE_RETURNED_FRESHNESS_UNVERIFIED", "priceSource": "NSE_PUBLIC_INDEX_SNAPSHOT", "provider": "Mock", "currency": "INR", "quoteTimestamp": int(time.time())}, "NIFTY IT": {"value": 25617, "changePct": -0.1, "status": "QUOTE_RETURNED_FRESHNESS_UNVERIFIED", "priceSource": "NSE_PUBLIC_INDEX_SNAPSHOT", "provider": "Mock", "currency": "INR", "quoteTimestamp": int(time.time())}, "NIFTY AUTO": {"value": 25740.4, "changePct": 0.2, "status": "QUOTE_RETURNED_FRESHNESS_UNVERIFIED", "priceSource": "NSE_PUBLIC_INDEX_SNAPSHOT", "provider": "Mock", "currency": "INR", "quoteTimestamp": int(time.time())}, "NIFTY FMCG": {"value": 25863.8, "changePct": -0.1, "status": "QUOTE_RETURNED_FRESHNESS_UNVERIFIED", "priceSource": "NSE_PUBLIC_INDEX_SNAPSHOT", "provider": "Mock", "currency": "INR", "quoteTimestamp": int(time.time())}, "NIFTY PHARMA": {"value": 25987.2, "changePct": 0.2, "status": "QUOTE_RETURNED_FRESHNESS_UNVERIFIED", "priceSource": "NSE_PUBLIC_INDEX_SNAPSHOT", "provider": "Mock", "currency": "INR", "quoteTimestamp": int(time.time())}, "NIFTY METAL": {"value": 26110.6, "changePct": -0.1, "status": "QUOTE_RETURNED_FRESHNESS_UNVERIFIED", "priceSource": "NSE_PUBLIC_INDEX_SNAPSHOT", "provider": "Mock", "currency": "INR", "quoteTimestamp": int(time.time())}, "NIFTY PSU BANK": {"value": 26234, "changePct": 0.2, "status": "QUOTE_RETURNED_FRESHNESS_UNVERIFIED", "priceSource": "NSE_PUBLIC_INDEX_SNAPSHOT", "provider": "Mock", "currency": "INR", "quoteTimestamp": int(time.time())}, "NIFTY PRIVATE BANK": {"value": 26357.4, "changePct": -0.1, "status": "QUOTE_RETURNED_FRESHNESS_UNVERIFIED", "priceSource": "NSE_PUBLIC_INDEX_SNAPSHOT", "provider": "Mock", "currency": "INR", "quoteTimestamp": int(time.time())}, "NIFTY ENERGY": {"value": 26480.8, "changePct": 0.2, "status": "QUOTE_RETURNED_FRESHNESS_UNVERIFIED", "priceSource": "NSE_PUBLIC_INDEX_SNAPSHOT", "provider": "Mock", "currency": "INR", "quoteTimestamp": int(time.time())}, "NIFTY INFRA": {"value": 26604.2, "changePct": -0.1, "status": "QUOTE_RETURNED_FRESHNESS_UNVERIFIED", "priceSource": "NSE_PUBLIC_INDEX_SNAPSHOT", "provider": "Mock", "currency": "INR", "quoteTimestamp": int(time.time())}, "NIFTY FIN SERVICE": {"value": 26727.6, "changePct": 0.2, "status": "QUOTE_RETURNED_FRESHNESS_UNVERIFIED", "priceSource": "NSE_PUBLIC_INDEX_SNAPSHOT", "provider": "Mock", "currency": "INR", "quoteTimestamp": int(time.time())}, "GOLD FUTURES (GLOBAL)": {"value": 26851, "changePct": -0.1, "status": "QUOTE_RETURNED_FRESHNESS_UNVERIFIED", "priceSource": "NSE_PUBLIC_INDEX_SNAPSHOT", "provider": "Mock", "currency": "USD", "quoteTimestamp": int(time.time())}, "SILVER FUTURES (GLOBAL)": {"value": 26974.4, "changePct": 0.2, "status": "QUOTE_RETURNED_FRESHNESS_UNVERIFIED", "priceSource": "NSE_PUBLIC_INDEX_SNAPSHOT", "provider": "Mock", "currency": "USD", "quoteTimestamp": int(time.time())}, "BRENT CRUDE (GLOBAL)": {"value": 27097.8, "changePct": -0.1, "status": "QUOTE_RETURNED_FRESHNESS_UNVERIFIED", "priceSource": "NSE_PUBLIC_INDEX_SNAPSHOT", "provider": "Mock", "currency": "USD", "quoteTimestamp": int(time.time())}}},
             "/api/queries": {"ok": True, "data": cls.queries},
             "/api/screener/status": {"ok": True, "data": {"connected": False, "loggedIn": False, "validated": False, "loginUrl": "https://www.screener.in/login/", "message": "fixture"}},
             "/api/screener/connect": {"ok": True, "data": {"connected": False, "loggedIn": False, "validated": False, "loginUrl": "https://www.screener.in/login/", "message": "fixture"}},
@@ -101,7 +101,7 @@ class DashboardUISmokeTests(unittest.TestCase):
             html = html[:pos] + "<script>" + mock_js + "</script>" + html[pos:]
             page.set_content(html, wait_until="domcontentloaded", timeout=30000)
             page.wait_for_timeout(250)
-            self.assertIn("V40.65", page.locator(".taglive").first.inner_text())
+            self.assertIn("V40.66", page.locator(".taglive").first.inner_text())
             page.locator("#search").fill("INFY")
             page.locator("#analyze").click()
             page.wait_for_function("document.getElementById('company').textContent.includes('Infosys')", timeout=8000)
@@ -146,6 +146,37 @@ class DashboardUISmokeTests(unittest.TestCase):
             self.assertEqual(page.evaluate("safeNewsHref('javascript:alert(1)')"), "#")
             self.assertEqual(page.evaluate("safeNewsHref('data:text/html,<script>alert(1)</script>')"), "#")
             self.assertTrue(page.evaluate("safeNewsHref('https://example.com/news')").startswith("https://"))
+            self.assertEqual(errors, [], f"JavaScript errors: {errors}")
+            browser.close()
+
+    def test_index_panel_renders_all_requested_markets_and_source_metadata(self):
+        errors = []
+        with sync_playwright() as p:
+            browser = launch_chromium(p)
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.on("pageerror", lambda e: errors.append(str(e)))
+            mock_js = '''
+              Object.defineProperty(window,"localStorage",{value:{_s:{},getItem(k){return this._s[k]??null},setItem(k,v){this._s[k]=String(v)},removeItem(k){delete this._s[k]}}});
+              const MOCK_API = ''' + json.dumps(self.mock_api, separators=(",", ":")) + ''';
+              window.fetch=(u,opts)=>{const path=String(u).split("?")[0];const key=Object.keys(MOCK_API).find(k=>path.endsWith(k));const value=key?MOCK_API[key]:{ok:false,error:"unmocked "+path};return Promise.resolve(new Response(JSON.stringify(value),{status:200,headers:{"Content-Type":"application/json"}}));};
+            '''
+            html = HTML.read_text(encoding="utf-8")
+            pos = html.find("<script")
+            html = html[:pos] + "<script>" + mock_js + "</script>" + html[pos:]
+            page.set_content(html, wait_until="domcontentloaded", timeout=30000)
+            page.wait_for_function("document.querySelectorAll('#indices .icard').length === 18", timeout=8000)
+            cards = page.locator("#indices .icard")
+            self.assertEqual(cards.count(), 18)
+            text = page.locator("#indices").inner_text()
+            for label in ["NIFTY 50", "SENSEX", "NIFTY BANK", "MIDCAP 100", "SMALLCAP 100",
+                          "NIFTY IT", "NIFTY AUTO", "NIFTY FMCG", "NIFTY PHARMA", "NIFTY METAL",
+                          "PSU BANK", "PRIVATE BANK", "NIFTY ENERGY", "NIFTY INFRA", "FIN SERVICE",
+                          "GOLD FUTURES (GLOBAL)", "SILVER FUTURES (GLOBAL)", "BRENT CRUDE (GLOBAL)"]:
+                self.assertIn(label, text)
+            self.assertIn("INR", text)
+            self.assertIn("USD", text)
+            self.assertIn("QUOTE RETURNED", text)
+            self.assertIn("Mock", text)
             self.assertEqual(errors, [], f"JavaScript errors: {errors}")
             browser.close()
 
