@@ -153,7 +153,7 @@ jobs:
         if: always() && hashFiles('app/build/reports/lint-results-debug.html') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-67-lint-report
+          name: PRO-STOCK-INTELLIGENCE-V40-65-lint-report
           path: app/build/reports/lint-results-debug.html
           if-no-files-found: warn
 
@@ -169,7 +169,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-67-debug
+          name: PRO-STOCK-INTELLIGENCE-V40-65-debug
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/app-debug.apk.sha256
