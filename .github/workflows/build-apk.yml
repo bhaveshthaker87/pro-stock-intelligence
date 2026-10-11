@@ -7,20 +7,24 @@ permissions:
 on:
   workflow_dispatch:
   push:
-    branches: [main, expert-remediation-v40-67]
+    branches:
+      - main
+      - expert-remediation-v40-67
   pull_request:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 35
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -31,19 +35,23 @@ jobs:
           accept-android-sdk-licenses: true
           packages: ''
 
-      - name: Install and verify Android SDK packages
+      - name: Install Android SDK packages
         run: |
-          sdkmanager --install platform-tools 'platforms;android-35' 'build-tools;35.0.0'
-          sdkmanager --list_installed
+          set -euo pipefail
+          sdkmanager --install \
+            platform-tools \
+            'platforms;android-35' \
+            'build-tools;35.0.0'
           test -d "$ANDROID_HOME/platforms/android-35"
           test -d "$ANDROID_HOME/build-tools/35.0.0"
+          adb version
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Validate project and inline JavaScript
+      - name: Validate project files and JavaScript
         shell: bash
         run: |
           set -euo pipefail
@@ -53,14 +61,13 @@ jobs:
           import re
           import xml.etree.ElementTree as ET
 
-          root = pathlib.Path('.')
-          manifest = root / 'app/src/main/AndroidManifest.xml'
-          html_file = root / 'app/src/main/assets/index.html'
+          manifest = pathlib.Path('app/src/main/AndroidManifest.xml')
+          html_file = pathlib.Path('app/src/main/assets/index.html')
 
           if not manifest.is_file():
-              raise SystemExit(f'Missing Android manifest: {manifest}')
+              raise SystemExit(f'Missing manifest: {manifest}')
           if not html_file.is_file():
-              raise SystemExit(f'Missing dashboard HTML: {html_file}')
+              raise SystemExit(f'Missing dashboard: {html_file}')
 
           ET.parse(manifest)
 
@@ -72,20 +79,18 @@ jobs:
           )
 
           if not scripts:
-              raise SystemExit('No inline scripts found')
+              raise SystemExit('No inline JavaScript blocks found')
 
           for i, script in enumerate(scripts):
               pathlib.Path(f'/tmp/psi-inline-{i}.js').write_text(
                   script, encoding='utf-8'
               )
 
-          print(
-              f'Manifest XML valid; extracted {len(scripts)} inline script blocks'
-          )
+          print(f'Valid manifest; found {len(scripts)} script blocks')
           PYCODE
 
-          for f in /tmp/psi-inline-*.js; do
-            node --check "$f"
+          for file in /tmp/psi-inline-*.js; do
+            node --check "$file"
           done
 
       - name: Install browser-test dependencies
@@ -93,16 +98,27 @@ jobs:
           python3 -m pip install --upgrade pip playwright
           python3 -m playwright install --with-deps chromium
 
-      - name: Test backtesting and complete dashboard UI smoke suite
+      - name: Run dashboard and backtesting tests
         run: python3 -m unittest discover -s tests -v
 
       - name: Build debug APK
         run: gradle :app:assembleDebug --stacktrace
 
-      - name: Android lint
+      - name: Run Android lint
         run: gradle :app:lintDebug --stacktrace
 
-      - name: Emulator smoke test (launch app)
+      - name: Verify APK exists
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          ls -lh "$APK"
+          sha256sum "$APK"
+
+      # Emulator runner cleanup can fail independently of APK compilation.
+      # Keep this step non-blocking, but inspect its logs and artifacts.
+      - name: Emulator smoke test
+        id: emulator_test
         continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -117,22 +133,39 @@ jobs:
           script: |
             set -euo pipefail
 
+            mkdir -p app/build/outputs /tmp/psi-logs
+
+            adb start-server
             adb wait-for-device
 
-            for i in $(seq 1 60); do
-              BOOTED="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')"
-              if [ "$BOOTED" = "1" ]; then
+            BOOTED=0
+            for i in $(seq 1 90); do
+              VALUE="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+              if [ "$VALUE" = "1" ]; then
+                BOOTED=1
                 break
               fi
               sleep 5
             done
 
-            test "$(adb shell getprop sys.boot_completed | tr -d '\r')" = "1"
+            if [ "$BOOTED" -ne 1 ]; then
+              adb devices -l || true
+              adb logcat -d > /tmp/psi-logs/boot-failure-logcat.txt || true
+              echo "Emulator failed to finish booting"
+              exit 1
+            fi
+
+            adb shell settings put global window_animation_scale 0
+            adb shell settings put global transition_animation_scale 0
+            adb shell settings put global animator_duration_scale 0
 
             adb logcat -c
             adb install -r app/build/outputs/apk/debug/app-debug.apk
-            adb shell am start -W -n com.prostock.intelligence/.MainActivity
-            sleep 8
+
+            adb shell am start -W \
+              -n com.prostock.intelligence/.MainActivity
+
+            sleep 10
 
             adb shell pidof com.prostock.intelligence
 
@@ -140,33 +173,54 @@ jobs:
               | grep -E 'mResumedActivity|ResumedActivity' \
               | grep 'com.prostock.intelligence'
 
-            mkdir -p app/build/outputs
-            adb exec-out screencap -p > app/build/outputs/psi-emulator.png
-            test -s app/build/outputs/psi-emulator.png
+            adb exec-out screencap -p \
+              > app/build/outputs/psi-emulator.png
 
             python3 - <<'PYCODE'
             from pathlib import Path
 
-            image = Path(
-                'app/build/outputs/psi-emulator.png'
-            ).read_bytes()
+            path = Path('app/build/outputs/psi-emulator.png')
+            data = path.read_bytes()
 
-            if not image.startswith(bytes.fromhex('89504e470d0a1a0a')):
-                raise SystemExit('Emulator screenshot is not a valid PNG')
+            if len(data) < 100:
+                raise SystemExit('Screenshot is unexpectedly small')
 
-            print(f'PNG screenshot verified: {len(image)} bytes')
+            if not data.startswith(bytes.fromhex('89504e470d0a1a0a')):
+                raise SystemExit('Screenshot is not a valid PNG')
+
+            print(f'Screenshot verified: {len(data)} bytes')
             PYCODE
 
             adb logcat -d -s AndroidRuntime:E PSI_WEB:E \
-              > /tmp/psi-runtime-errors.txt
+              > /tmp/psi-logs/runtime-errors.txt || true
 
-            cat /tmp/psi-runtime-errors.txt
+            cat /tmp/psi-logs/runtime-errors.txt
 
             if grep -Eq \
               'FATAL EXCEPTION|Uncaught (ReferenceError|TypeError|SyntaxError)' \
-              /tmp/psi-runtime-errors.txt; then
+              /tmp/psi-logs/runtime-errors.txt; then
               exit 1
             fi
+
+            echo "Emulator app launch and screenshot checks passed"
+
+      - name: Collect emulator diagnostics
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p app/build/outputs/diagnostics
+          adb devices -l \
+            > app/build/outputs/diagnostics/adb-devices.txt 2>&1 || true
+
+          if [ -f /tmp/psi-logs/runtime-errors.txt ]; then
+            cp /tmp/psi-logs/runtime-errors.txt \
+              app/build/outputs/diagnostics/runtime-errors.txt
+          fi
+
+          if [ -f /tmp/psi-logs/boot-failure-logcat.txt ]; then
+            cp /tmp/psi-logs/boot-failure-logcat.txt \
+              app/build/outputs/diagnostics/boot-failure-logcat.txt
+          fi
 
       - name: Upload Android lint report
         if: always() && hashFiles('app/build/reports/lint-results-debug.html') != ''
@@ -174,6 +228,7 @@ jobs:
         with:
           name: PRO-STOCK-INTELLIGENCE-V40-65-lint-report
           path: app/build/reports/lint-results-debug.html
+          if-no-files-found: warn
 
       - name: Upload emulator screenshot
         if: always() && hashFiles('app/build/outputs/psi-emulator.png') != ''
@@ -181,9 +236,19 @@ jobs:
         with:
           name: PRO-STOCK-INTELLIGENCE-V40-65-emulator-screenshot
           path: app/build/outputs/psi-emulator.png
+          if-no-files-found: warn
+
+      - name: Upload emulator diagnostics
+        if: always() && hashFiles('app/build/outputs/diagnostics/**') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: PRO-STOCK-INTELLIGENCE-V40-65-emulator-diagnostics
+          path: app/build/outputs/diagnostics/**
+          if-no-files-found: warn
 
       - name: Generate APK checksum
         if: always() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''
+        shell: bash
         run: |
           sha256sum app/build/outputs/apk/debug/app-debug.apk \
             > app/build/outputs/apk/debug/app-debug.apk.sha256
@@ -196,3 +261,4 @@ jobs:
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/app-debug.apk.sha256
+          if-no-files-found: error
