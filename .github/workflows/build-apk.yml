@@ -132,13 +132,9 @@ jobs:
             mkdir -p app/build/outputs
             adb exec-out screencap -p > app/build/outputs/psi-emulator.png
             test -s app/build/outputs/psi-emulator.png
-            python3 - <<'PY'
-            from pathlib import Path
-            image = Path('app/build/outputs/psi-emulator.png').read_bytes()
-            if not image.startswith(bytes.fromhex('89504e470d0a1a0a')):
-                raise SystemExit('Emulator screenshot is not a valid PNG')
-            print(f'Valid emulator screenshot: {len(image)} bytes')
-            PY
+            signature=$(od -An -tx1 -N8 app/build/outputs/psi-emulator.png | tr -d ' \n')
+            test "$signature" = "89504e470d0a1a0a"
+            echo "Valid emulator screenshot PNG"
             adb logcat -d -s AndroidRuntime:E PSI_WEB:E > /tmp/psi-runtime-errors.txt
             cat /tmp/psi-runtime-errors.txt
             if grep -Eq 'FATAL EXCEPTION|Uncaught (ReferenceError|TypeError|SyntaxError)' /tmp/psi-runtime-errors.txt; then
