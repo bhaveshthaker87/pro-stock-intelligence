@@ -170,6 +170,9 @@ private class NativeProvider {
 
     private fun canonical(raw: String): String {
         val upper = raw.trim().uppercase(Locale.ROOT)
+        // Preserve Yahoo's exchange-index and futures ticker syntax. Stripping punctuation here
+        // used to turn ^NSEI into NSEI and GC=F into GCF, silently breaking every index/futures quote.
+        if (upper.matches(Regex("^\\^[A-Z0-9]+$")) || upper.matches(Regex("^[A-Z]{1,5}=F$"))) return upper
         val noSuffix = upper.removeSuffix(".NS").removeSuffix(".BO").trim()
         val compact = noSuffix.replace(Regex("[^A-Z0-9]"), "")
         val alias = when {
@@ -311,11 +314,14 @@ private class NativeProvider {
                     }
                     if (rows.length() == 0) throw IOException("No usable closing prices for $ticker")
                     val lastClose = rows.getJSONObject(rows.length() - 1).optDouble("close", Double.NaN)
-                    val price = meta.optDouble("regularMarketPrice", Double.NaN).let { if (finite(it) && it > 0) it else lastClose }
+                    val marketPrice = meta.optDouble("regularMarketPrice", Double.NaN)
+                    val hasProviderQuote = finite(marketPrice) && marketPrice > 0
+                    val price = if (hasProviderQuote) marketPrice else lastClose
                     val prev = meta.optDouble("chartPreviousClose", meta.optDouble("previousClose", Double.NaN))
                     val out = JSONObject().put("symbol", symbol).put("resolvedSymbol", ticker).put("currency", meta.optString("currency", "INR"))
                         .put("rows", rows).put("provider", "Yahoo Finance")
-                        .put("quoteStatus", "THIRD_PARTY_PROVIDER_DATA_DELAY_NOT_GUARANTEED")
+                        .put("priceSource", if (hasProviderQuote) "PROVIDER_QUOTE_METADATA" else "HISTORICAL_CLOSE_FALLBACK")
+                        .put("quoteStatus", if (hasProviderQuote) "THIRD_PARTY_PROVIDER_DATA_DELAY_NOT_GUARANTEED" else "HISTORICAL_ONLY_NOT_A_CURRENT_QUOTE")
                     if (meta.has("regularMarketTime") && !meta.isNull("regularMarketTime")) out.put("quoteTimestamp", meta.optLong("regularMarketTime"))
                     val eventRows = JSONArray()
                     val events = r.optJSONObject("events")
@@ -725,9 +731,98 @@ private class NativeProvider {
             .put("statusText", if (out.length() > 0) "Latest available company news" else "No news returned by Yahoo Finance")
     }
 
+    /**
+     * Reads the public NSE index snapshot once for all Indian indices. This endpoint may block
+     * automated clients and is not a licensed guaranteed-real-time feed; Yahoo is only fallback.
+     */
+    private fun nseIndexSnapshot(): Map<String, JSONObject> {
+        var cookie = ""
+        val home = URL("https://www.nseindia.com/").openConnection() as HttpURLConnection
+        try {
+            home.connectTimeout = 2000
+            home.readTimeout = 2500
+            home.instanceFollowRedirects = true
+            home.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36")
+            home.setRequestProperty("Accept", "text/html,application/xhtml+xml,*/*")
+            home.setRequestProperty("Accept-Language", "en-IN,en;q=0.9")
+            home.responseCode
+            cookie = home.headerFields.entries
+                .filter { it.key?.equals("Set-Cookie", true) == true }
+                .flatMap { it.value ?: emptyList() }
+                .map { it.substringBefore(";") }.distinct().joinToString("; ")
+        } finally { home.disconnect() }
+
+        val c = URL("https://www.nseindia.com/api/allIndices").openConnection() as HttpURLConnection
+        try {
+            c.connectTimeout = 2500
+            c.readTimeout = 3500
+            c.instanceFollowRedirects = true
+            c.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36")
+            c.setRequestProperty("Accept", "application/json,text/plain,*/*")
+            c.setRequestProperty("Referer", "https://www.nseindia.com/market-data/live-market-indices")
+            c.setRequestProperty("Accept-Language", "en-IN,en;q=0.9")
+            if (cookie.isNotBlank()) c.setRequestProperty("Cookie", cookie)
+            val code = c.responseCode
+            val stream = if (code in 200..299) c.inputStream else c.errorStream
+            val body = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() } ?: ""
+            if (code !in 200..299) throw IOException("NSE index snapshot HTTP $code")
+            val data = JSONObject(body).optJSONArray("data") ?: throw IOException("NSE index snapshot has no data array")
+            val result = linkedMapOf<String, JSONObject>()
+            val aliases = mapOf(
+                "NIFTY 50" to listOf("NIFTY 50"),
+                "NIFTY BANK" to listOf("NIFTY BANK"),
+                "NIFTY MIDCAP 100" to listOf("NIFTY MIDCAP 100", "NIFTY MIDCAP 100 INDEX"),
+                "NIFTY SMALLCAP 100" to listOf("NIFTY SMALLCAP 100", "NIFTY SMALLCAP 100 INDEX"),
+                "NIFTY IT" to listOf("NIFTY IT"),
+                "NIFTY AUTO" to listOf("NIFTY AUTO"),
+                "NIFTY FMCG" to listOf("NIFTY FMCG"),
+                "NIFTY PHARMA" to listOf("NIFTY PHARMA"),
+                "NIFTY METAL" to listOf("NIFTY METAL"),
+                "NIFTY PSU BANK" to listOf("NIFTY PSU BANK"),
+                "NIFTY PRIVATE BANK" to listOf("NIFTY PRIVATE BANK"),
+                "NIFTY ENERGY" to listOf("NIFTY ENERGY"),
+                "NIFTY INFRA" to listOf("NIFTY INFRA"),
+                "NIFTY FIN SERVICE" to listOf("NIFTY FINANCIAL SERVICES", "NIFTY FIN SERVICE")
+            )
+            val wanted = aliases.flatMap { (label, names) -> names.map { normalizeIndexName(it) to label } }.toMap()
+            for (i in 0 until data.length()) {
+                val item = data.optJSONObject(i) ?: continue
+                val rawName = item.optString("index", item.optString("indexName", ""))
+                val label = wanted[normalizeIndexName(rawName)] ?: continue
+                val value = item.optDouble("last", item.optDouble("lastPrice", Double.NaN))
+                if (!finite(value) || value <= 0) continue
+                val previous = item.optDouble("previousClose", item.optDouble("previous", Double.NaN))
+                val change = item.optDouble("percentChange", Double.NaN)
+                val timeText = item.optString("timeVal", item.optString("timestamp", ""))
+                val timestamp = try {
+                    val parser = java.text.SimpleDateFormat("dd-MMM-yyyy HH:mm:ss", Locale.ENGLISH)
+                    parser.timeZone = java.util.TimeZone.getTimeZone("Asia/Kolkata")
+                    parser.parse(timeText)?.time?.div(1000L) ?: 0L
+                } catch (_: Exception) { 0L }
+                val obj = JSONObject()
+                    .put("value", value)
+                    .put("status", "QUOTE_RETURNED_FRESHNESS_UNVERIFIED")
+                    .put("priceSource", "NSE_PUBLIC_INDEX_SNAPSHOT")
+                    .put("provider", "NSE public website")
+                    .put("currency", "INR")
+                    .put("sourceType", "PUBLIC_ENDPOINT_NOT_LICENSED_REALTIME")
+                    .put("isExchangeCertifiedRealtime", false)
+                    .put("quoteTimeText", timeText)
+                    .put("marketDataDisclaimer", "NSE public website snapshot; availability and freshness are not guaranteed. Verify with your broker/exchange.")
+                if (finite(previous) && previous > 0) obj.put("previousClose", previous)
+                if (finite(change)) obj.put("changePct", change)
+                else if (finite(previous) && previous > 0) obj.put("changePct", (value / previous - 1.0) * 100.0)
+                if (timestamp > 0) obj.put("quoteTimestamp", timestamp)
+                result[label] = obj
+            }
+            return result
+        } finally { c.disconnect() }
+    }
+
+    private fun normalizeIndexName(value: String): String =
+        value.uppercase(Locale.ROOT).replace(Regex("[^A-Z0-9]"), "")
+
     private fun marketIndices(): JSONObject {
-        // Yahoo symbols are indicative third-party quotes, not exchange-certified live feeds.
-        // Keep global futures clearly labelled; never misrepresent them as MCX contract prices.
         val specs = linkedMapOf(
             "NIFTY 50" to "^NSEI", "SENSEX" to "^BSESN", "NIFTY BANK" to "^NSEBANK",
             "NIFTY MIDCAP 100" to "^CRSMID", "NIFTY SMALLCAP 100" to "^CRSSML", "NIFTY IT" to "^CNXIT",
@@ -739,43 +834,70 @@ private class NativeProvider {
         val out = JSONObject()
         specs.forEach { (label, _) ->
             out.put(label, JSONObject().put("value", JSONObject.NULL).put("changePct", JSONObject.NULL)
-                .put("status", "NOT_LOADED").put("provider", "Yahoo Finance").put("sourceType", "THIRD_PARTY_DELAY_POSSIBLE"))
+                .put("status", "UNAVAILABLE").put("priceSource", "NONE").put("provider", "No quote returned")
+                .put("sourceType", "NO_DATA").put("isExchangeCertifiedRealtime", false)
+                .put("marketDataDisclaimer", "No usable quote returned. Do not use a blank or historical value as a live price."))
         }
-        // Fetch every requested instrument concurrently; a single provider failure must not hide others.
+
+        // One NSE snapshot supplies most Indian indices in one network round-trip.
+        try {
+            nseIndexSnapshot().forEach { (label, data) -> out.put(label, data) }
+        } catch (_: Exception) {
+            // Fall through to provider-per-symbol requests below.
+        }
+
+        val needsFallback = specs.filter { (label, _) ->
+            out.optJSONObject(label)?.optString("priceSource") == "NONE"
+        }
         val executor = Executors.newFixedThreadPool(6)
         try {
-            val jobs = specs.map { (label, symbol) ->
-                executor.submit<Pair<String, JSONObject>> {
+            val tasks = needsFallback.map { (label, symbol) ->
+                java.util.concurrent.Callable {
                     val data = yahoo(symbol, "5d")
                     val rows = data.optJSONArray("rows") ?: JSONArray()
                     val last = if (rows.length() > 0) rows.getJSONObject(rows.length() - 1) else JSONObject()
                     val prev = if (rows.length() > 1) rows.getJSONObject(rows.length() - 2) else JSONObject()
-                    // Prefer provider's current quote metadata; history close is only a fallback.
                     val currentQuote = data.optDouble("price", Double.NaN)
                     val previousQuote = data.optDouble("previousClose", Double.NaN)
+                    val priceSource = data.optString("priceSource", "HISTORICAL_CLOSE_FALLBACK")
                     val value = if (finite(currentQuote) && currentQuote > 0) currentQuote else last.optDouble("close", Double.NaN)
                     val previous = if (finite(previousQuote) && previousQuote > 0) previousQuote else prev.optDouble("close", Double.NaN)
-                    val obj = JSONObject().put("status", if (finite(value) && value > 0) "OK" else "NO_VALID_PRICE")
-                        .put("provider", data.optString("provider", "Yahoo Finance"))
-                        .put("sourceType", "THIRD_PARTY_DELAY_POSSIBLE")
+                    val hasValue = finite(value) && value > 0
+                    val status = when {
+                        !hasValue -> "NO_VALID_PRICE"
+                        priceSource == "HISTORICAL_CLOSE_FALLBACK" -> "HISTORICAL_ONLY"
+                        else -> "QUOTE_RETURNED_FRESHNESS_UNVERIFIED"
+                    }
+                    val obj = JSONObject()
+                        .put("status", status).put("provider", data.optString("provider", "Yahoo Finance"))
+                        .put("priceSource", priceSource).put("sourceType", "THIRD_PARTY_DELAY_POSSIBLE")
+                        .put("currency", data.optString("currency", if (label.contains("GLOBAL")) "USD" else "INR"))
+                        .put("isExchangeCertifiedRealtime", false)
+                        .put("marketDataDisclaimer", "Third-party data may be delayed or unavailable; verify with the exchange before trading.")
                     putFinite(obj, "value", value)
-                    if (finite(value) && finite(previous) && previous > 0) putFinite(obj, "changePct", (value / previous - 1) * 100)
-                    if (data.has("quoteTimestamp")) obj.put("quoteTimestamp", data.optLong("quoteTimestamp"))
-                    else if (last.has("time")) obj.put("quoteTimestampMs", last.optLong("time"))
+                    if (finite(value) && finite(previous) && previous > 0) putFinite(obj, "changePct", (value / previous - 1.0) * 100.0)
+                    val timestamp = when {
+                        data.optLong("quoteTimestamp") > 0 -> data.optLong("quoteTimestamp")
+                        data.optLong("priceTimestamp") > 0 -> data.optLong("priceTimestamp")
+                        last.optLong("time") > 0 -> last.optLong("time") / 1000L
+                        else -> 0L
+                    }
+                    if (timestamp > 0) obj.put("quoteTimestamp", timestamp)
+                    if (data.has("quoteTimeText")) obj.put("quoteTimeText", data.optString("quoteTimeText"))
                     label to obj
                 }
             }
-            jobs.forEach { job ->
-                try {
-                    val (label, data) = job.get(7, TimeUnit.SECONDS)
-                    out.put(label, data)
-                } catch (_: Exception) {
-                    // Preserve the explicit NOT_LOADED state for this instrument.
+            // Global deadline prevents one blocked provider from stalling the whole panel.
+            val futures = executor.invokeAll(tasks, 9000, TimeUnit.MILLISECONDS)
+            futures.forEachIndexed { index, future ->
+                if (!future.isCancelled) {
+                    try {
+                        val (label, data) = future.get()
+                        if (data.optString("status") != "NO_VALID_PRICE") out.put(label, data)
+                    } catch (_: Exception) { }
                 }
             }
-        } finally {
-            executor.shutdownNow()
-        }
+        } finally { executor.shutdownNow() }
         return out
     }
 
@@ -786,7 +908,7 @@ private class NativeProvider {
         val s = canonical(raw)
         return try {
             when (p) {
-                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.65 BRANDING + CHART").put("data", JSONObject().put("ok", true)).toString()
+                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.66 PRO HARDENING").put("data", JSONObject().put("ok", true)).toString()
                 "/api/screener/status" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
                 "/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
                 "/api/screener/disconnect" -> JSONObject().put("ok", true).put("data", JSONObject().put("connected", false).put("loggedIn", false).put("message", "Sign out from Screener inside the web page to end the session.")).toString()
