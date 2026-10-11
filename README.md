@@ -178,3 +178,21 @@ This source package has static checks only. Do not rate it 10/10 or call it prod
 - Added a native Android launcher icon and referenced it from the application manifest.
 - Updated UI/native engine version handshake, Android versionName to 40.65 and versionCode to 64, plus CI artifact labels.
 - The supplied mockup is a visual target, not a claim that every screen has been rebuilt pixel-for-pixel. Existing dashboard functionality and data-source limitations remain unchanged.
+
+
+## V40.71 CSV import and data-quality update (2026-10-11)
+- Advanced Android version metadata to `40.71` / `versionCode 70`; UI/native health handshake and CI artifact names are aligned.
+- Added user-selected CSV import for Screener exports, permitted Moneycontrol exports (only where available and allowed by the applicable plan/terms), and historical OHLCV CSV. The shared parser is Node-tested; the Android WebView has a file chooser.
+- Imported data is stored locally, can fill only missing fundamentals when enabled, never silently overwrites live values, and flags source mismatches. Unknown market-cap units and ambiguous duplicate-symbol rows are rejected/skipped. Import time is not represented as provider as-of time.
+- Fixed newest-fiscal-column alignment when an annual table's newest cell is blank, tightened future quote timestamp validation, corrected the misleading cache-clear status, and removed the portrait-only orientation lock.
+- **Not integrated:** automated Moneycontrol data feed. Moneycontrol's published terms require prior express written permission for automated extraction/machine-readable database use; subscription access alone is not proof of that permission. Use a permitted export or obtain an authorized feed/permission.
+- **Validation:** 68 tests pass after the CI syntax-gate addition; JavaScript syntax, Python compilation, and manifest XML checks pass. Local Gradle/APK build, Android Lint/device tests, live Screener/MC reconciliation and the 30-stock accuracy report are not verified in this environment. This is a release candidate, not a 10/10 production certification. See `V40_71_FULL_APP_UPGRADE_REPORT.md`.
+
+
+## V40.74 chart data integrity hardening (2026-10-11)
+- Normalize chart timestamps from epoch seconds, epoch milliseconds, or ISO date strings to epoch milliseconds; reject invalid/future timestamps, sort bars chronologically, and deterministically collapse duplicate timestamps.
+- Reject OHLC candles whose high/low cannot contain open/close, non-positive OHLC values, and negative volume instead of drawing invalid candles.
+- Correct RSI's zero-gain/zero-loss edge case to return neutral 50 for a flat series (instead of incorrectly reporting 100/overbought).
+- Added four behavioral JavaScript regression tests that execute the actual shipped `cleanRows` function under Node.js.
+- Android version metadata: `40.74` / `versionCode 73`; UI/native version handshake and CI artifact names aligned.
+- Validation: 76 tests pass; Python compilation, Android manifest XML parsing, inline JavaScript syntax, CSV importer syntax, and ZIP integrity pass. Live provider accuracy and Android build/device gates remain unverified; see `V40_74_RELEASE_REMEDIATION_REPORT.md`.

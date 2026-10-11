@@ -16,7 +16,7 @@ except ImportError as exc:  # CI installs Playwright; keep the error explicit lo
     raise RuntimeError("Install Playwright and Chromium to run tests/test_ui_smoke.py") from exc
 
 HTML = Path(__file__).parents[1] / "app/src/main/assets/index.html"
-ENGINE = "V40.65 BRANDING + CHART"
+ENGINE = "V40.74 CHART DATA QUALITY + SCREENER PROBE"
 
 
 def launch_chromium(playwright):
@@ -101,7 +101,7 @@ class DashboardUISmokeTests(unittest.TestCase):
             html = html[:pos] + "<script>" + mock_js + "</script>" + html[pos:]
             page.set_content(html, wait_until="domcontentloaded", timeout=30000)
             page.wait_for_timeout(250)
-            self.assertIn("V40.65", page.locator(".taglive").first.inner_text())
+            self.assertIn("V40.74", page.locator(".taglive").first.inner_text())
             page.locator("#search").fill("INFY")
             page.locator("#analyze").click()
             page.wait_for_function("document.getElementById('company').textContent.includes('Infosys')", timeout=8000)
@@ -189,13 +189,13 @@ class DashboardUISmokeTests(unittest.TestCase):
 
     def test_version_code_and_name_are_aligned(self):
         gradle = (Path(__file__).parents[1] / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 64", gradle)
-        self.assertIn("versionName '40.65'", gradle)
+        self.assertIn("versionCode 73", gradle)
+        self.assertIn("versionName '40.74'", gradle)
 
     def test_workflow_artifact_names_match_release_version(self):
         workflow = (Path(__file__).parents[1] / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
-        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-65-emulator-screenshot", workflow)
-        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-65-debug", workflow)
+        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-74-emulator-screenshot", workflow)
+        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-74-debug", workflow)
         self.assertNotIn("V40-57", workflow)
         self.assertIn("pull_request:", workflow)
         self.assertIn("sha256sum app/build/outputs/apk/debug/app-debug.apk", workflow)
@@ -209,8 +209,8 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIsNotNone(client)
         self.assertIsNotNone(server)
         self.assertEqual(client.group(1), server.group(1), "UI must not report a false server-version mismatch")
-        self.assertIn("V40.65", html)
-        self.assertIn("V40.65", source)
+        self.assertIn("V40.74", html)
+        self.assertIn("V40.74", source)
 
 
     def test_webview_navigation_policy_blocks_non_https_and_external_pages_stay_outside_app(self):
@@ -271,6 +271,50 @@ class DashboardUISmokeTests(unittest.TestCase):
     def test_screener_chart_endpoint_does_not_mislabel_yahoo_history(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("Screener.in does not expose a documented chart-data API", source)
+
+    def test_csv_import_modal_parses_and_persists_authorized_export(self):
+        errors = []
+        with sync_playwright() as p:
+            browser = launch_chromium(p)
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.on("pageerror", lambda e: errors.append(str(e)))
+            html = HTML.read_text(encoding="utf-8")
+            importer = (Path(__file__).parents[1] / "app/src/main/assets/csv-import.js").read_text(encoding="utf-8")
+            html = html.replace('<script src="csv-import.js"></script>', '<script>\n' + importer + '\n</script>')
+            mock_js = '''
+              Object.defineProperty(window,"localStorage",{value:{_s:{},getItem(k){return this._s[k]??null},setItem(k,v){this._s[k]=String(v)},removeItem(k){delete this._s[k]}}});
+              const MOCK_API = ''' + json.dumps(self.mock_api, separators=(",", ":")) + ''';
+              window.fetch=(u,opts)=>{const path=String(u).split("?")[0];const key=Object.keys(MOCK_API).find(k=>path.endsWith(k));const value=key?MOCK_API[key]:{ok:false,error:"unmocked "+path};return Promise.resolve(new Response(JSON.stringify(value),{status:200,headers:{"Content-Type":"application/json"}}));};
+            '''
+            pos = html.find('<script')
+            html = html[:pos] + '<script>' + mock_js + '</script>' + html[pos:]
+            page.set_content(html, wait_until="domcontentloaded", timeout=30000)
+            page.locator('#dataSourcesBtn').click()
+            self.assertTrue(page.locator('#dataSourcesModal').is_visible())
+            page.locator('#csvSource').select_option('Screener.in CSV')
+            page.locator('#csvFile').set_input_files({"name":"sample.csv","mimeType":"text/csv","buffer":b"Name,NSE Code,Market Capitalization,Stock P/E,Dividend yield\nInfosys,INFY,650000,25.4,1.8"})
+            page.wait_for_function("document.querySelector('#csvImportStatus').textContent.includes('Imported 1 stock row')", timeout=5000)
+            store = page.evaluate("JSON.parse(localStorage.getItem('psi.provider.csv.v1'))")
+            self.assertEqual(store['sources']['Screener.in CSV']['rows']['INFY']['fields']['dividendYield'], 1.8)
+            # Also exercise the historical CSV path using the selected stock.
+            page.locator('#search').fill('INFY')
+            page.locator('#csvSource').select_option('User CSV')
+            lines = ['Date,Open,High,Low,Close,Volume']
+            from datetime import date, timedelta
+            for i in range(24, -1, -1):
+                day = date(2025, 1, 1) + timedelta(days=i)
+                close = 100 + i
+                lines.append(f'{day.isoformat()},{close-1},{close+2},{close-2},{close},1000')
+            page.locator('#csvFile').set_input_files({"name":"infy-history.csv","mimeType":"text/csv","buffer":("\n".join(lines)).encode()})
+            page.wait_for_function("document.querySelector('#csvImportStatus').textContent.includes('Imported 0 stock row(s) and 25 historical bar(s)')", timeout=5000)
+            page.locator('#dataSourcesClose').click()
+            page.locator('#analyze').click()
+            page.wait_for_function("document.querySelector('#providerStatus').textContent.includes('CSV fallback:')", timeout=12000)
+            self.assertIn('1 missing field(s) filled', page.locator('#providerStatus').inner_text())
+            page.wait_for_function("window.chartRows && window.chartRows.length === 25", timeout=12000)
+            self.assertIn('user-imported historical CSV', page.locator('#chartStatus').inner_text())
+            self.assertEqual(errors, [])
+            browser.close()
 
 if __name__ == "__main__":
     unittest.main()
