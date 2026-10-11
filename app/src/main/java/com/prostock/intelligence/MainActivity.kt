@@ -736,8 +736,8 @@ private class NativeProvider {
         var cookie = ""
         val home = URL("https://www.nseindia.com/").openConnection() as HttpURLConnection
         try {
-            home.connectTimeout = 2500
-            home.readTimeout = 3000
+            home.connectTimeout = 2000
+            home.readTimeout = 2500
             home.instanceFollowRedirects = true
             home.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36")
             home.setRequestProperty("Accept", "text/html,application/xhtml+xml,*/*")
@@ -751,8 +751,8 @@ private class NativeProvider {
 
         val c = URL("https://www.nseindia.com/api/allIndices").openConnection() as HttpURLConnection
         try {
-            c.connectTimeout = 3500
-            c.readTimeout = 4500
+            c.connectTimeout = 2500
+            c.readTimeout = 3500
             c.instanceFollowRedirects = true
             c.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36")
             c.setRequestProperty("Accept", "application/json,text/plain,*/*")
@@ -885,7 +885,7 @@ private class NativeProvider {
                 }
             }
             // Global deadline prevents one blocked provider from stalling the whole panel.
-            val futures = executor.invokeAll(tasks, 12000, TimeUnit.MILLISECONDS)
+            val futures = executor.invokeAll(tasks, 9000, TimeUnit.MILLISECONDS)
             futures.forEachIndexed { index, future ->
                 if (!future.isCancelled) {
                     try {
