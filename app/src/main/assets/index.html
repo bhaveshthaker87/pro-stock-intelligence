@@ -1444,3 +1444,22 @@ $('eventLookupBtn')?.addEventListener('click',()=>lookupCompanyEvents($('eventSy
 eventInput?.addEventListener('input',e=>eventSuggestions(e.target.value));eventInput?.addEventListener('focus',e=>eventSuggestions(e.target.value));eventInput?.addEventListener('keydown',e=>{if(e.key==='Escape'&&eventSug)eventSug.style.display='none';if(e.key==='Enter'){e.preventDefault();eventSug.style.display='none';lookupCompanyEvents(e.target.value)}});document.addEventListener('click',e=>{if(!e.target.closest('.eventSuggestWrap')&&eventSug)eventSug.style.display='none'});
 $('queriesRefresh')?.addEventListener('click',loadSavedQueries);$('intelRefresh')?.addEventListener('click',loadMarketIntelligence);loadSavedQueries();loadMarketIntelligence();
 </script>
+
+<script>
+(function(){
+ function installChartFullscreen(){
+  const card=document.querySelector('.chartcard'),title=card&&card.querySelector('.charttitle');
+  if(!card||!title||title.querySelector('.chart-fullscreen-btn'))return;
+  const btn=document.createElement('button');btn.type='button';btn.className='chart-fullscreen-btn';btn.textContent='⛶ Full screen';btn.setAttribute('aria-label','Open chart in full screen');
+  btn.addEventListener('click',async function(){
+   try{if(document.fullscreenElement){await document.exitFullscreen();return;}if(card.requestFullscreen)await card.requestFullscreen();else card.classList.toggle('chart-pseudo-fullscreen');}
+   catch(e){card.classList.toggle('chart-pseudo-fullscreen');}
+   btn.textContent=(document.fullscreenElement===card||card.classList.contains('chart-pseudo-fullscreen'))?'✕ Exit full screen':'⛶ Full screen';
+  });
+  document.addEventListener('fullscreenchange',function(){btn.textContent=document.fullscreenElement===card?'✕ Exit full screen':'⛶ Full screen';});
+  title.appendChild(btn);
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installChartFullscreen);else installChartFullscreen();
+ setTimeout(installChartFullscreen,1200);
+})();
+</script>
