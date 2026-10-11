@@ -750,8 +750,11 @@ private class NativeProvider {
                     val rows = data.optJSONArray("rows") ?: JSONArray()
                     val last = if (rows.length() > 0) rows.getJSONObject(rows.length() - 1) else JSONObject()
                     val prev = if (rows.length() > 1) rows.getJSONObject(rows.length() - 2) else JSONObject()
-                    val value = last.optDouble("close", Double.NaN)
-                    val previous = prev.optDouble("close", Double.NaN)
+                    // Prefer provider's current quote metadata; history close is only a fallback.
+                    val currentQuote = data.optDouble("price", Double.NaN)
+                    val previousQuote = data.optDouble("previousClose", Double.NaN)
+                    val value = if (finite(currentQuote) && currentQuote > 0) currentQuote else last.optDouble("close", Double.NaN)
+                    val previous = if (finite(previousQuote) && previousQuote > 0) previousQuote else prev.optDouble("close", Double.NaN)
                     val obj = JSONObject().put("status", if (finite(value) && value > 0) "OK" else "NO_VALID_PRICE")
                         .put("provider", data.optString("provider", "Yahoo Finance"))
                         .put("sourceType", "THIRD_PARTY_DELAY_POSSIBLE")
