@@ -311,11 +311,14 @@ private class NativeProvider {
                     }
                     if (rows.length() == 0) throw IOException("No usable closing prices for $ticker")
                     val lastClose = rows.getJSONObject(rows.length() - 1).optDouble("close", Double.NaN)
-                    val price = meta.optDouble("regularMarketPrice", Double.NaN).let { if (finite(it) && it > 0) it else lastClose }
+                    val marketPrice = meta.optDouble("regularMarketPrice", Double.NaN)
+                    val hasProviderQuote = finite(marketPrice) && marketPrice > 0
+                    val price = if (hasProviderQuote) marketPrice else lastClose
                     val prev = meta.optDouble("chartPreviousClose", meta.optDouble("previousClose", Double.NaN))
                     val out = JSONObject().put("symbol", symbol).put("resolvedSymbol", ticker).put("currency", meta.optString("currency", "INR"))
                         .put("rows", rows).put("provider", "Yahoo Finance")
-                        .put("quoteStatus", "THIRD_PARTY_PROVIDER_DATA_DELAY_NOT_GUARANTEED")
+                        .put("priceSource", if (hasProviderQuote) "PROVIDER_QUOTE_METADATA" else "HISTORICAL_CLOSE_FALLBACK")
+                        .put("quoteStatus", if (hasProviderQuote) "THIRD_PARTY_PROVIDER_DATA_DELAY_NOT_GUARANTEED" else "HISTORICAL_ONLY_NOT_A_CURRENT_QUOTE")
                     if (meta.has("regularMarketTime") && !meta.isNull("regularMarketTime")) out.put("quoteTimestamp", meta.optLong("regularMarketTime"))
                     val eventRows = JSONArray()
                     val events = r.optJSONObject("events")
@@ -726,8 +729,8 @@ private class NativeProvider {
     }
 
     private fun marketIndices(): JSONObject {
-        // Yahoo symbols are indicative third-party quotes, not exchange-certified live feeds.
-        // Keep global futures clearly labelled; never misrepresent them as MCX contract prices.
+        // Best-effort third-party symbols are not exchange-certified live feeds.
+        // MCX commodity prices require a separate authorized MCX data source.
         val specs = linkedMapOf(
             "NIFTY 50" to "^NSEI", "SENSEX" to "^BSESN", "NIFTY BANK" to "^NSEBANK",
             "NIFTY MIDCAP 100" to "^CRSMID", "NIFTY SMALLCAP 100" to "^CRSSML", "NIFTY IT" to "^CNXIT",
@@ -739,9 +742,10 @@ private class NativeProvider {
         val out = JSONObject()
         specs.forEach { (label, _) ->
             out.put(label, JSONObject().put("value", JSONObject.NULL).put("changePct", JSONObject.NULL)
-                .put("status", "NOT_LOADED").put("provider", "Yahoo Finance").put("sourceType", "THIRD_PARTY_DELAY_POSSIBLE"))
+                .put("status", "NOT_LOADED").put("priceSource", "NONE")
+                .put("provider", "Yahoo Finance").put("sourceType", "THIRD_PARTY_DELAY_POSSIBLE")
+                .put("marketDataDisclaimer", "Third-party data may be delayed or unavailable; not an exchange-certified real-time feed."))
         }
-        // Fetch every requested instrument concurrently; a single provider failure must not hide others.
         val executor = Executors.newFixedThreadPool(6)
         try {
             val jobs = specs.map { (label, symbol) ->
@@ -750,27 +754,42 @@ private class NativeProvider {
                     val rows = data.optJSONArray("rows") ?: JSONArray()
                     val last = if (rows.length() > 0) rows.getJSONObject(rows.length() - 1) else JSONObject()
                     val prev = if (rows.length() > 1) rows.getJSONObject(rows.length() - 2) else JSONObject()
-                    // Prefer provider's current quote metadata; history close is only a fallback.
                     val currentQuote = data.optDouble("price", Double.NaN)
                     val previousQuote = data.optDouble("previousClose", Double.NaN)
+                    val priceSource = data.optString("priceSource",
+                        if (data.has("quoteTimestamp")) "PROVIDER_QUOTE_METADATA" else "HISTORICAL_CLOSE_FALLBACK")
                     val value = if (finite(currentQuote) && currentQuote > 0) currentQuote else last.optDouble("close", Double.NaN)
                     val previous = if (finite(previousQuote) && previousQuote > 0) previousQuote else prev.optDouble("close", Double.NaN)
-                    val obj = JSONObject().put("status", if (finite(value) && value > 0) "OK" else "NO_VALID_PRICE")
+                    val hasValue = finite(value) && value > 0
+                    val status = when {
+                        !hasValue -> "NO_VALID_PRICE"
+                        priceSource == "HISTORICAL_CLOSE_FALLBACK" -> "HISTORICAL_ONLY"
+                        else -> "QUOTE_RETURNED_FRESHNESS_UNVERIFIED"
+                    }
+                    val obj = JSONObject().put("status", status)
                         .put("provider", data.optString("provider", "Yahoo Finance"))
+                        .put("priceSource", priceSource)
                         .put("sourceType", "THIRD_PARTY_DELAY_POSSIBLE")
+                        .put("isExchangeCertifiedRealtime", false)
+                        .put("marketDataDisclaimer", "Third-party data may be delayed or unavailable; verify with the exchange before trading.")
                     putFinite(obj, "value", value)
                     if (finite(value) && finite(previous) && previous > 0) putFinite(obj, "changePct", (value / previous - 1) * 100)
-                    if (data.has("quoteTimestamp")) obj.put("quoteTimestamp", data.optLong("quoteTimestamp"))
-                    else if (last.has("time")) obj.put("quoteTimestampMs", last.optLong("time"))
+                    val timestamp = when {
+                        data.has("quoteTimestamp") && data.optLong("quoteTimestamp") > 0 -> data.optLong("quoteTimestamp")
+                        data.has("priceTimestamp") && data.optLong("priceTimestamp") > 0 -> data.optLong("priceTimestamp")
+                        last.has("time") && last.optLong("time") > 0 -> last.optLong("time") / 1000L
+                        else -> 0L
+                    }
+                    if (timestamp > 0) obj.put("quoteTimestamp", timestamp)
                     label to obj
                 }
             }
             jobs.forEach { job ->
                 try {
-                    val (label, data) = job.get(7, TimeUnit.SECONDS)
+                    val (label, data) = job.get(8, TimeUnit.SECONDS)
                     out.put(label, data)
                 } catch (_: Exception) {
-                    // Preserve the explicit NOT_LOADED state for this instrument.
+                    // Keep the explicit NOT_LOADED state; never fabricate a price.
                 }
             }
         } finally {
