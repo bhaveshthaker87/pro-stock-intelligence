@@ -82,6 +82,7 @@ jobs:
           while IFS= read -r -d '' file; do
             node --check "$file"
           done < <(find /tmp/psi-js -type f -name '*.js' -print0)
+          node --check app/src/main/assets/csv-import.js
 
       - name: Install browser-test dependencies
         shell: bash
@@ -115,7 +116,7 @@ jobs:
         if: always() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-66-debug
+          name: PRO-STOCK-INTELLIGENCE-V40-74-debug
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/app-debug.apk.sha256
@@ -132,6 +133,6 @@ jobs:
         if: always() && hashFiles('app/build/reports/lint-results-debug.html') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-66-lint-report
+          name: PRO-STOCK-INTELLIGENCE-V40-74-lint-report
           path: app/build/reports/lint-results-debug.html
           if-no-files-found: warn
