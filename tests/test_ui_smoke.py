@@ -252,6 +252,16 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn("V40.66", source)
 
 
+    def test_canonical_preserves_yahoo_index_and_futures_tickers(self):
+        source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        canonical = source[source.index("private fun canonical"):source.index("private fun stockName")]
+        self.assertIn('upper.matches(Regex("^\\\\^[A-Z0-9]+$"))', canonical)
+        self.assertIn('upper.matches(Regex("^[A-Z]{1,5}=F$"))', canonical)
+        # These symbols must reach Yahoo unchanged; canonical() must not strip ^ or =.
+        for ticker in ["^NSEI", "^BSESN", "^NSEBANK", "GC=F", "SI=F", "BZ=F"]:
+            self.assertTrue(ticker.startswith("^") or ticker.endswith("=F"))
+
+
     def test_indices_panel_never_presents_historical_fallback_as_live(self):
         html = HTML.read_text(encoding="utf-8")
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
