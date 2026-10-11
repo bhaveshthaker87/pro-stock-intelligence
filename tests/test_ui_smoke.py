@@ -194,7 +194,8 @@ class DashboardUISmokeTests(unittest.TestCase):
 
     def test_workflow_artifact_names_match_release_version(self):
         workflow = (Path(__file__).parents[1] / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
-        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-65-emulator-screenshot", workflow)
+        self.assertIn("Emulator smoke test (launch app and check runtime)", workflow)
+        self.assertNotIn("screencap -p", workflow)
         self.assertIn("PRO-STOCK-INTELLIGENCE-V40-65-debug", workflow)
         self.assertNotIn("V40-57", workflow)
         self.assertIn("pull_request:", workflow)
@@ -251,7 +252,8 @@ class DashboardUISmokeTests(unittest.TestCase):
         workflow = (Path(__file__).parents[1] / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
         self.assertIn("contents: read", workflow)
         self.assertIn("dumpsys activity activities", workflow)
-        self.assertIn("test -s app/build/outputs/psi-emulator.png", workflow)
+        self.assertIn("adb shell pidof com.prostock.intelligence", workflow)
+        self.assertNotIn("screencap -p", workflow)
 
     def test_source_claims_disclose_unintegrated_moneycontrol_and_history(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
