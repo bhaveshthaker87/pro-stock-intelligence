@@ -170,6 +170,9 @@ private class NativeProvider {
 
     private fun canonical(raw: String): String {
         val upper = raw.trim().uppercase(Locale.ROOT)
+        // Preserve Yahoo's exchange-index and futures ticker syntax. Stripping punctuation here
+        // used to turn ^NSEI into NSEI and GC=F into GCF, silently breaking every index/futures quote.
+        if (upper.matches(Regex("^\\^[A-Z0-9]+$")) || upper.matches(Regex("^[A-Z]{1,5}=F$"))) return upper
         val noSuffix = upper.removeSuffix(".NS").removeSuffix(".BO").trim()
         val compact = noSuffix.replace(Regex("[^A-Z0-9]"), "")
         val alias = when {
