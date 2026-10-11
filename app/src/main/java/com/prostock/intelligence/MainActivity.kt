@@ -410,39 +410,33 @@ private class NativeProvider {
     private fun screener(raw: String): JSONObject {
         val s = canonical(raw)
         val html = get("https://www.screener.in/company/${Uri.encode(s)}/")
-        // Parse the visible ratio list item as a unit. This avoids grabbing a number
-        // from an unrelated script, navigation link, or the next metric.
+        // Parse whole visible ratio items to tolerate Screener nested-span markup changes.
         fun number(label: String, percent: Boolean = false): Double? {
-            val safeLabel = Regex.escape(label)
             val items = Regex("(?is)<li\\b[^>]*>(.*?)</li>").findAll(html).map { it.groupValues[1] }
             for (item in items) {
-                val name = Regex("(?is)<span\\b[^>]*class=[\\\"'][^\\\"']*\\bname\\b[^\\\"']*[\\\"'][^>]*>(.*?)</span>")
-                    .find(item)?.groupValues?.getOrNull(1)?.let { cleanText(it) } ?: continue
+                val nameHtml = Regex("(?is)<span\\b[^>]*class=[\\\"\\\'][^\\\"\\\']*\\bname\\b[^\\\"\\\']*[\\\"\\\'][^>]*>(.*?)</span>").find(item)?.groupValues?.getOrNull(1)
+                val name = nameHtml?.let { cleanText(it) } ?: continue
                 if (!name.equals(label, ignoreCase = true)) continue
-                val valueHtml = Regex("(?is)<span\\b[^>]*class=[\\\"'][^\\\"']*\\bnumber\\b[^\\\"']*[\\\"'][^>]*>(.*?)</span>")
-                    .find(item)?.groupValues?.getOrNull(1)
-                val parsed = valueHtml?.let { asNumber(cleanText(it)) }
+                val valueHtml = Regex("(?is)<span\\b[^>]*class=[\\\"\\\'][^\\\"\\\']*\\bnumber\\b[^\\\"\\\']*[\\\"\\\'][^>]*>(.*?)</span>").find(item)?.groupValues?.getOrNull(1)
+                val direct = valueHtml?.let { asNumber(cleanText(it)) }
+                if (direct != null) return direct
+                val remainder = cleanText(item).substringAfter(name, "").trim()
+                val parsed = Regex("-?[0-9][0-9,]*(?:\\\\.[0-9]+)?").find(remainder)?.value?.replace(",", "")?.toDoubleOrNull()
                 if (parsed != null) return parsed
             }
-            // Conservative fallback: search only script/style-stripped visible text and
-            // take a nearby numeric token. It may remain null rather than inventing a value.
-            val visibleText = cleanText(html)
-            val idx = visibleText.indexOf(label, ignoreCase = true)
-            if (idx < 0) return null
-            val after = visibleText.substring(idx + label.length, minOf(visibleText.length, idx + label.length + 100))
-            val match = Regex("(?:₹\\s*)?(-?[0-9][0-9,]*(?:\\.[0-9]+)?)\\s*${if (percent) "%" else ""}").find(after)
-            return match?.groupValues?.get(1)?.replace(",", "")?.toDoubleOrNull()
+            // Never scan arbitrary page text for a number; missing fields stay missing.
+            return null
         }
         val f = JSONObject()
         number("Current Price")?.let { f.put("price", it) }
         number("Market Cap")?.let { f.put("marketCap", it) }
-        number("Stock P/E")?.let { f.put("pe", it) }
+        (number("Stock P/E") ?: number("P/E") ?: number("Price to Earnings") ?: number("Price to earning"))?.let { f.put("pe", it) }
         number("Book Value")?.let { f.put("bookValue", it) }
         number("Dividend Yield", true)?.let { f.put("dividendYield", it) }
         number("ROCE", true)?.let { f.put("roce", it) }
         number("ROE", true)?.let { f.put("roe", it) }
         number("Debt / Equity")?.let { f.put("debtEquity", it) }
-        number("EPS in Rs")?.let { f.put("eps", it) }
+        (number("EPS in Rs") ?: number("EPS") ?: number("Earnings Per Share"))?.let { f.put("eps", it) }
         val pnlRows = sectionTableRows(html, "profit-loss")
         val qRows = sectionTableRows(html, "quarters")
         val ownershipRows = sectionTableRows(html, "shareholding")
@@ -511,6 +505,13 @@ private class NativeProvider {
         }
         val name = Regex("(?is)<h1[^>]*>(.*?)</h1>").find(html)?.groupValues?.get(1)?.let { cleanText(it) } ?: stockName(s)
         f.put("name", name).put("symbol", s).put("sector", stockSector(s)).put("provider", "Screener.in")
+        f.put("fundamentalSource", "Screener.in")
+        f.put("fundamentalFetchedAt", System.currentTimeMillis())
+        f.put("fundamentalPeriod", "Latest reported / trailing values as published by Screener; metric periods may differ")
+        f.put("fundamentalStatus", if (f.has("pe") || f.has("eps")) "PARTIAL_OR_AVAILABLE" else "MISSING_CORE_VALUATION")
+        val units = JSONObject()
+        listOf("pe" to "x", "eps" to "INR/share", "price" to "INR/share", "marketCap" to "INR crore", "bookValue" to "INR/share", "dividendYield" to "%", "roce" to "%", "roe" to "%", "debtEquity" to "x", "netProfit" to "INR crore").forEach { (key, unit) -> if (f.has(key) && !f.isNull(key)) units.put(key, unit) }
+        f.put("units", units)
         return f
     }
 

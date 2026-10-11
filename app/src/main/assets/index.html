@@ -43,7 +43,7 @@ body{background:linear-gradient(180deg,#eef5fa,#f8fbfd);color:var(--text)}
 @media(max-width:1250px){.brand{width:260px;min-width:260px}.stocktop{grid-template-columns:1fr 165px!important}.miniMetrics{grid-column:1/-1}.actions{display:none}.researchMetrics{grid-template-columns:repeat(2,1fr)!important}}
 @media(max-width:760px){.top{padding:9px 12px}.brand{width:100%;min-width:0}.taglive{display:none}.container{padding:10px 10px 24px}.stocktop{grid-template-columns:1fr!important}.miniMetrics{grid-column:auto}.actions{display:none}.researchMetrics{grid-template-columns:1fr 1fr!important}.researchQuick{overflow:auto;flex-wrap:nowrap;padding-bottom:3px}.researchQuick button{white-space:nowrap}.cname{font-size:19px}}
 
-/* V40.66 brand system: consistent logo in app header and brand footer */
+/* V40.67 brand system: consistent logo in app header and brand footer */
 .brand{width:auto!important;min-width:245px;flex:0 0 auto;gap:10px!important}
 .brandLogo{width:46px;height:46px;display:block;flex:0 0 46px;filter:drop-shadow(0 2px 5px rgba(0,0,0,.25));object-fit:contain}
 .brandText>div{font-size:clamp(16px,1.4vw,21px)!important;letter-spacing:-.45px;white-space:nowrap}
@@ -57,6 +57,24 @@ body{background:linear-gradient(180deg,#eef5fa,#f8fbfd);color:var(--text)}
 .brandFooter small{display:block;margin-top:4px;color:#bcd1e5;font-size:10px;letter-spacing:1.4px}
 @media(max-width:760px){.brand{min-width:0!important;flex:1 1 auto}.brandLogo{width:40px;height:40px;flex-basis:40px}.brandText>div{font-size:16px!important}.brandText small{font-size:8px!important}.brandFooter{padding:12px}.brandFooter img{width:48px;height:48px}}
 
+
+/* V40.67: responsive chart workspace + true fullscreen */
+html,body{width:100%;max-width:100%;overflow-x:hidden}
+.app{width:100%;max-width:none!important}
+.lower{grid-template-columns:minmax(0,1fr)!important}
+.chartcard{min-width:0;width:100%;overflow:hidden}
+.chartcard .canvas{width:100%!important;height:clamp(360px,58vh,760px)!important;min-height:320px}
+.chartcard svg,.chartcard canvas{max-width:100%}
+.chartcard:fullscreen{width:100vw;height:100vh;max-width:none;margin:0;padding:18px 22px;overflow:auto;background:#f7fbff;border:0;border-radius:0;display:flex;flex-direction:column}
+.chartcard:fullscreen .canvas{height:calc(100vh - 230px)!important;min-height:420px;flex:1}
+.chartcard:fullscreen .charttitle{font-size:22px}
+.chartcard:fullscreen .legend{font-size:13px}
+.chartcard:fullscreen .range button{font-size:12px;padding:7px 12px}
+.chartcard:fullscreen .tvctl{font-size:12px;padding:7px 10px}
+.chart-fullscreen-btn{margin-left:auto;border:1px solid #b9d1e3;background:#eef6ff;color:#075db8;border-radius:7px;padding:7px 11px;font-weight:900;cursor:pointer;white-space:nowrap}
+.chart-fullscreen-btn:hover{background:#d9edff}
+@media(min-width:1500px){.chartcard .canvas{height:clamp(480px,62vh,900px)!important}}
+@media(max-width:760px){.chartcard .canvas{height:420px!important}.chartcard:fullscreen{padding:10px}.chartcard:fullscreen .canvas{height:calc(100vh - 210px)!important;min-height:280px}}
 </style>
 <style id="v40-7-query-polish">
 .querySection{border-radius:14px;padding:14px;background:linear-gradient(180deg,#fff,#f8fbff)}
@@ -631,7 +649,7 @@ body[data-nav-page="chart"] .stock{margin-bottom:10px}
 @media(prefers-reduced-motion:reduce){.icard{transition:none}.icard:hover{transform:none}}
 </style>
 </head><body><div class="app">
-<header class="top"><div class="brand"><img class="brandLogo" src="brand-logo.svg" alt="Pro Stock Intelligence logo"><div class="brandText"><div>PRO STOCK <span>INTELLIGENCE</span></div><small>ANALYZE · SCREEN · TRACK · INVEST SMARTER</small></div></div><span class="taglive">V40.66 • PRO</span><div class="searchbox"><div class="searchwrap"><span class="searchicon">⌕</span><input id="search" value="INFOSYS" placeholder="Search NSE/BSE stock or symbol"><span class="clearx" id="clearx">×</span><div id="suggestions" class="suggestions"></div></div><button class="btn primary" id="analyze">Analyze</button><button class="btn" id="clear">Clear</button><button class="btn" id="refresh">↻ Refresh</button><button class="btn" id="watchlistViewBtn">📌 Watchlist</button><button class="btn" id="session">Screener Login (one-time)</button></div><div class="clock"><span class="live">● NATIVE ENGINE</span><br><span id="clock"></span></div></header><div id="watchModal" class="watchmodal" role="dialog" aria-modal="true" aria-labelledby="watchModalTitle" tabindex="-1"><div class="watchbox"><div class="watchhead"><h3 id="watchModalTitle">My Persistent Watchlist</h3><button id="watchClose" class="watchclose" type="button" aria-label="Close dialog">×</button></div><div id="watchModalBody" class="watchbody"></div></div></div>
+<header class="top"><div class="brand"><img class="brandLogo" src="brand-logo.svg" alt="Pro Stock Intelligence logo"><div class="brandText"><div>PRO STOCK <span>INTELLIGENCE</span></div><small>ANALYZE · SCREEN · TRACK · INVEST SMARTER</small></div></div><span class="taglive">V40.67 • PRO</span><div class="searchbox"><div class="searchwrap"><span class="searchicon">⌕</span><input id="search" value="INFOSYS" placeholder="Search NSE/BSE stock or symbol"><span class="clearx" id="clearx">×</span><div id="suggestions" class="suggestions"></div></div><button class="btn primary" id="analyze">Analyze</button><button class="btn" id="clear">Clear</button><button class="btn" id="refresh">↻ Refresh</button><button class="btn" id="watchlistViewBtn">📌 Watchlist</button><button class="btn" id="session">Screener Login (one-time)</button></div><div class="clock"><span class="live">● NATIVE ENGINE</span><br><span id="clock"></span></div></header><div id="watchModal" class="watchmodal" role="dialog" aria-modal="true" aria-labelledby="watchModalTitle" tabindex="-1"><div class="watchbox"><div class="watchhead"><h3 id="watchModalTitle">My Persistent Watchlist</h3><button id="watchClose" class="watchclose" type="button" aria-label="Close dialog">×</button></div><div id="watchModalBody" class="watchbody"></div></div></div>
 <section class="indices" id="indices"></section>
 <div class="container"><section class="stock"><div class="stocktop"><div class="company"><div class="clogo" id="clogo">—</div><div><div class="cname" id="company">Stock Analysis Dashboard</div><div class="chips" id="chips"><span class="chip">—</span></div><div class="links" id="sourceLinks"><span class="liveDot">●</span> Quote source status shown per stock · verify timestamp</div></div></div><div><div class="pricebig" id="price">—</div><div class="change" id="change">—</div><div class="quoteMeta" id="date">Quote timestamp / source status</div></div><div class="miniMetrics"><div class="mm"><b>52 Week High</b><strong id="high52">—</strong></div><div class="mm"><b>52 Week Low</b><strong id="low52">—</strong></div><div class="mm"><b>From 52W High</b><strong class="ineg" id="fromhigh">—</strong></div><div class="mm"><b>From 52W Low</b><strong class="ipos" id="fromlow">—</strong></div><div class="mm"><b>Market Cap</b><strong id="mcap">—</strong></div></div><div class="actions"><button class="btn" style="height:34px;background:#fff;color:#123">☆ Watchlist</button> <button class="btn" style="height:34px;background:#fff;color:#123">♧ Alerts</button></div></div><nav class="tabs"><button class="tab active">Overview</button><button class="tab">Chart & Technical</button><button class="tab">Financials</button><button class="tab">Ownership</button><button class="tab">Peers Comparison</button><button class="tab">News & Events</button></nav></section>
 <div id="providerStatus" class="sourcehint" style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #dbe7ef;border-radius:8px">Provider status: loading…</div><div class="researchRibbon" id="researchRibbon">
@@ -745,11 +763,11 @@ const DASHBOARD_VERSION='V40.59';
 </script>
 <script>
 const $=id=>document.getElementById(id);
-const CLIENT_ENGINE_VERSION='V40.66 PRO HARDENING';
-async function verifyEngineVersion(){try{const r=await fetch('/api/health?ts='+Date.now(),{cache:'no-store'});const j=await r.json();const live=String(j.engine||'');const tag=document.querySelector('.taglive');if(tag)tag.textContent=live.startsWith(CLIENT_ENGINE_VERSION)?'V40.66 • PRO':'SERVER '+(live.split(' PRO')[0]||'VERSION MISMATCH');if(!live.startsWith(CLIENT_ENGINE_VERSION))toast('App version mismatch. Install the matching V40.66 build.')}catch(e){const tag=document.querySelector('.taglive');if(tag)tag.textContent='V40.66 • PRO';}}
+const CLIENT_ENGINE_VERSION='V40.67 PRO HARDENING';
+async function verifyEngineVersion(){try{const r=await fetch('/api/health?ts='+Date.now(),{cache:'no-store'});const j=await r.json();const live=String(j.engine||'');const tag=document.querySelector('.taglive');if(tag)tag.textContent=live.startsWith(CLIENT_ENGINE_VERSION)?'V40.67 • PRO':'SERVER '+(live.split(' PRO')[0]||'VERSION MISMATCH');if(!live.startsWith(CLIENT_ENGINE_VERSION))toast('App version mismatch. Install the matching V40.67 build.')}catch(e){const tag=document.querySelector('.taglive');if(tag)tag.textContent='V40.67 • PRO';}}
 const api=async (u,timeoutMs)=>{const ctl=new AbortController();const path=String(u).split('?')[0];const budget=timeoutMs||({ '/api/fast':5000,'/api/history':11000,'/api/analyze':19000,'/api/peers':20000,'/api/news':7000,'/api/quote':4500,'/api/indices':25000,'/api/search-suggestions':5000,'/api/bootstrap':13000,'/api/company-events':7500}[path]||9000);const timer=setTimeout(()=>ctl.abort(),budget);try{const r=await fetch(u,{cache:'no-store',signal:ctl.signal});const j=await r.json();if(!j.ok)throw Error(j.error||'Request failed');return j.data}finally{clearTimeout(timer)}};
 verifyEngineVersion();
-window.__PSI_BOOT_VERSION='V40.66';
+window.__PSI_BOOT_VERSION='V40.67';
 function toast(msg){const t=$('toast');if(!t)return;t.textContent=msg;t.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.classList.remove('show'),2200)}
 function clock(){$('clock').textContent=new Date().toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'})}setInterval(clock,1000);clock();
 const localStocks=[
@@ -1425,4 +1443,23 @@ async function eventSuggestions(q){clearTimeout(eventSuggestTimer);if(eventSugge
 $('eventLookupBtn')?.addEventListener('click',()=>lookupCompanyEvents($('eventSymbolInput')?.value));$('eventSymbolInput')?.addEventListener('keydown',e=>{if(e.key==='Enter')lookupCompanyEvents(e.target.value)});$('eventUseCurrentBtn')?.addEventListener('click',()=>{const s=currentSymbol();$('eventSymbolInput').value=s;lookupCompanyEvents(s)});
 eventInput?.addEventListener('input',e=>eventSuggestions(e.target.value));eventInput?.addEventListener('focus',e=>eventSuggestions(e.target.value));eventInput?.addEventListener('keydown',e=>{if(e.key==='Escape'&&eventSug)eventSug.style.display='none';if(e.key==='Enter'){e.preventDefault();eventSug.style.display='none';lookupCompanyEvents(e.target.value)}});document.addEventListener('click',e=>{if(!e.target.closest('.eventSuggestWrap')&&eventSug)eventSug.style.display='none'});
 $('queriesRefresh')?.addEventListener('click',loadSavedQueries);$('intelRefresh')?.addEventListener('click',loadMarketIntelligence);loadSavedQueries();loadMarketIntelligence();
+</script>
+
+<script>
+(function(){
+ function installChartFullscreen(){
+  const card=document.querySelector('.chartcard'),title=card&&card.querySelector('.charttitle');
+  if(!card||!title||title.querySelector('.chart-fullscreen-btn'))return;
+  const btn=document.createElement('button');btn.type='button';btn.className='chart-fullscreen-btn';btn.textContent='⛶ Full screen';btn.setAttribute('aria-label','Open chart in full screen');
+  btn.addEventListener('click',async function(){
+   try{if(document.fullscreenElement){await document.exitFullscreen();return;}if(card.requestFullscreen)await card.requestFullscreen();else card.classList.toggle('chart-pseudo-fullscreen');}
+   catch(e){card.classList.toggle('chart-pseudo-fullscreen');}
+   btn.textContent=(document.fullscreenElement===card||card.classList.contains('chart-pseudo-fullscreen'))?'✕ Exit full screen':'⛶ Full screen';
+  });
+  document.addEventListener('fullscreenchange',function(){btn.textContent=document.fullscreenElement===card?'✕ Exit full screen':'⛶ Full screen';});
+  title.appendChild(btn);
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installChartFullscreen);else installChartFullscreen();
+ setTimeout(installChartFullscreen,1200);
+})();
 </script>
