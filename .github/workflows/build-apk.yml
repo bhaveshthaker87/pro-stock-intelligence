@@ -17,7 +17,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
@@ -35,7 +35,7 @@ jobs:
           accept-android-sdk-licenses: true
           packages: ''
 
-      - name: Install and verify Android SDK packages
+      - name: Install Android SDK packages
         shell: bash
         run: |
           set -euo pipefail
@@ -52,7 +52,7 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Validate project and inline JavaScript
+      - name: Validate manifest and inline JavaScript
         shell: bash
         run: |
           set -euo pipefail
@@ -87,7 +87,7 @@ jobs:
                   script, encoding='utf-8'
               )
 
-          print(f'Manifest valid; found {len(scripts)} inline script blocks')
+          print(f'Manifest valid; found {len(scripts)} script blocks')
           PYCODE
 
           for file in /tmp/psi-inline-*.js; do
@@ -119,7 +119,7 @@ jobs:
           set -euo pipefail
           gradle :app:lintDebug --stacktrace
 
-      - name: Verify APK exists
+      - name: Verify APK
         shell: bash
         run: |
           set -euo pipefail
@@ -128,7 +128,7 @@ jobs:
           ls -lh "$APK"
           sha256sum "$APK"
 
-      - name: Emulator smoke test (launch app)
+      - name: Emulator smoke test
         id: emulator_test
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -136,77 +136,120 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_2
+          cores: 2
+          force-avd-creation: true
           disable-animations: true
           disable-linux-hw-accel: true
           emulator-boot-timeout: 600
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: |
-            # Keep this script compatible with /bin/sh.
+            # POSIX shell compatible; do not use pipefail here.
             set -eu
 
             mkdir -p app/build/outputs /tmp/psi-logs
 
-            adb start-server
-            adb wait-for-device
+            APK="app/build/outputs/apk/debug/app-debug.apk"
+            SERIAL="emulator-5554"
 
+            if [ ! -s "$APK" ]; then
+              echo "ERROR: Debug APK not found: $APK"
+              exit 1
+            fi
+
+            # Wait for the emulator to become online.
+            ONLINE=0
+            i=0
+
+            while [ "$i" -lt 60 ]; do
+              STATE="$(adb -s "$SERIAL" get-state 2>/dev/null || true)"
+
+              if [ "$STATE" = "device" ]; then
+                ONLINE=1
+                break
+              fi
+
+              echo "Waiting for emulator online; state=${STATE:-unavailable}; attempt=$((i + 1))"
+
+              # Restart the ADB server occasionally if the device remains offline.
+              if [ "$i" -eq 15 ] || [ "$i" -eq 30 ]; then
+                adb kill-server || true
+                sleep 2
+                adb start-server || true
+              fi
+
+              sleep 5
+              i=$((i + 1))
+            done
+
+            if [ "$ONLINE" -ne 1 ]; then
+              echo "ERROR: Emulator did not become online."
+              adb devices -l > /tmp/psi-logs/adb-devices.txt 2>&1 || true
+              adb -s "$SERIAL" logcat -d \
+                > /tmp/psi-logs/boot-failure-logcat.txt 2>&1 || true
+              cat /tmp/psi-logs/adb-devices.txt
+              exit 1
+            fi
+
+            # Wait for Android boot completion.
             BOOTED=0
             i=0
 
             while [ "$i" -lt 90 ]; do
-              VALUE="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+              VALUE="$(adb -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
 
               if [ "$VALUE" = "1" ]; then
                 BOOTED=1
                 break
               fi
 
-              i=$((i + 1))
               sleep 5
+              i=$((i + 1))
             done
 
             if [ "$BOOTED" -ne 1 ]; then
-              echo "ERROR: Emulator did not finish booting"
+              echo "ERROR: Android did not finish booting."
               adb devices -l > /tmp/psi-logs/adb-devices.txt 2>&1 || true
-              adb logcat -d > /tmp/psi-logs/boot-failure-logcat.txt 2>&1 || true
+              adb -s "$SERIAL" logcat -d \
+                > /tmp/psi-logs/boot-failure-logcat.txt 2>&1 || true
               exit 1
             fi
 
-            adb shell settings put global window_animation_scale 0
-            adb shell settings put global transition_animation_scale 0
-            adb shell settings put global animator_duration_scale 0
+            adb -s "$SERIAL" shell settings put global window_animation_scale 0
+            adb -s "$SERIAL" shell settings put global transition_animation_scale 0
+            adb -s "$SERIAL" shell settings put global animator_duration_scale 0
 
-            adb logcat -c
+            adb -s "$SERIAL" logcat -c
+            adb -s "$SERIAL" install -r "$APK"
 
-            adb install -r app/build/outputs/apk/debug/app-debug.apk
-
-            adb shell am start -W \
+            adb -s "$SERIAL" shell am start -W \
               -n com.prostock.intelligence/.MainActivity
 
             sleep 10
 
-            PID="$(adb shell pidof com.prostock.intelligence || true)"
+            PID="$(adb -s "$SERIAL" shell pidof com.prostock.intelligence || true)"
             if [ -z "$PID" ]; then
-              echo "ERROR: App process did not start"
-              adb logcat -d > /tmp/psi-logs/app-launch-failure.txt 2>&1 || true
+              echo "ERROR: App process is not running."
+              adb -s "$SERIAL" logcat -d \
+                > /tmp/psi-logs/app-launch-failure.txt 2>&1 || true
               exit 1
             fi
 
-            ACTIVITY="$(adb shell dumpsys activity activities \
+            ACTIVITY="$(adb -s "$SERIAL" shell dumpsys activity activities \
               | grep -E 'mResumedActivity|ResumedActivity' \
               | grep 'com.prostock.intelligence' || true)"
 
             if [ -z "$ACTIVITY" ]; then
-              echo "ERROR: App is not the resumed foreground activity"
-              adb logcat -d > /tmp/psi-logs/app-foreground-failure.txt 2>&1 || true
+              echo "ERROR: App is not in the foreground."
+              adb -s "$SERIAL" logcat -d \
+                > /tmp/psi-logs/app-foreground-failure.txt 2>&1 || true
               exit 1
             fi
 
             echo "$ACTIVITY"
 
-            adb exec-out screencap -p \
+            adb -s "$SERIAL" exec-out screencap -p \
               > app/build/outputs/psi-emulator.png
 
-            # Required by tests/test_ui_smoke.py.
             test -s app/build/outputs/psi-emulator.png
 
             python3 - <<'PYCODE'
@@ -221,10 +264,10 @@ jobs:
             if not data.startswith(bytes.fromhex('89504e470d0a1a0a')):
                 raise SystemExit('Screenshot is not a valid PNG')
 
-            print(f'Screenshot verified: {len(data)} bytes')
+            print(f'Valid screenshot: {len(data)} bytes')
             PYCODE
 
-            adb logcat -d -s AndroidRuntime:E PSI_WEB:E \
+            adb -s "$SERIAL" logcat -d -s AndroidRuntime:E PSI_WEB:E \
               > /tmp/psi-logs/runtime-errors.txt 2>&1 || true
 
             cat /tmp/psi-logs/runtime-errors.txt
@@ -232,11 +275,11 @@ jobs:
             if grep -Eq \
               'FATAL EXCEPTION|Uncaught (ReferenceError|TypeError|SyntaxError)' \
               /tmp/psi-logs/runtime-errors.txt; then
-              echo "ERROR: Runtime exception detected"
+              echo "ERROR: Runtime exception detected."
               exit 1
             fi
 
-            echo "Emulator smoke test passed"
+            echo "Emulator smoke test passed."
 
       - name: Collect emulator diagnostics
         if: always()
