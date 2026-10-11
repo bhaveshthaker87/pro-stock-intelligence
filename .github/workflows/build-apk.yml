@@ -65,10 +65,10 @@ jobs:
       - name: Emulator smoke test (launch app)
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: 34
           target: google_apis
           arch: x86_64
-          profile: pixel_6
+          profile: pixel_2
           script: |
             adb logcat -c
             adb install -r app/build/outputs/apk/debug/app-debug.apk
