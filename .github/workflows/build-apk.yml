@@ -17,14 +17,14 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -35,7 +35,7 @@ jobs:
           accept-android-sdk-licenses: true
           packages: ''
 
-      - name: Install Android SDK packages
+      - name: Install and verify Android SDK packages
         shell: bash
         run: |
           set -euo pipefail
@@ -95,18 +95,29 @@ jobs:
           done
 
       - name: Install browser-test dependencies
+        shell: bash
         run: |
+          set -euo pipefail
           python3 -m pip install --upgrade pip playwright
           python3 -m playwright install --with-deps chromium
 
       - name: Run dashboard and backtesting tests
-        run: python3 -m unittest discover -s tests -v
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -v
 
       - name: Build debug APK
-        run: gradle :app:assembleDebug --stacktrace
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle :app:assembleDebug --stacktrace
 
       - name: Run Android lint
-        run: gradle :app:lintDebug --stacktrace
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle :app:lintDebug --stacktrace
 
       - name: Verify APK exists
         shell: bash
@@ -119,7 +130,6 @@ jobs:
 
       - name: Emulator smoke test (launch app)
         id: emulator_test
-        continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
@@ -131,7 +141,8 @@ jobs:
           emulator-boot-timeout: 600
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: |
-            set -euo pipefail
+            # Keep this script compatible with /bin/sh.
+            set -eu
 
             mkdir -p app/build/outputs /tmp/psi-logs
 
@@ -139,19 +150,24 @@ jobs:
             adb wait-for-device
 
             BOOTED=0
-            for i in $(seq 1 90); do
+            i=0
+
+            while [ "$i" -lt 90 ]; do
               VALUE="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+
               if [ "$VALUE" = "1" ]; then
                 BOOTED=1
                 break
               fi
+
+              i=$((i + 1))
               sleep 5
             done
 
             if [ "$BOOTED" -ne 1 ]; then
-              adb devices -l || true
-              adb logcat -d > /tmp/psi-logs/boot-failure-logcat.txt || true
-              echo "Emulator failed to finish booting"
+              echo "ERROR: Emulator did not finish booting"
+              adb devices -l > /tmp/psi-logs/adb-devices.txt 2>&1 || true
+              adb logcat -d > /tmp/psi-logs/boot-failure-logcat.txt 2>&1 || true
               exit 1
             fi
 
@@ -168,16 +184,29 @@ jobs:
 
             sleep 10
 
-            adb shell pidof com.prostock.intelligence
+            PID="$(adb shell pidof com.prostock.intelligence || true)"
+            if [ -z "$PID" ]; then
+              echo "ERROR: App process did not start"
+              adb logcat -d > /tmp/psi-logs/app-launch-failure.txt 2>&1 || true
+              exit 1
+            fi
 
-            adb shell dumpsys activity activities \
+            ACTIVITY="$(adb shell dumpsys activity activities \
               | grep -E 'mResumedActivity|ResumedActivity' \
-              | grep 'com.prostock.intelligence'
+              | grep 'com.prostock.intelligence' || true)"
+
+            if [ -z "$ACTIVITY" ]; then
+              echo "ERROR: App is not the resumed foreground activity"
+              adb logcat -d > /tmp/psi-logs/app-foreground-failure.txt 2>&1 || true
+              exit 1
+            fi
+
+            echo "$ACTIVITY"
 
             adb exec-out screencap -p \
               > app/build/outputs/psi-emulator.png
 
-            # Required by the repository UI smoke test.
+            # Required by tests/test_ui_smoke.py.
             test -s app/build/outputs/psi-emulator.png
 
             python3 - <<'PYCODE'
@@ -196,17 +225,18 @@ jobs:
             PYCODE
 
             adb logcat -d -s AndroidRuntime:E PSI_WEB:E \
-              > /tmp/psi-logs/runtime-errors.txt || true
+              > /tmp/psi-logs/runtime-errors.txt 2>&1 || true
 
             cat /tmp/psi-logs/runtime-errors.txt
 
             if grep -Eq \
               'FATAL EXCEPTION|Uncaught (ReferenceError|TypeError|SyntaxError)' \
               /tmp/psi-logs/runtime-errors.txt; then
+              echo "ERROR: Runtime exception detected"
               exit 1
             fi
 
-            echo "Emulator app launch and screenshot checks passed"
+            echo "Emulator smoke test passed"
 
       - name: Collect emulator diagnostics
         if: always()
@@ -217,15 +247,11 @@ jobs:
           adb devices -l \
             > app/build/outputs/diagnostics/adb-devices.txt 2>&1 || true
 
-          if [ -f /tmp/psi-logs/runtime-errors.txt ]; then
-            cp /tmp/psi-logs/runtime-errors.txt \
-              app/build/outputs/diagnostics/runtime-errors.txt
-          fi
-
-          if [ -f /tmp/psi-logs/boot-failure-logcat.txt ]; then
-            cp /tmp/psi-logs/boot-failure-logcat.txt \
-              app/build/outputs/diagnostics/boot-failure-logcat.txt
-          fi
+          for file in /tmp/psi-logs/*.txt; do
+            if [ -f "$file" ]; then
+              cp "$file" app/build/outputs/diagnostics/
+            fi
+          done
 
       - name: Upload Android lint report
         if: always() && hashFiles('app/build/reports/lint-results-debug.html') != ''
