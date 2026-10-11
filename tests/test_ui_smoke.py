@@ -280,7 +280,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         launcher = root / "app/src/main/res/drawable/ic_launcher.xml"
         self.assertTrue(logo.exists())
         self.assertIn('src="brand-logo.svg"', html)
-        self.assertIn('class="brandFooter"', html)
+        self.assertIn('class="brand"', html)
         self.assertIn('android:icon="@drawable/ic_launcher"', manifest)
         self.assertTrue(launcher.exists())
         self.assertIn("40.65", (root / "app/build.gradle").read_text(encoding="utf-8"))
