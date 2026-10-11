@@ -307,7 +307,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn('class="brand"', html)
         self.assertIn('android:icon="@drawable/ic_launcher"', manifest)
         self.assertTrue(launcher.exists())
-        self.assertIn("40.65", (root / "app/build.gradle").read_text(encoding="utf-8"))
+        self.assertIn("40.66", (root / "app/build.gradle").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
