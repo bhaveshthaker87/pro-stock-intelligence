@@ -159,7 +159,8 @@ class DashboardUISmokeTests(unittest.TestCase):
             mock_js = '''
               Object.defineProperty(window,"localStorage",{value:{_s:{},getItem(k){return this._s[k]??null},setItem(k,v){this._s[k]=String(v)},removeItem(k){delete this._s[k]}}});
               const MOCK_API = ''' + json.dumps(self.mock_api, separators=(",", ":")) + ''';
-              window.fetch=(u,opts)=>{const path=String(u).split("?")[0];const key=Object.keys(MOCK_API).find(k=>path.endsWith(k));const value=key?MOCK_API[key]:{ok:false,error:"unmocked "+path};return Promise.resolve(new Response(JSON.stringify(value),{status:200,headers:{"Content-Type":"application/json"}}));};
+              window.__indicesApiCalls=0;
+              window.fetch=(u,opts)=>{const path=String(u).split("?")[0];if(path.endsWith("/api/indices"))window.__indicesApiCalls++;const key=Object.keys(MOCK_API).find(k=>path.endsWith(k));const value=key?MOCK_API[key]:{ok:false,error:"unmocked "+path};return Promise.resolve(new Response(JSON.stringify(value),{status:200,headers:{"Content-Type":"application/json"}}));};
             '''
             html = HTML.read_text(encoding="utf-8")
             pos = html.find("<script")
