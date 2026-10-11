@@ -272,9 +272,6 @@ class DashboardUISmokeTests(unittest.TestCase):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("Screener.in does not expose a documented chart-data API", source)
 
-if __name__ == "__main__":
-    unittest.main()
-
     def test_brand_logo_asset_header_and_android_launcher_icon_exist(self):
         root = Path(__file__).parents[1]
         html = (root / "app/src/main/assets/index.html").read_text(encoding="utf-8")
@@ -287,3 +284,7 @@ if __name__ == "__main__":
         self.assertIn('android:icon="@drawable/ic_launcher"', manifest)
         self.assertTrue(launcher.exists())
         self.assertIn("40.65", (root / "app/build.gradle").read_text(encoding="utf-8"))
+
+
+if __name__ == "__main__":
+    unittest.main()
