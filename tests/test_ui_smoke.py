@@ -223,7 +223,7 @@ class DashboardUISmokeTests(unittest.TestCase):
                     "NIFTY IT", "NIFTY AUTO", "NIFTY FMCG", "NIFTY PHARMA", "NIFTY METAL",
                     "NIFTY PSU BANK", "NIFTY PRIVATE BANK", "NIFTY ENERGY", "NIFTY INFRA",
                     "NIFTY FIN SERVICE", "GOLD FUTURES (GLOBAL)", "SILVER FUTURES (GLOBAL)", "BRENT CRUDE (GLOBAL)"]
-        market_fn = source[source.index("private fun marketIndices()"):source.index("\\n    fun handle(path: String)")].replace("\\n", "\n")
+        market_fn = source[source.index("private fun marketIndices()"):source.index("\n    fun handle(path: String)")]
         for label in required:
             self.assertIn(label, market_fn)
             self.assertIn(label, html)
