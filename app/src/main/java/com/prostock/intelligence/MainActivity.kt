@@ -805,7 +805,7 @@ private class NativeProvider {
         val s = canonical(raw)
         return try {
             when (p) {
-                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.65 BRANDING + CHART").put("data", JSONObject().put("ok", true)).toString()
+                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.66 PRO HARDENING").put("data", JSONObject().put("ok", true)).toString()
                 "/api/screener/status" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
                 "/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
                 "/api/screener/disconnect" -> JSONObject().put("ok", true).put("data", JSONObject().put("connected", false).put("loggedIn", false).put("message", "Sign out from Screener inside the web page to end the session.")).toString()
