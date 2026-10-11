@@ -70,7 +70,7 @@ class DashboardUISmokeTests(unittest.TestCase):
             "/api/history": {"ok": True, "data": {"symbol": "INFY", "rows": cls.rows, "provider": "Mock", "chartMode": "OHLCV"}},
             "/api/peers": {"ok": True, "data": {"symbol": "INFY", "industry": "IT Services", "peers": [], "candidateCount": 0, "validatedCount": 0, "method": "mock", "partial": False}},
             "/api/news": {"ok": True, "data": {"symbol": "INFY", "news": [{"title": "Test headline", "publisher": "Mock", "link": "https://example.com", "time": int(time.time())}], "provider": "Mock"}},
-            "/api/indices": {"ok": True, "data": {"NIFTY 50": {"value": 25000, "changePct": .2}, "SENSEX": {"value": 82000, "changePct": .3}, "NIFTY BANK": {"value": 55000, "changePct": -.1}}},
+            "/api/indices": {"ok": True, "data": {"NIFTY 50": {"value": 25000, "changePct": .2}, "SENSEX": {"value": 82000, "changePct": .3}, "NIFTY BANK": {"value": 55000, "changePct": -.1}, "NIFTY MIDCAP 100": {"value": 59000, "changePct": .4}, "NIFTY SMALLCAP 100": {"value": 18000, "changePct": -.2}, "GOLD FUTURES (GLOBAL)": {"value": 4000, "changePct": .1}, "SILVER FUTURES (GLOBAL)": {"value": 45, "changePct": .2}}},
             "/api/queries": {"ok": True, "data": cls.queries},
             "/api/screener/status": {"ok": True, "data": {"connected": False, "loggedIn": False, "validated": False, "loginUrl": "https://www.screener.in/login/", "message": "fixture"}},
             "/api/screener/connect": {"ok": True, "data": {"connected": False, "loggedIn": False, "validated": False, "loginUrl": "https://www.screener.in/login/", "message": "fixture"}},
