@@ -1,3 +1,4 @@
+
 name: Build PRO STOCK INTELLIGENCE APK
 
 permissions:
@@ -20,38 +21,36 @@ jobs:
     timeout-minutes: 35
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Java
+      - name: Set up Java 17
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
         with:
-          accept-android-sdk-licenses: true
+          packages: 'platform-tools emulator platforms;android-35 build-tools;35.0.0'
 
-      - name: Install Android SDK packages
+      - name: Verify Android SDK
         shell: bash
         run: |
           set -euo pipefail
-          sdkmanager --install \
-            platform-tools \
-            'platforms;android-35' \
-            'build-tools;35.0.0'
-          test -d "$ANDROID_HOME/platforms/android-35"
-          test -d "$ANDROID_HOME/build-tools/35.0.0"
+          echo "ANDROID_HOME=${ANDROID_HOME:-not-set}"
+          sdkmanager --list_installed
           adb version
+          test -d "${ANDROID_HOME}/platforms/android-35"
+          test -d "${ANDROID_HOME}/build-tools/35.0.0"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Validate required project files
+      - name: Validate required files
         shell: bash
         run: |
           set -euo pipefail
@@ -59,9 +58,8 @@ jobs:
           test -s app/src/main/assets/index.html
           python3 - <<'PY'
           import xml.etree.ElementTree as ET
-
           ET.parse("app/src/main/AndroidManifest.xml")
-          print("Android manifest XML is valid.")
+          print("Manifest XML is valid.")
           PY
 
       - name: Check inline JavaScript syntax
@@ -73,11 +71,13 @@ jobs:
           import re
           import sys
 
-          html_path = pathlib.Path("app/src/main/assets/index.html")
-          html = html_path.read_text(encoding="utf-8")
+          source = pathlib.Path(
+              "app/src/main/assets/index.html"
+          ).read_text(encoding="utf-8")
+
           scripts = re.findall(
               r"<script\b[^>]*>(.*?)</script>",
-              html,
+              source,
               flags=re.I | re.S
           )
 
@@ -85,20 +85,20 @@ jobs:
               print("No inline JavaScript blocks found.")
               sys.exit(1)
 
-          output_dir = pathlib.Path("/tmp/psi-js")
-          output_dir.mkdir(parents=True, exist_ok=True)
+          output = pathlib.Path("/tmp/psi-js")
+          output.mkdir(parents=True, exist_ok=True)
 
-          for index, script in enumerate(scripts):
-              (output_dir / f"script-{index}.js").write_text(
+          for i, script in enumerate(scripts):
+              (output / f"script-{i}.js").write_text(
                   script, encoding="utf-8"
               )
 
           print(f"Extracted {len(scripts)} JavaScript blocks.")
           PY
 
-          for file in /tmp/psi-js/*.js; do
+          while IFS= read -r -d '' file; do
             node --check "$file"
-          done
+          done < <(find /tmp/psi-js -type f -name '*.js' -print0)
 
       - name: Install browser-test dependencies
         shell: bash
@@ -107,7 +107,7 @@ jobs:
           python3 -m pip install --upgrade pip playwright
           python3 -m playwright install --with-deps chromium
 
-      - name: Run project tests
+      - name: Run project unit tests
         shell: bash
         run: |
           set -euo pipefail
@@ -117,25 +117,25 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gradle :app:assembleDebug --stacktrace
+          gradle --no-daemon :app:assembleDebug --stacktrace
 
       - name: Run Android lint
         shell: bash
         run: |
           set -euo pipefail
-          gradle :app:lintDebug --stacktrace
+          gradle --no-daemon :app:lintDebug --stacktrace
 
-      - name: Verify APK and generate checksum
+      - name: Verify APK and generate SHA-256
         shell: bash
         run: |
           set -euo pipefail
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
-          ls -lh "$APK"
-          sha256sum "$APK" | tee "$APK.sha256"
+          sha256sum "$APK" | tee "${APK}.sha256"
+          ls -lh "$APK" "${APK}.sha256"
 
       - name: Upload Android lint report
-        if: always() && hashFiles('app/build/reports/lint-results-debug.html') != ''
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: PRO-STOCK-INTELLIGENCE-V40-65-lint-report
@@ -143,7 +143,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Upload APK and checksum
-        if: success() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: PRO-STOCK-INTELLIGENCE-V40-65-debug
@@ -151,3 +151,11 @@ jobs:
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/app-debug.apk.sha256
           if-no-files-found: error
+
+      - name: Upload emulator screenshot if available
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PRO-STOCK-INTELLIGENCE-V40-65-emulator-screenshot
+          path: app/build/outputs/psi-emulator.png
+          if-no-files-found: warn
