@@ -57,6 +57,24 @@ body{background:linear-gradient(180deg,#eef5fa,#f8fbfd);color:var(--text)}
 .brandFooter small{display:block;margin-top:4px;color:#bcd1e5;font-size:10px;letter-spacing:1.4px}
 @media(max-width:760px){.brand{min-width:0!important;flex:1 1 auto}.brandLogo{width:40px;height:40px;flex-basis:40px}.brandText>div{font-size:16px!important}.brandText small{font-size:8px!important}.brandFooter{padding:12px}.brandFooter img{width:48px;height:48px}}
 
+
+/* V40.67: responsive chart workspace + true fullscreen */
+html,body{width:100%;max-width:100%;overflow-x:hidden}
+.app{width:100%;max-width:none!important}
+.lower{grid-template-columns:minmax(0,1fr)!important}
+.chartcard{min-width:0;width:100%;overflow:hidden}
+.chartcard .canvas{width:100%!important;height:clamp(360px,58vh,760px)!important;min-height:320px}
+.chartcard svg,.chartcard canvas{max-width:100%}
+.chartcard:fullscreen{width:100vw;height:100vh;max-width:none;margin:0;padding:18px 22px;overflow:auto;background:#f7fbff;border:0;border-radius:0;display:flex;flex-direction:column}
+.chartcard:fullscreen .canvas{height:calc(100vh - 230px)!important;min-height:420px;flex:1}
+.chartcard:fullscreen .charttitle{font-size:22px}
+.chartcard:fullscreen .legend{font-size:13px}
+.chartcard:fullscreen .range button{font-size:12px;padding:7px 12px}
+.chartcard:fullscreen .tvctl{font-size:12px;padding:7px 10px}
+.chart-fullscreen-btn{margin-left:auto;border:1px solid #b9d1e3;background:#eef6ff;color:#075db8;border-radius:7px;padding:7px 11px;font-weight:900;cursor:pointer;white-space:nowrap}
+.chart-fullscreen-btn:hover{background:#d9edff}
+@media(min-width:1500px){.chartcard .canvas{height:clamp(480px,62vh,900px)!important}}
+@media(max-width:760px){.chartcard .canvas{height:420px!important}.chartcard:fullscreen{padding:10px}.chartcard:fullscreen .canvas{height:calc(100vh - 210px)!important;min-height:280px}}
 </style>
 <style id="v40-7-query-polish">
 .querySection{border-radius:14px;padding:14px;background:linear-gradient(180deg,#fff,#f8fbff)}
