@@ -194,9 +194,11 @@ class DashboardUISmokeTests(unittest.TestCase):
 
     def test_workflow_artifact_names_match_release_version(self):
         workflow = (Path(__file__).parents[1] / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
-        self.assertIn("Emulator smoke test (launch app and check runtime)", workflow)
+        self.assertIn("Publish the APK immediately after a successful build", workflow)
+        self.assertNotIn("Emulator smoke test (launch app and check runtime)", workflow)
         self.assertNotIn("screencap -p", workflow)
         self.assertIn("PRO-STOCK-INTELLIGENCE-V40-65-debug", workflow)
+        self.assertLess(workflow.index("Upload APK and checksum"), workflow.index("Run Android lint"))
         self.assertNotIn("V40-57", workflow)
         self.assertIn("pull_request:", workflow)
         self.assertIn("sha256sum app/build/outputs/apk/debug/app-debug.apk", workflow)
@@ -251,9 +253,11 @@ class DashboardUISmokeTests(unittest.TestCase):
     def test_workflow_checks_foreground_activity_and_least_privilege(self):
         workflow = (Path(__file__).parents[1] / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
         self.assertIn("contents: read", workflow)
-        self.assertIn("dumpsys activity activities", workflow)
-        self.assertIn("adb shell pidof com.prostock.intelligence", workflow)
+        # APK delivery must not depend on a flaky emulator; runtime validation is a separate concern.
+        self.assertNotIn("dumpsys activity activities", workflow)
+        self.assertNotIn("adb shell pidof com.prostock.intelligence", workflow)
         self.assertNotIn("screencap -p", workflow)
+        self.assertIn("Upload APK and checksum", workflow)
 
     def test_source_claims_disclose_unintegrated_moneycontrol_and_history(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
