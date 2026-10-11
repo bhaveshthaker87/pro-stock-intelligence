@@ -57,9 +57,9 @@ jobs:
           set -euo pipefail
           test -s app/src/main/AndroidManifest.xml
           test -s app/src/main/assets/index.html
-          test -d app/src/main
           python3 - <<'PY'
           import xml.etree.ElementTree as ET
+
           ET.parse("app/src/main/AndroidManifest.xml")
           print("Android manifest XML is valid.")
           PY
@@ -85,11 +85,11 @@ jobs:
               print("No inline JavaScript blocks found.")
               sys.exit(1)
 
-          out = pathlib.Path("/tmp/psi-js")
-          out.mkdir(parents=True, exist_ok=True)
+          output_dir = pathlib.Path("/tmp/psi-js")
+          output_dir.mkdir(parents=True, exist_ok=True)
 
           for index, script in enumerate(scripts):
-              (out / f"script-{index}.js").write_text(
+              (output_dir / f"script-{index}.js").write_text(
                   script, encoding="utf-8"
               )
 
@@ -151,4 +151,3 @@ jobs:
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/app-debug.apk.sha256
           if-no-files-found: error
-```
