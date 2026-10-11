@@ -107,27 +107,6 @@ jobs:
           set -euo pipefail
           gradle --no-daemon :app:lintDebug --stacktrace
 
-      - name: Preflight Android Debug Bridge
-        shell: bash
-        run: |
-          set -euo pipefail
-          # Start the host ADB daemon before the emulator action launches its AVD.
-          adb start-server
-          adb version
-          adb devices
-          # Fail early with a clear diagnostic if the daemon is not reachable.
-          adb get-state >/dev/null 2>&1 || {
-            echo "ADB daemon did not become ready; restarting it once."
-            adb kill-server || true
-            adb start-server
-            for attempt in 1 2 3 4 5; do
-              if adb get-state >/dev/null 2>&1; then exit 0; fi
-              sleep 2
-            done
-            echo "ADB daemon is still unavailable after retry."
-            exit 1
-          }
-
       - name: Emulator smoke test (launch app and capture screenshot)
         uses: reactivecircus/android-emulator-runner@v2
         with:
