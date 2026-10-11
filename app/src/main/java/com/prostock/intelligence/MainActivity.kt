@@ -217,6 +217,34 @@ private class NativeProvider {
         } finally { c.disconnect() }
     }
 
+    /**
+     * Attach explicit quote timestamp quality without pretending receipt time is quote time.
+     * This is a diagnostic label only; it cannot establish exchange licensing or real-time rights.
+     */
+    private fun annotateQuoteQuality(quote: JSONObject): JSONObject {
+        val timestamp = when {
+            quote.has("quoteTimestamp") && !quote.isNull("quoteTimestamp") -> quote.optLong("quoteTimestamp", 0L)
+            quote.has("priceTimestamp") && !quote.isNull("priceTimestamp") -> quote.optLong("priceTimestamp", 0L)
+            else -> 0L
+        }
+        val now = System.currentTimeMillis() / 1000L
+        val age = if (timestamp > 0L) now - timestamp else -1L
+        val status = when {
+            timestamp <= 0L -> "UNVERIFIED_NO_PROVIDER_QUOTE_TIMESTAMP"
+            age < -300L -> "INVALID_FUTURE_TIMESTAMP"
+            age <= 300L -> "TIMESTAMP_WITHIN_5_MINUTES_NOT_A_REALTIME_GUARANTEE"
+            else -> "TIMESTAMP_OLDER_THAN_5_MINUTES_OR_MARKET_CLOSED"
+        }
+        quote.put("quoteTimestampStatus", status)
+        quote.put("quoteTimestampSource", if (timestamp > 0L) "provider_quote_timestamp" else "missing_not_inferred_from_response_time")
+        if (timestamp > 0L) quote.put("quoteAgeSeconds", age)
+        val price = quote.optDouble("price", Double.NaN)
+        quote.put("priceValueValid", finite(price) && price > 0.0)
+        if (!finite(price) || price <= 0.0) quote.put("quoteQuality", "NO_VALID_PRICE")
+        else quote.put("quoteQuality", if (timestamp <= 0L || age > 300L || age < -300L) "PRICE_REQUIRES_SOURCE/TIMESTAMP_VERIFICATION" else "TIMESTAMP_RECENT_PROVIDER_NOT_EXCHANGE_CERTIFIED")
+        return quote
+    }
+
     private fun finite(n: Double): Boolean = !n.isNaN() && !n.isInfinite()
     private fun putFinite(o: JSONObject, key: String, n: Double) { if (finite(n)) o.put(key, n) }
 
@@ -534,7 +562,11 @@ private class NativeProvider {
         val quoteFuture = executor.submit<JSONObject> {
             var nse: JSONObject? = null
             var nseError: String? = null
-            try { nse = nseQuote(raw) } catch (e: Exception) { nseError = e.message ?: "NSE public quote unavailable" }
+            val bseListingSelected = raw.trim().uppercase(Locale.ROOT).endsWith(".BO")
+            try {
+                if (bseListingSelected) nseError = "BSE listing selected; use the .BO third-party quote path; NSE quote endpoint is not exchange-specific"
+                else nse = nseQuote(raw)
+            } catch (e: Exception) { nseError = e.message ?: "NSE public quote unavailable" }
             try {
                 val hist = yahoo(raw, "1y")
                 val out = nse ?: JSONObject()
@@ -578,11 +610,12 @@ private class NativeProvider {
             }
         }
         val quote = result(quoteFuture, JSONObject().put("symbol", s).put("rows", JSONArray()).put("provider", "Unavailable").put("providerError", "NSE/third-party quote lookup timed out"))
+        annotateQuoteQuality(quote)
         val f = result(fundamentalFuture, JSONObject().put("symbol", s).put("name", stockName(s)).put("providerError", "Screener.in request timed out"))
         executor.shutdownNow()
 
         val market = JSONObject()
-        val keys = arrayOf("symbol", "resolvedSymbol", "price", "previousClose", "dayChangePct", "currency", "high52", "low52", "rows", "provider")
+        val keys = arrayOf("symbol", "resolvedSymbol", "price", "previousClose", "dayChangePct", "currency", "high52", "low52", "rows", "provider", "quoteTimestamp", "priceTimestamp", "quoteTimestampStatus", "quoteTimestampSource", "quoteAgeSeconds", "quoteQuality", "priceValueValid", "quoteStatus", "marketDataStatus", "marketDataDisclaimer")
         keys.forEach { k -> if (quote.has(k)) market.put(k, quote.get(k)) }
         if (includeFundamentals) {
             val iter = f.keys()
@@ -595,7 +628,9 @@ private class NativeProvider {
         val rows = quote.optJSONArray("rows") ?: JSONArray()
         val history = JSONObject().put("rows", rows).put("provider", quote.optString("provider", "Yahoo Finance"))
         val hasFundamentals = arrayOf("marketCap", "pe", "roce", "roe", "debtEquity", "eps", "bookValue").any { f.has(it) && !f.isNull(it) }
-        val data = JSONObject().put("symbol", s).put("name", f.optString("name", stockName(s)))
+        val selectedExchange = when { raw.trim().uppercase(Locale.ROOT).endsWith(".BO") -> "BSE"; raw.trim().uppercase(Locale.ROOT).endsWith(".NS") -> "NSE"; else -> "NSE primary; BSE availability varies" }
+        market.put("exchange", selectedExchange)
+        val data = JSONObject().put("symbol", s).put("exchange", selectedExchange).put("name", f.optString("name", stockName(s)))
             .put("quote", quote).put("market", market).put("fundamentals", f).put("history", history)
             .put("ohlcv", rows).put("technicalSeries", rows)
             .put("dataConfidence", when { quote.has("price") && hasFundamentals -> "PARTIAL — VERIFY SOURCE/TIMESTAMP"; quote.has("price") -> "QUOTE AVAILABLE — NOT GUARANTEED REAL-TIME"; hasFundamentals -> "FUNDAMENTALS ONLY"; else -> "UNAVAILABLE" })
@@ -604,7 +639,7 @@ private class NativeProvider {
                 .put("Moneycontrol", "NOT INTEGRATED — NO VERIFIED ACCESS/FEED CONFIGURED")
                 .put("NSE", if (quote.optString("provider").startsWith("NSE")) "PUBLIC WEBSITE ENDPOINT (NOT LICENSED FEED)" else quote.optString("nseProviderWarning", "UNAVAILABLE"))
                 .put("Screener.in", if (f.has("providerError")) "UNAVAILABLE" else if (screenerLoggedIn()) "APP SESSION DETECTED; PROTECTED REQUEST STILL REQUIRED TO VALIDATE" else "PUBLIC COMPANY PAGE"))
-            .put("fundamentalCoverage", coreCoverage(f))
+            .put("quoteQuality", quote.optString("quoteQuality", "UNVERIFIED")).put("quoteTimestampStatus", quote.optString("quoteTimestampStatus", "UNVERIFIED_NO_PROVIDER_QUOTE_TIMESTAMP")).put("fundamentalCoverage", coreCoverage(f))
         val warnings = JSONArray()
         if (quote.has("providerError")) warnings.put(quote.optString("providerError"))
         if (f.has("providerError")) warnings.put(f.optString("providerError"))
@@ -756,6 +791,35 @@ private class NativeProvider {
         return out
     }
 
+    /**
+     * Broad Indian equity autocomplete using Yahoo Finance's public search response.
+     * This is discovery only, not an exchange-authoritative security master or a licensed feed.
+     * Preserve .NS/.BO suffixes so quote lookup uses the selected listing when available.
+     */
+    private fun equitySearch(term: String, limit: Int = 12): List<JSONObject> {
+        val q = term.trim()
+        if (q.length < 1) return emptyList()
+        val url = "https://query1.finance.yahoo.com/v1/finance/search?q=${URLEncoder.encode(q, "UTF-8")}&quotesCount=${limit.coerceIn(1, 20)}&newsCount=0"
+        val root = JSONObject(get(url))
+        val quotes = root.optJSONArray("quotes") ?: JSONArray()
+        val out = mutableListOf<JSONObject>()
+        val seen = mutableSetOf<String>()
+        for (i in 0 until quotes.length()) {
+            val item = quotes.optJSONObject(i) ?: continue
+            val ticker = item.optString("symbol", "").uppercase(Locale.ROOT)
+            val type = item.optString("quoteType", "")
+            if (type.isNotBlank() && type != "EQUITY") continue
+            if (!ticker.endsWith(".NS") && !ticker.endsWith(".BO")) continue
+            if (!seen.add(ticker)) continue
+            val base = ticker.removeSuffix(".NS").removeSuffix(".BO")
+            val exchange = if (ticker.endsWith(".BO")) "BSE" else "NSE"
+            out.add(JSONObject().put("symbol", ticker).put("name", item.optString("shortname", item.optString("longname", base)))
+                .put("exchange", exchange).put("sector", "Equity").put("provider", "Yahoo Finance search"))
+            if (out.size >= limit.coerceIn(1, 20)) break
+        }
+        return out
+    }
+
     fun handle(path: String): String {
         val p = path.substringBefore("?")
         val q = parseQuery(path)
@@ -763,29 +827,39 @@ private class NativeProvider {
         val s = canonical(raw)
         return try {
             when (p) {
-                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.65 BRANDING + CHART").put("data", JSONObject().put("ok", true)).toString()
+                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.67 DATA QUALITY + RELEASE HARDENING").put("data", JSONObject().put("ok", true)).toString()
                 "/api/screener/status" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
                 "/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
                 "/api/screener/disconnect" -> JSONObject().put("ok", true).put("data", JSONObject().put("connected", false).put("loggedIn", false).put("message", "Sign out from Screener inside the web page to end the session.")).toString()
                 "/api/search-suggestions" -> {
-                    val term = (q["q"] ?: "").uppercase(Locale.ROOT).replace(Regex("[^A-Z0-9]"), "")
-                    val matches = stocks.filter { term.isBlank() || it.symbol.contains(term) || it.name.uppercase(Locale.ROOT).replace(Regex("[^A-Z0-9]"), "").contains(term) || (term.contains("INFOSYS") && it.symbol == "INFY") }
-                        .take(12).map { JSONObject().put("symbol", it.symbol).put("name", it.name).put("exchange", "NSE").put("sector", it.sector) }
-                    val arr = JSONArray(); matches.forEach { arr.put(it) }
-                    JSONObject().put("ok", true).put("data", arr).toString()
+                    val originalTerm = (q["q"] ?: "").trim()
+                    val term = originalTerm.uppercase(Locale.ROOT).replace(Regex("[^A-Z0-9]"), "")
+                    val local = stocks.filter { term.isBlank() || it.symbol.contains(term) || it.name.uppercase(Locale.ROOT).replace(Regex("[^A-Z0-9]"), "").contains(term) || (term.contains("INFOSYS") && it.symbol == "INFY") }
+                        .take(12).map { JSONObject().put("symbol", it.symbol).put("name", it.name).put("exchange", "NSE/BSE").put("sector", it.sector).put("provider", "Built-in fallback list") }
+                    val external = if (originalTerm.length >= 2) try { equitySearch(originalTerm, 12) } catch (_: Exception) { emptyList() } else emptyList()
+                    val combined = (external + local).distinctBy { it.optString("symbol").uppercase(Locale.ROOT) }.take(12)
+                    val arr = JSONArray(); combined.forEach { arr.put(it) }
+                    JSONObject().put("ok", true).put("data", arr).put("count", combined.size)
+                        .put("searchProvider", if (external.isNotEmpty()) "Yahoo Finance search + local fallback" else "Local fallback; broad search unavailable")
+                        .put("coverageDisclaimer", "Autocomplete is broad best-effort discovery, not a complete official NSE/BSE security master. Quotes can be delayed or unavailable.").toString()
                 }
                 "/api/quote", "/api/fast" -> {
                     val history = try { yahoo(raw, "5d") } catch (_: Exception) { JSONObject().put("rows", JSONArray()).put("provider", "Unavailable") }
-                    val quote = try { nseQuote(raw) } catch (nseError: Exception) {
-                        val fallback = JSONObject().put("symbol", s).put("providerError", "NSE public quote unavailable: ${nseError.message ?: "blocked"}")
+                    val quote = try {
+                        if (raw.trim().uppercase(Locale.ROOT).endsWith(".BO")) throw IOException("BSE listing selected; using .BO third-party quote lookup")
+                        nseQuote(raw)
+                    } catch (nseError: Exception) {
+                        val fallback = JSONObject().put("symbol", s).put("providerError", "Exchange quote fallback: ${nseError.message ?: "NSE public quote unavailable"}")
                         if (history.has("price")) {
-                            fallback.put("price", history.get("price")).put("provider", "Yahoo Finance fallback (not NSE/Moneycontrol)")
-                            listOf("previousClose", "dayChangePct", "high52", "low52", "priceTimestamp").forEach { k -> if (history.has(k)) fallback.put(k, history.get(k)) }
-                            fallback.put("marketDataDisclaimer", "NSE quote unavailable; third-party fallback may be delayed and is not an NSE/Moneycontrol live quote.")
+                            fallback.put("price", history.get("price")).put("provider", "Yahoo Finance fallback (not exchange-certified real-time)")
+                            listOf("previousClose", "dayChangePct", "high52", "low52", "priceTimestamp", "quoteTimestamp").forEach { k -> if (history.has(k)) fallback.put(k, history.get(k)) }
+                            fallback.put("marketDataDisclaimer", "Third-party quote may be delayed, incomplete or unavailable; it is not a licensed NSE/BSE real-time feed.")
                         }
                         fallback
                     }
                     quote.put("rows", history.optJSONArray("rows") ?: JSONArray())
+                    annotateQuoteQuality(quote)
+                    quote.put("exchange", if (raw.trim().uppercase(Locale.ROOT).endsWith(".BO")) "BSE" else if (raw.trim().uppercase(Locale.ROOT).endsWith(".NS")) "NSE" else "NSE primary; BSE availability varies")
                     quote.put("historyProvider", history.optString("provider", "Unavailable"))
                     quote.put("historyStatus", "THIRD_PARTY_HISTORICAL_BARS_NOT_NSE_VERIFIED")
                     val data = JSONObject().put("symbol", s).put("name", stockName(s)).put("quote", quote)

@@ -25,7 +25,7 @@
 | CI workflow YAML parse | **PASS** |
 | ZIP integrity | **PASS — checked during packaging** |
 | Android Gradle build / lint / APK install / emulator launch | **NOT RUN locally** — no Gradle executable, Android SDK or ADB installed; outbound network/DNS unavailable for installing them |
-| Remote GitHub Actions execution | **NOT VERIFIED FOR V40.63** — a separate older GitHub `main` commit (README V40.53 / Gradle V40.52) built successfully in Actions run #27, but that workflow only built/uploaded an APK and did not run V40.63 tests, lint, or emulator checks. See `PRODUCTION_RELEASE_EVIDENCE_2026-10-11.md`. |
+| Remote GitHub Actions execution | **NOT RUN** — no connected repository execution available |
 
 ## Remaining production blockers (not solvable by source-only edits)
 
