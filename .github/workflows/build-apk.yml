@@ -116,7 +116,9 @@ jobs:
           profile: pixel_2
           disable-animations: true
           script: |
-            set -euo pipefail
+            # The emulator action executes this block with /usr/bin/sh, not Bash.
+            # POSIX sh supports -e and -u, but not Bash's -o pipefail option.
+            set -eu
             adb wait-for-device
             adb shell 'while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 2; done'
             adb logcat -c
