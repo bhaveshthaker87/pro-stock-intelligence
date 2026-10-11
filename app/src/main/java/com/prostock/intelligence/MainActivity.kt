@@ -1,9 +1,11 @@
 package com.prostock.intelligence
 
 import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
 import android.webkit.*
 import android.net.Uri
+import android.util.Log
 import android.graphics.Color
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewClientCompat
@@ -25,7 +27,7 @@ class MainActivity : Activity() {
 
     private fun jsonResponse(json: String): WebResourceResponse =
         WebResourceResponse("application/json", "UTF-8", ByteArrayInputStream(json.toByteArray(Charsets.UTF_8))).apply {
-            responseHeaders = mapOf("Cache-Control" to "no-store", "Access-Control-Allow-Origin" to "*")
+            responseHeaders = mapOf("Cache-Control" to "no-store, max-age=0", "Pragma" to "no-cache", "X-Content-Type-Options" to "nosniff", "Access-Control-Allow-Origin" to "https://appassets.androidplatform.net")
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -34,18 +36,54 @@ class MainActivity : Activity() {
         web = WebView(this)
         web.setBackgroundColor(Color.rgb(237, 245, 251))
         web.settings.javaScriptEnabled = true
+        web.settings.javaScriptCanOpenWindowsAutomatically = false
+        web.settings.safeBrowsingEnabled = true
         web.settings.domStorageEnabled = true
         web.settings.databaseEnabled = true
         web.settings.allowFileAccess = false
         web.settings.allowContentAccess = false
         web.settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
         web.settings.setSupportMultipleWindows(false)
-        CookieManager.getInstance().setAcceptThirdPartyCookies(web, true)
+        CookieManager.getInstance().setAcceptThirdPartyCookies(web, false)
 
         val assetLoader = WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
             .build()
+        web.webChromeClient = object : WebChromeClient() {
+            override fun onConsoleMessage(message: ConsoleMessage): Boolean {
+                if (message.messageLevel() == ConsoleMessage.MessageLevel.ERROR) {
+                    Log.e("PSI_WEB", "${message.message()} (${message.sourceId()}:${message.lineNumber()})")
+                }
+                return true
+            }
+        }
         web.webViewClient = object : WebViewClientCompat() {
+            private fun isAllowedInApp(uri: Uri): Boolean {
+                if (!uri.scheme.equals("https", ignoreCase = true)) return false
+                val host = (uri.host ?: "").lowercase(Locale.ROOT)
+                return host == "appassets.androidplatform.net" || host == "screener.in" || host.endsWith(".screener.in")
+            }
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                val uri = request.url
+                if (isAllowedInApp(uri)) return false
+                // Never let untrusted pages, javascript:, file:, content:, or cleartext URLs
+                // take over the app WebView. Ordinary external HTTPS links open in the browser.
+                if (uri.scheme.equals("https", ignoreCase = true)) {
+                    return try { startActivity(Intent(Intent.ACTION_VIEW, uri)); true }
+                    catch (_: Exception) { true }
+                }
+                return true
+            }
+            @Suppress("DEPRECATION")
+            override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
+                val uri = Uri.parse(url)
+                if (isAllowedInApp(uri)) return false
+                if (uri.scheme.equals("https", ignoreCase = true)) {
+                    return try { startActivity(Intent(Intent.ACTION_VIEW, uri)); true }
+                    catch (_: Exception) { true }
+                }
+                return true
+            }
             private fun api(uri: Uri): WebResourceResponse? {
                 if (uri.scheme != "https" || uri.host != "appassets.androidplatform.net" || uri.path?.startsWith("/api/") != true) return null
                 return try {
@@ -74,6 +112,15 @@ class MainActivity : Activity() {
         }
         setContentView(web)
         web.loadUrl("https://appassets.androidplatform.net/assets/index.html")
+    }
+
+    override fun onDestroy() {
+        if (::web.isInitialized) {
+            web.stopLoading()
+            web.webViewClient = WebViewClient()
+            web.destroy()
+        }
+        super.onDestroy()
     }
 
     @Deprecated("Deprecated in Android API")
@@ -110,7 +157,7 @@ private class NativeProvider {
 
     fun jsonResponseFor(path: String): WebResourceResponse = WebResourceResponse(
         "application/json", "UTF-8", ByteArrayInputStream(handle(path).toByteArray(Charsets.UTF_8))
-    ).apply { responseHeaders = mapOf("Cache-Control" to "no-store", "Access-Control-Allow-Origin" to "*") }
+    ).apply { responseHeaders = mapOf("Cache-Control" to "no-store, max-age=0", "Pragma" to "no-cache", "X-Content-Type-Options" to "nosniff", "Access-Control-Allow-Origin" to "https://appassets.androidplatform.net") }
 
     private fun parseQuery(path: String): Map<String, String> = path.substringAfter("?", "").split("&").mapNotNull {
         val a = it.split("=", limit = 2)
@@ -172,6 +219,56 @@ private class NativeProvider {
 
     private fun finite(n: Double): Boolean = !n.isNaN() && !n.isInfinite()
     private fun putFinite(o: JSONObject, key: String, n: Double) { if (finite(n)) o.put(key, n) }
+
+    /**
+     * Best-effort quote adapter for the official NSE website endpoint. This is not a licensed
+     * real-time feed; NSE may rate-limit/block it or change its schema. A successful response
+     * is explicitly labelled with provider + timestamp and is never described as guaranteed live.
+     */
+    private fun nseQuote(raw: String): JSONObject {
+        val symbol = canonical(raw)
+        if (symbol.isBlank() || symbol.startsWith("^") || symbol.endsWith("=F")) throw IOException("NSE quote supports equity symbols only")
+        var cookie = ""
+        val home = (URL("https://www.nseindia.com/").openConnection() as HttpURLConnection)
+        try {
+            home.connectTimeout = 4000; home.readTimeout = 5000; home.instanceFollowRedirects = true
+            home.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36")
+            home.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+            home.setRequestProperty("Accept-Language", "en-IN,en;q=0.9")
+            home.responseCode
+            cookie = home.headerFields.entries.filter { it.key?.equals("Set-Cookie", true) == true }
+                .flatMap { it.value ?: emptyList() }.map { it.substringBefore(";") }.distinct().joinToString("; ")
+        } finally { home.disconnect() }
+        val c = URL("https://www.nseindia.com/api/quote-equity?symbol=${Uri.encode(symbol)}").openConnection() as HttpURLConnection
+        try {
+            c.connectTimeout = 5000; c.readTimeout = 6000; c.instanceFollowRedirects = true
+            c.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36")
+            c.setRequestProperty("Accept", "application/json,text/plain,*/*")
+            c.setRequestProperty("Referer", "https://www.nseindia.com/get-quotes/equity?symbol=${Uri.encode(symbol)}")
+            c.setRequestProperty("Accept-Language", "en-IN,en;q=0.9")
+            if (cookie.isNotBlank()) c.setRequestProperty("Cookie", cookie)
+            val code = c.responseCode
+            val body = (if (code in 200..299) c.inputStream else c.errorStream)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() } ?: ""
+            if (code !in 200..299) throw IOException("NSE quote endpoint returned HTTP $code")
+            val root = JSONObject(body)
+            val priceInfo = root.optJSONObject("priceInfo") ?: throw IOException("NSE response has no priceInfo")
+            val price = priceInfo.optDouble("lastPrice", Double.NaN)
+            if (!finite(price) || price <= 0) throw IOException("NSE response has no valid last price")
+            val prev = priceInfo.optDouble("previousClose", Double.NaN)
+            val week = priceInfo.optJSONObject("weekHighLow") ?: JSONObject()
+            val out = JSONObject().put("symbol", symbol).put("resolvedSymbol", symbol).put("currency", "INR")
+                .put("provider", "NSE India (public website endpoint)")
+                .put("quoteStatus", "NSE_WEBSITE_RESPONSE_NOT_LICENSED_REALTIME_FEED")
+                .put("marketDataStatus", "NSE_PUBLIC_ENDPOINT_MAY_RATE_LIMIT_OR_CHANGE")
+                .put("marketDataDisclaimer", "NSE public website response; not a licensed real-time feed. Confirm quote timestamp and exchange before trading.")
+                .put("responseReceivedAt", System.currentTimeMillis() / 1000L)
+                .put("price", price).put("rows", JSONArray())
+            putFinite(out, "previousClose", prev)
+            if (finite(prev) && prev > 0) putFinite(out, "dayChangePct", (price / prev - 1.0) * 100.0)
+            putFinite(out, "high52", week.optDouble("max", Double.NaN)); putFinite(out, "low52", week.optDouble("min", Double.NaN))
+            return out
+        } finally { c.disconnect() }
+    }
 
     private fun yahoo(raw: String, range: String = "1y"): JSONObject {
         val symbol = canonical(raw)
@@ -237,6 +334,9 @@ private class NativeProvider {
                         }
                     }
                     out.put("events", eventRows)
+                    out.put("marketDataStatus", "THIRD_PARTY_QUOTE_DELAY_POSSIBLE")
+                    out.put("marketDataDisclaimer", "Third-party data may be delayed or incomplete; verify with the exchange before trading.")
+                    out.put("priceTimestamp", if (meta.has("regularMarketTime")) meta.optLong("regularMarketTime") else (ts.optLong(ts.length() - 1)))
                     putFinite(out, "price", price); putFinite(out, "previousClose", prev)
                     if (finite(prev) && prev > 0 && finite(price)) putFinite(out, "dayChangePct", (price / prev - 1.0) * 100.0)
                     putFinite(out, "high52", meta.optDouble("fiftyTwoWeekHigh", Double.NaN))
@@ -304,13 +404,26 @@ private class NativeProvider {
     private fun screener(raw: String): JSONObject {
         val s = canonical(raw)
         val html = get("https://www.screener.in/company/${Uri.encode(s)}/")
+        // Parse the visible ratio list item as a unit. This avoids grabbing a number
+        // from an unrelated script, navigation link, or the next metric.
         fun number(label: String, percent: Boolean = false): Double? {
-            val idx = html.indexOf(label, ignoreCase = true)
+            val safeLabel = Regex.escape(label)
+            val items = Regex("(?is)<li\\b[^>]*>(.*?)</li>").findAll(html).map { it.groupValues[1] }
+            for (item in items) {
+                val name = Regex("(?is)<span\\b[^>]*class=[\\\"'][^\\\"']*\\bname\\b[^\\\"']*[\\\"'][^>]*>(.*?)</span>")
+                    .find(item)?.groupValues?.getOrNull(1)?.let { cleanText(it) } ?: continue
+                if (!name.equals(label, ignoreCase = true)) continue
+                val valueHtml = Regex("(?is)<span\\b[^>]*class=[\\\"'][^\\\"']*\\bnumber\\b[^\\\"']*[\\\"'][^>]*>(.*?)</span>")
+                    .find(item)?.groupValues?.getOrNull(1)
+                val parsed = valueHtml?.let { asNumber(cleanText(it)) }
+                if (parsed != null) return parsed
+            }
+            // Conservative fallback: search only script/style-stripped visible text and
+            // take a nearby numeric token. It may remain null rather than inventing a value.
+            val visibleText = cleanText(html)
+            val idx = visibleText.indexOf(label, ignoreCase = true)
             if (idx < 0) return null
-            val fragment = html.substring(idx, minOf(html.length, idx + 900))
-            val plain = cleanText(fragment)
-            val after = plain.substringAfter(label, "")
-            if (after.isBlank()) return null
+            val after = visibleText.substring(idx + label.length, minOf(visibleText.length, idx + label.length + 100))
             val match = Regex("(?:₹\\s*)?(-?[0-9][0-9,]*(?:\\.[0-9]+)?)\\s*${if (percent) "%" else ""}").find(after)
             return match?.groupValues?.get(1)?.replace(",", "")?.toDoubleOrNull()
         }
@@ -328,7 +441,11 @@ private class NativeProvider {
         val qRows = sectionTableRows(html, "quarters")
         val ownershipRows = sectionTableRows(html, "shareholding")
         val balanceRows = sectionTableRows(html, "balance-sheet")
-        fun rowFor(rows: List<List<String>>, label: String): List<String>? = rows.drop(1).firstOrNull { it.firstOrNull()?.trim()?.equals(label, true) == true }
+        fun rowFor(rows: List<List<String>>, label: String): List<String>? =
+            rows.drop(1).firstOrNull { row ->
+                val key = row.firstOrNull()?.trim().orEmpty()
+                key.equals(label, true) || key.startsWith("$label ", true) || key.startsWith("$label +", true)
+            }
         fun setLatestFromTable(rows: List<List<String>>, label: String, key: String) {
             val row = rowFor(rows, label) ?: return
             val value = row.drop(1).firstNotNullOfOrNull { asNumber(it) }
@@ -342,8 +459,10 @@ private class NativeProvider {
         fun setCagr(rows: List<List<String>>, label: String, key: String) {
             val row = rowFor(rows, label) ?: return
             val values = row.drop(1).mapNotNull { asNumber(it) }.take(4)
-            if (values.size == 4 && values.first() > 0 && values.last() > 0) {
-                val cagr = (Math.pow(values.first() / values.last(), 1.0 / 3.0) - 1.0) * 100.0
+            if (values.size >= 4 && values.first() > 0 && values[3] > 0) {
+                // Screener tables are newest-to-oldest; use the latest and the value
+                // three fiscal periods earlier, not the oldest available column.
+                val cagr = (Math.pow(values.first() / values[3], 1.0 / 3.0) - 1.0) * 100.0
                 if (cagr.isFinite()) f.put(key, cagr)
             }
         }
@@ -413,9 +532,35 @@ private class NativeProvider {
         // Screener fundamentals from returning, which was a root cause of blank cards.
         val executor = Executors.newFixedThreadPool(2)
         val quoteFuture = executor.submit<JSONObject> {
-            try { yahoo(raw, "1y") } catch (e: Exception) {
-                JSONObject().put("symbol", s).put("rows", JSONArray()).put("provider", "Yahoo Finance")
-                    .put("providerError", e.message ?: "Yahoo Finance unavailable")
+            var nse: JSONObject? = null
+            var nseError: String? = null
+            try { nse = nseQuote(raw) } catch (e: Exception) { nseError = e.message ?: "NSE public quote unavailable" }
+            try {
+                val hist = yahoo(raw, "1y")
+                val out = nse ?: JSONObject()
+                // Historical candles currently come from Yahoo; keep that provenance separate and never label it NSE.
+                out.put("rows", hist.optJSONArray("rows") ?: JSONArray())
+                out.put("historyProvider", hist.optString("provider", "Yahoo Finance"))
+                out.put("historyStatus", "THIRD_PARTY_HISTORICAL_BARS_NOT_NSE_VERIFIED")
+                if (!out.has("price") && hist.has("price")) {
+                    out.put("price", hist.get("price")).put("provider", "Yahoo Finance fallback (not NSE/Moneycontrol)")
+                    if (hist.has("previousClose")) out.put("previousClose", hist.get("previousClose"))
+                    if (hist.has("dayChangePct")) out.put("dayChangePct", hist.get("dayChangePct"))
+                    if (hist.has("high52")) out.put("high52", hist.get("high52"))
+                    if (hist.has("low52")) out.put("low52", hist.get("low52"))
+                    out.put("quoteStatus", "THIRD_PARTY_FALLBACK_NOT_EXCHANGE_VERIFIED")
+                    out.put("marketDataDisclaimer", "NSE quote unavailable. Yahoo Finance fallback may be delayed; do not treat as an NSE/Moneycontrol live quote.")
+                    out.put("priceTimestamp", hist.optLong("priceTimestamp", 0L))
+                }
+                if (!nseError.isNullOrBlank()) out.put("nseProviderWarning", nseError)
+                if (!out.has("price")) out.put("providerError", nseError ?: "No usable quote")
+                out
+            } catch (e: Exception) {
+                val out = nse ?: JSONObject().put("symbol", s).put("provider", "Unavailable")
+                out.put("rows", JSONArray())
+                if (!out.has("price")) out.put("providerError", "NSE: ${nseError ?: "unavailable"}; historical fallback: ${e.message ?: "unavailable"}")
+                if (!nseError.isNullOrBlank()) out.put("nseProviderWarning", nseError)
+                out
             }
         }
         val fundamentalFuture = executor.submit<JSONObject> {
@@ -432,7 +577,7 @@ private class NativeProvider {
                 fallback
             }
         }
-        val quote = result(quoteFuture, JSONObject().put("symbol", s).put("rows", JSONArray()).put("provider", "Yahoo Finance").put("providerError", "Yahoo Finance timed out"))
+        val quote = result(quoteFuture, JSONObject().put("symbol", s).put("rows", JSONArray()).put("provider", "Unavailable").put("providerError", "NSE/third-party quote lookup timed out"))
         val f = result(fundamentalFuture, JSONObject().put("symbol", s).put("name", stockName(s)).put("providerError", "Screener.in request timed out"))
         executor.shutdownNow()
 
@@ -443,7 +588,7 @@ private class NativeProvider {
             val iter = f.keys()
             while (iter.hasNext()) {
                 val k = iter.next()
-                // Keep live Yahoo CMP when available; otherwise use Screener's displayed price.
+                // Prefer exchange quote when available; Screener price is only a disclosed fallback.
                 if (k != "providerError" && !(k == "price" && quote.has("price"))) market.put(k, f.get(k))
             }
         }
@@ -453,9 +598,12 @@ private class NativeProvider {
         val data = JSONObject().put("symbol", s).put("name", f.optString("name", stockName(s)))
             .put("quote", quote).put("market", market).put("fundamentals", f).put("history", history)
             .put("ohlcv", rows).put("technicalSeries", rows)
-            .put("dataConfidence", when { quote.has("price") && hasFundamentals -> "PARTIAL"; quote.has("price") -> "LIVE QUOTE"; hasFundamentals -> "FUNDAMENTALS ONLY"; else -> "UNAVAILABLE" })
-            .put("dataSources", JSONObject().put("Live Quote", if (quote.has("providerError")) "UNAVAILABLE" else quote.optString("provider", "Yahoo Finance"))
-                .put("Screener.in", if (f.has("providerError")) "UNAVAILABLE" else if (screenerLoggedIn()) "AUTHENTICATED APP SESSION" else "PUBLIC COMPANY PAGE"))
+            .put("dataConfidence", when { quote.has("price") && hasFundamentals -> "PARTIAL — VERIFY SOURCE/TIMESTAMP"; quote.has("price") -> "QUOTE AVAILABLE — NOT GUARANTEED REAL-TIME"; hasFundamentals -> "FUNDAMENTALS ONLY"; else -> "UNAVAILABLE" })
+            .put("dataSources", JSONObject().put("Quote", if (quote.has("providerError")) "UNAVAILABLE" else quote.optString("provider", "Unknown"))
+                .put("History", quote.optString("historyProvider", "Unavailable"))
+                .put("Moneycontrol", "NOT INTEGRATED — NO VERIFIED ACCESS/FEED CONFIGURED")
+                .put("NSE", if (quote.optString("provider").startsWith("NSE")) "PUBLIC WEBSITE ENDPOINT (NOT LICENSED FEED)" else quote.optString("nseProviderWarning", "UNAVAILABLE"))
+                .put("Screener.in", if (f.has("providerError")) "UNAVAILABLE" else if (screenerLoggedIn()) "APP SESSION DETECTED; PROTECTED REQUEST STILL REQUIRED TO VALIDATE" else "PUBLIC COMPANY PAGE"))
             .put("fundamentalCoverage", coreCoverage(f))
         val warnings = JSONArray()
         if (quote.has("providerError")) warnings.put(quote.optString("providerError"))
@@ -467,7 +615,7 @@ private class NativeProvider {
     private fun historyData(raw: String, range: String): JSONObject {
         val y = yahoo(raw, range)
         return JSONObject().put("symbol", y.optString("symbol")).put("rows", y.optJSONArray("rows") ?: JSONArray())
-            .put("provider", y.optString("provider", "Yahoo Finance")).put("chartMode", "OHLCV")
+            .put("provider", y.optString("provider", "Yahoo Finance")).put("historyStatus", "THIRD_PARTY_HISTORICAL_BARS_NOT_NSE_VERIFIED").put("chartMode", "OHLCV")
     }
 
     private fun htmlEntities(s: String): String = s.replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<")
@@ -501,7 +649,7 @@ private class NativeProvider {
         val executor = Executors.newFixedThreadPool(8)
         val completion = java.util.concurrent.ExecutorCompletionService<JSONObject>(executor)
         val submittedAt = System.nanoTime()
-        val jobs: List<java.util.concurrent.Future<JSONObject>> = stocks.map { stock -> completion.submit(java.util.concurrent.Callable<JSONObject> {
+        val jobs: List<java.util.concurrent.Future<JSONObject>> = stocks.map { stock -> completion.submit<JSONObject> {
             val y = yahoo(stock.symbol, "1y")
             val arr = y.optJSONArray("rows") ?: JSONArray()
             val closes = (0 until arr.length()).mapNotNull { i ->
@@ -526,7 +674,7 @@ private class NativeProvider {
                 out.put("Provider", "Yahoo Finance third-party daily-bar data; latest bar may be partial during market hours")
             }
             out
-        }) }
+        } }
         val found = mutableListOf<JSONObject>()
         var completed = 0
         try {
@@ -611,7 +759,7 @@ private class NativeProvider {
         val s = canonical(raw)
         return try {
             when (p) {
-                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.52 ANDROID MOBILE DATA + UI SMOKE TESTS + PEER INDICATORS + TECHNICAL SCANNERS").put("data", JSONObject().put("ok", true)).toString()
+                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.65 BRANDING + CHART").put("data", JSONObject().put("ok", true)).toString()
                 "/api/screener/status" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
                 "/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
                 "/api/screener/disconnect" -> JSONObject().put("ok", true).put("data", JSONObject().put("connected", false).put("loggedIn", false).put("message", "Sign out from Screener inside the web page to end the session.")).toString()
@@ -623,21 +771,34 @@ private class NativeProvider {
                     JSONObject().put("ok", true).put("data", arr).toString()
                 }
                 "/api/quote", "/api/fast" -> {
-                    val y = yahoo(raw, if (p == "/api/fast") "5d" else "5d")
-                    val data = JSONObject().put("symbol", y.optString("symbol", s)).put("name", stockName(s)).put("quote", y)
-                        .put("provider", "Yahoo Finance").put("rows", y.optJSONArray("rows") ?: JSONArray())
+                    val history = try { yahoo(raw, "5d") } catch (_: Exception) { JSONObject().put("rows", JSONArray()).put("provider", "Unavailable") }
+                    val quote = try { nseQuote(raw) } catch (nseError: Exception) {
+                        val fallback = JSONObject().put("symbol", s).put("providerError", "NSE public quote unavailable: ${nseError.message ?: "blocked"}")
+                        if (history.has("price")) {
+                            fallback.put("price", history.get("price")).put("provider", "Yahoo Finance fallback (not NSE/Moneycontrol)")
+                            listOf("previousClose", "dayChangePct", "high52", "low52", "priceTimestamp").forEach { k -> if (history.has(k)) fallback.put(k, history.get(k)) }
+                            fallback.put("marketDataDisclaimer", "NSE quote unavailable; third-party fallback may be delayed and is not an NSE/Moneycontrol live quote.")
+                        }
+                        fallback
+                    }
+                    quote.put("rows", history.optJSONArray("rows") ?: JSONArray())
+                    quote.put("historyProvider", history.optString("provider", "Unavailable"))
+                    quote.put("historyStatus", "THIRD_PARTY_HISTORICAL_BARS_NOT_NSE_VERIFIED")
+                    val data = JSONObject().put("symbol", s).put("name", stockName(s)).put("quote", quote)
+                        .put("provider", quote.optString("provider", "Unavailable")).put("rows", quote.optJSONArray("rows") ?: JSONArray())
                     JSONObject().put("ok", true).put("data", data).toString()
                 }
-                "/api/history", "/api/screener-chart" -> JSONObject().put("ok", true).put("data", historyData(s, q["range"] ?: "1y")).toString()
+                "/api/history" -> JSONObject().put("ok", true).put("data", historyData(s, q["range"] ?: "1y")).toString()
+                "/api/screener-chart" -> JSONObject().put("ok", false).put("error", "Screener.in does not expose a documented chart-data API in this app. No Screener chart data was returned; use the separately labelled historical provider series or open Screener directly.").toString()
                 "/api/analyze", "/api/bootstrap" -> {
                     val data = combined(raw, true)
-                    if (p == "/api/bootstrap") data.put("diagnostics", JSONObject().put("quoteProvider", "Yahoo Finance").put("fundamentalProvider", if (data.optJSONObject("fundamentals")?.has("providerError") == true) "Unavailable" else "Screener.in"))
+                    if (p == "/api/bootstrap") data.put("diagnostics", JSONObject().put("quoteProvider", "NSE public endpoint with disclosed third-party fallback").put("fundamentalProvider", if (data.optJSONObject("fundamentals")?.has("providerError") == true) "Unavailable" else "Screener.in"))
                     JSONObject().put("ok", true).put("data", data).toString()
                 }
                 "/api/screener/live" -> {
                     if (!screenerLoggedIn()) throw IOException("Screener login is not active. Tap Screener Login first.")
                     val f = screener(s); val y = yahoo(s, "5d")
-                    JSONObject().put("ok", true).put("data", JSONObject().put("symbol", s).put("name", f.optString("name", stockName(s))).put("quote", y).put("fundamentals", f).put("dataConfidence", "AUTHENTICATED")).toString()
+                    JSONObject().put("ok", true).put("data", JSONObject().put("symbol", s).put("name", f.optString("name", stockName(s))).put("quote", y).put("fundamentals", f).put("dataConfidence", "SESSION-BASED / MIXED SOURCES — VERIFY PROVIDERS AND TIMESTAMPS")).toString()
                 }
                 "/api/indices" -> JSONObject().put("ok", true).put("data", marketIndices()).toString()
                 "/api/queries" -> JSONObject().put("ok", true).put("data", JSONArray().apply { queryDefs.forEach { put(it) } }).toString()
@@ -726,12 +887,12 @@ private class NativeProvider {
                 "/api/company-events" -> {
                     val y = try { yahoo(raw, "5y") } catch (e: Exception) { JSONObject().put("symbol", s).put("rows", JSONArray()).put("statusText", "Corporate event provider unavailable: ${e.message ?: "provider error"}").put("provider", "Unavailable") }
                     val events = y.optJSONArray("events") ?: JSONArray()
-                    JSONObject().put("ok", true).put("data", JSONObject().put("symbol", s).put("name", stockName(s)).put("rows", events).put("statusText", if (events.length() > 0) "Verified dividend and split events from Yahoo Finance" else "No dividend or split events returned by Yahoo Finance").put("provider", y.optString("provider", "Yahoo Finance"))).toString()
+                    JSONObject().put("ok", true).put("data", JSONObject().put("symbol", s).put("name", stockName(s)).put("rows", events).put("statusText", if (events.length() > 0) "Third-party Yahoo Finance dividend/split events returned; confirm dates with the exchange" else "No dividend or split events were returned by Yahoo Finance; this does not establish that no events exist. Confirm against official exchange/company filings.").put("provider", y.optString("provider", "Yahoo Finance"))).toString()
                 }
                 "/api/dividend-stocks" -> {
                     val d = runScreenerQuery("Market Capitalization > 1000 AND Dividend yield > 1 AND Return on capital employed > 10")
                     val rows = d.optJSONArray("rows") ?: JSONArray()
-                    JSONObject().put("ok", true).put("data", JSONObject().put("rows", rows).put("statusText", "Authenticated Screener dividend-yield candidate screen; first result page only.").put("provider", d.optString("provider", "Screener.in")).put("partial", true)).toString()
+                    JSONObject().put("ok", true).put("data", JSONObject().put("rows", rows).put("statusText", "Screener session response parsed; authentication validity and field freshness are not independently certified. First result page only.").put("provider", d.optString("provider", "Screener.in")).put("partial", true)).toString()
                 }
                 "/api/upcoming-events" -> JSONObject().put("ok", true).put("data", JSONObject().put("rows", JSONArray())
                     .put("statusText", "Live calendar data is not embedded because NSE's page is dynamically served and this standalone app has no authorized, stable calendar feed. Open the official NSE event calendar to verify current dates; no events are fabricated.")

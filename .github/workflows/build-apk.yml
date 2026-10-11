@@ -1,76 +1,106 @@
-
 name: Build PRO STOCK INTELLIGENCE APK
+
+permissions:
+  contents: read
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
   build:
-    name: Build Android APK
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Set up Java 17
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
-      - name: Install Android SDK packages
-        shell: bash
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          accept-android-sdk-licenses: true
+          packages: ''
+      - name: Install and verify Android SDK packages
         run: |
-          set -e
-          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
-          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
-          test -n "$SDKMANAGER"
-          yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses >/dev/null || true
-          "$SDKMANAGER" --sdk_root="$SDK_ROOT" --install \
-            "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
-
-      - name: Verify Android SDK
-        run: |
-          set -e
+          sdkmanager --install platform-tools 'platforms;android-35' 'build-tools;35.0.0'
+          sdkmanager --list_installed
           test -d "$ANDROID_HOME/platforms/android-35"
           test -d "$ANDROID_HOME/build-tools/35.0.0"
-          test -d "$ANDROID_HOME/platform-tools"
-
-      - name: Verify Android project
-        shell: bash
-        run: |
-          set -e
-          echo "Repository root:"
-          ls -la
-          test -d app
-          test -f settings.gradle -o -f settings.gradle.kts
-          test -f build.gradle -o -f build.gradle.kts
-          test -f app/build.gradle -o -f app/build.gradle.kts
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-
-      - name: Build APK
+      - name: Validate project and inline JavaScript
         shell: bash
         run: |
-          set -e
-          printf '\nandroid.useAndroidX=true\nandroid.enableJetifier=true\n' >> gradle.properties
-          gradle assembleDebug --no-daemon --stacktrace
-          test -f app/build/outputs/apk/debug/app-debug.apk
-
-      - name: Upload APK
+          python3 - <<'PYCODE'
+          import pathlib, re, xml.etree.ElementTree as ET
+          root = pathlib.Path('.')
+          ET.parse(root / 'app/src/main/AndroidManifest.xml')
+          html = (root / 'app/src/main/assets/index.html').read_text(encoding='utf-8')
+          scripts = re.findall(r'<script\b[^>]*>(.*?)</script>', html, flags=re.I|re.S)
+          if not scripts:
+              raise SystemExit('No inline scripts found')
+          for i, script in enumerate(scripts):
+              pathlib.Path(f'/tmp/psi-inline-{i}.js').write_text(script, encoding='utf-8')
+          print(f'Manifest XML valid; extracted {len(scripts)} inline script blocks')
+          PYCODE
+          for f in /tmp/psi-inline-*.js; do node --check "$f"; done
+      - name: Install browser-test dependencies
+        run: |
+          python3 -m pip install --upgrade pip playwright
+          python3 -m playwright install --with-deps chromium
+      - name: Test backtesting and complete dashboard UI smoke suite
+        run: python3 -m unittest discover -s tests -v
+      - name: Build debug APK
+        run: gradle :app:assembleDebug --stacktrace
+      - name: Android lint
+        run: gradle :app:lintDebug --stacktrace
+      - name: Emulator smoke test (launch app)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          script: |
+            adb logcat -c
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb shell am start -W -n com.prostock.intelligence/.MainActivity
+            sleep 8
+            adb shell pidof com.prostock.intelligence
+            adb shell dumpsys activity activities | grep -E 'mResumedActivity|ResumedActivity' | grep 'com.prostock.intelligence'
+            adb shell screencap -p /sdcard/psi-emulator.png
+            adb pull /sdcard/psi-emulator.png app/build/outputs/psi-emulator.png
+            test -s app/build/outputs/psi-emulator.png
+            adb logcat -d -s AndroidRuntime:E PSI_WEB:E > /tmp/psi-runtime-errors.txt
+            cat /tmp/psi-runtime-errors.txt
+            if grep -Eq "FATAL EXCEPTION|Uncaught (ReferenceError|TypeError|SyntaxError)" /tmp/psi-runtime-errors.txt; then exit 1; fi
+      - name: Upload Android lint report
+        if: always() && hashFiles('app/build/reports/lint-results-debug.html') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
-          retention-days: 7
+          name: PRO-STOCK-INTELLIGENCE-V40-65-lint-report
+          path: app/build/reports/lint-results-debug.html
+      - name: Upload emulator screenshot
+        if: always() && hashFiles('app/build/outputs/psi-emulator.png') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: PRO-STOCK-INTELLIGENCE-V40-65-emulator-screenshot
+          path: app/build/outputs/psi-emulator.png
+      - name: Generate APK checksum
+        if: always() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''
+        run: sha256sum app/build/outputs/apk/debug/app-debug.apk > app/build/outputs/apk/debug/app-debug.apk.sha256
+      - name: Upload APK and checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: PRO-STOCK-INTELLIGENCE-V40-65-debug
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/debug/app-debug.apk.sha256

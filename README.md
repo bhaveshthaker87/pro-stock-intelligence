@@ -1,4 +1,12 @@
-# PRO STOCK INTELLIGENCE V40.53 — deep UI and data-integrity testing
+# PRO STOCK INTELLIGENCE V40.58 — professional release hardening
+
+## V40.57 audit fixes
+- Fixed missing-value coercion in AI/cockpit numeric parsing: null/empty values no longer become numeric zero and produce misleading technical states.
+- Risk summary no longer describes missing risk data as “no major risk”; it shows explicit incomplete-coverage wording.
+- Unified HTML, native provider, workflow artifact and Android app version to V40.57 / versionCode 55.
+- Fixed Android SDK setup in GitHub Actions by explicitly installing platform-tools, Android 35 and build-tools 35.0.0.
+- Updated the browser smoke test for version consistency and navigation between independent pages; all 8 local unit/UI tests pass. Inline JavaScript syntax and Android manifest XML validate.
+- The APK has not been built in this environment; the GitHub Actions build and emulator test remain required.
 
 ## Changes in V40.47
 - Fundamental score receives derived technical metrics before it is rendered; missing fields remain missing and do not count as passes.
@@ -73,3 +81,100 @@ This source package has static checks only. Do not rate it 10/10 or call it prod
 - Backtest input now rejects factor scores outside 0–10; turnover uses portfolio replacement fraction instead of Jaccard distance, correcting transaction-cost calculations.
 - Added Playwright UI smoke tests to GitHub Actions. The workflow has not yet run in this workspace; full Android Gradle build and emulator launch remain unverified until GitHub Actions completes successfully.
 - Technical scanners now use Wilder RSI(14), matching the chart implementation; their status text notes that the latest daily bar may be partial during market hours.
+
+
+## V40.57 consistency audit
+- Corrected AI summary language so a low factor score is not automatically labelled a risk-heavy setup when verified risk flags are absent.
+- Incomplete risk coverage now remains neutral and explicitly says that missing risk fields do not establish low risk.
+- Added a clear third-party quote data disclaimer in the native provider payload.
+- Added regression checks for risk-summary consistency and the market-data disclaimer.
+- Live quote accuracy, Screener field-by-field validation, upcoming event feed integration, and a real Android APK/device test still require external verification.
+
+
+## V40.57 source-transparency audit (2026-10-11)
+- Android package version aligned to `versionName 40.57` / `versionCode 56`.
+- Quote lookup now attempts the public NSE equity quote endpoint first. This is best-effort website access, **not a licensed real-time feed**, and may be blocked/rate-limited or change schema.
+- Historical OHLCV bars are still sourced from Yahoo Finance as a clearly labelled third-party history fallback; they are not represented as NSE-verified bars.
+- Moneycontrol is **not integrated** in this build: no verified endpoint/feed or access credentials were supplied. It is not safe to claim this requirement is complete.
+- Screener.in remains the fundamentals/query source; a detected browser session does not alone prove protected API access is valid.
+- Upcoming NSE corporate events/results still show official links rather than a verified embedded live calendar.
+- Automated source/UI tests do not certify provider availability, data accuracy, trading profitability, or APK/emulator success.
+- Before production release, use an authorized exchange/vendor feed for live prices and historical OHLCV, and test with real provider responses.
+
+
+## V40.58 professional release hardening (2026-10-11)
+- Bumped app metadata consistently to `versionName 40.58` / `versionCode 57`.
+- Fixed a confirmed frontend/native version-handshake defect: the V40.57 UI expected a different engine string from the native `/api/health` endpoint, so the header could incorrectly warn of a version mismatch even when bundled files matched. Added a regression test requiring exact client/server engine contract equality.
+- Added WebView Safe Browsing and disabled JavaScript-triggered popup windows. Added `onDestroy()` cleanup to stop loading and destroy the WebView lifecycle resource.
+- Updated the GitHub Actions artifact names to V40.58; the workflow includes JavaScript syntax checks, Python/UI tests, Gradle APK build, and emulator launch smoke test. The workflow still must be executed successfully before treating the APK as verified.
+- Preserved the source-provenance labels and explicit data limitations from V40.57.
+
+### V40.58 verification status
+- Python tests: run locally; see `V40_58_BUILD_TEST_REPORT.md`.
+- Inline JavaScript syntax, Android manifest XML, ZIP integrity, and version handshake: checked locally.
+- Android Gradle build/APK install: **not verified locally** (Gradle and Android SDK are not installed in this execution environment).
+- NSE live quote endpoint: **not independently verified in this run**. Public NSE website endpoint access is best-effort, not a licensed real-time feed.
+- Moneycontrol: **not integrated**. Historical OHLCV remains third-party Yahoo Finance.
+- Upcoming results/corporate events: embedded live feed is **not integrated**; official source links are provided.
+- This package is an improved candidate release, **not certified 10/10 or production-ready** until provider, build, device, security, and strategy validation gates are complete.
+
+## V40.59 release-candidate audit (2026-10-11)
+- Bumped current app metadata to `versionName 40.59` / `versionCode 58` so this package is distinct from the V40.58 candidate.
+- Fixed stale GitHub Actions artifact names that still labelled the APK and emulator screenshot as V40-57 despite the V40.58 source version. Added a regression test to prevent workflow artifact/version drift.
+- Re-ran the complete local automated test suite and packaging checks; see `V40_59_BUILD_TEST_REPORT.md`.
+- This is a hardened release candidate, not a 10/10 certification. Android APK/emulator execution and live provider data remain external release gates.
+
+## V40.60 quality hardening (2026-10-11)
+- Advanced release metadata to `versionName 40.60` / `versionCode 59`.
+- Replaced the overconfident `AUTHENTICATED` status for mixed-source Screener enrichment with explicit session/mixed-provider confidence wording; data freshness remains unverified.
+- Reworded Yahoo Finance corporate-event results as third-party records that require exchange confirmation.
+- Made Playwright Chromium launch portable for GitHub Actions, enabled pull-request CI, and added a SHA-256 checksum artifact for the APK.
+- Changed the header badge from “LIVE ENGINE” to “NATIVE ENGINE” so it does not imply that market-data freshness is guaranteed.
+- See `V40_60_BUILD_TEST_REPORT.md`. Live provider, official calendar, Android device, and out-of-sample strategy validation remain open release gates.
+
+## V40.61 deep data-integrity hardening (2026-10-11)
+- Advanced app metadata to `versionName 40.61` / `versionCode 60` and aligned the native health contract, UI tag, tests and CI artifacts.
+- Corrected NSE public endpoint timestamp semantics: local response receipt is no longer reported as a provider quote timestamp.
+- Replaced UI language that could imply licensed/live/verified data when freshness and authorization are not established.
+- Corporate-event empty responses explicitly state that no returned events do not prove no events exist.
+- Hardened API response cache/security headers and added source-label/timestamp regression tests.
+- Added an optional `--oos-start` holdout window to the backtest utility, a configurable 25 bps default all-in turnover-cost assumption, and a small-sample warning.
+- See `V40_61_DEEP_AUDIT_REPORT.md`. Authorized data feed, structured calendar, dataset-based strategy validation, and Android CI/device proof remain external release gates.
+
+## V40.62 data-contract and release-gate hardening (2026-10-11)
+- Advanced app metadata to `versionName 40.62` / `versionCode 61`; aligned UI/native health handshake and CI artifact names.
+- Added `PROVIDER_GATEWAY.md`, a documented normalized schema for authorized quote/history/corporate-event feeds and explicit guidance to keep vendor secrets server-side.
+- Added `tools/validate_provider_payloads.py` to reject stale/future/unzoned quotes, missing delay metadata, inconsistent or unordered OHLCV, and malformed corporate events. This validates provider payload shape/freshness claims; it does not establish licensing or factual accuracy.
+- Tightened out-of-sample backtesting: `--oos-start` now requires `return_start_date` and `return_end_date` columns and rejects forward-return windows that start on/before the score as-of date. Results use `OUT_OF_SAMPLE_HOLDOUT_BOUNDARIES_VERIFIED` only after boundary checks pass.
+- Strengthened emulator workflow assertions: verify the app is foregrounded and screenshot is non-empty; limit workflow token permissions to repository contents read.
+- Automated validation: 34 tests pass, both inline JavaScript blocks parse, Android manifest XML parses, workflow YAML parses, and Python modules compile.
+- Still not certified: no authorized market-data account/feed configured; no verified embedded corporate-event provider; no point-in-time survivorship-aware data supplied; no Android SDK/Gradle/ADB installed locally, and no remote CI run was triggered from this workspace. Do not interpret this candidate as a 10/10 production release until those external gates pass.
+
+## V40.63 security hardening (2026-10-11)
+
+- WebView navigation is restricted to the local app origin and Screener's own HTTPS domain. Other HTTPS links open in the external browser; non-HTTPS schemes are blocked.
+- Third-party cookies are disabled for the WebView; first-party Screener login remains supported.
+- Android app backup is disabled and cleartext traffic remains disabled.
+- WebView JavaScript console errors are logged under `PSI_WEB` so emulator CI can fail on uncaught JavaScript errors.
+- CI now runs Android lint and uploads its report, in addition to APK build and emulator launch checks.
+- Automated local verification: 36 tests pass, JavaScript syntax and manifest checks pass.
+- Important remaining release gates: no authorized live-data subscription/provider credentials, no verified embedded official corporate-event feed, no real point-in-time survivorship-aware dataset, and no successful Android CI run in this environment. Do not call the release production-certified until these are proven.
+
+
+## V40.64 chart/source-provenance fixes
+
+- Added a chart refresh control that refreshes the selected history and quote through the existing provider adapters, while retaining a visible warning that upstream freshness is not exchange-certified live.
+- Added direct Screener company and Moneycontrol search links for the selected symbol. These are source links, not a claim that either provider's structured API is integrated.
+- Corrected the `/api/screener-chart` route: it no longer silently returns Yahoo Finance history under a Screener chart endpoint name. It returns an explicit unsupported/documentation message.
+- Chart status now shows provider, bar count and last-bar timestamp where available; it does not claim that historical bars are verified live.
+- Added regression tests for chart controls and the Screener chart endpoint's source-provenance behavior.
+- Updated version handshake and Android version to 40.64 / versionCode 63.
+
+**External blockers remain:** Moneycontrol's published terms restrict automated extraction without prior express written permission; no public official API schema or credentials were supplied. Screener's public terms similarly do not establish permission for a third-party structured-data integration. See `PROVIDER_GATEWAY.md`. This release therefore uses explicit source links and does not falsely label data as Moneycontrol/Screener API data.
+
+
+## V40.65 brand identity refresh
+- Added a reusable vector brand mark (`brand-logo.svg`) for the in-app header and brand footer.
+- Added a native Android launcher icon and referenced it from the application manifest.
+- Updated UI/native engine version handshake, Android versionName to 40.65 and versionCode to 64, plus CI artifact labels.
+- The supplied mockup is a visual target, not a claim that every screen has been rebuilt pixel-for-pixel. Existing dashboard functionality and data-source limitations remain unchanged.

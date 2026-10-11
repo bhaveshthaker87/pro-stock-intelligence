@@ -32,6 +32,51 @@ class BacktestTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             f=Path(d)/'x.csv'; f.write_text('asof_date,symbol,factor_score,next_period_return\n2025-01-31,AAA,9,.1\n2025-01-31,AAA,8,.2\n2025-02-28,AAA,9,.1\n',encoding='utf-8')
             with self.assertRaisesRegex(ValueError,'duplicate'): m.read_rows(f)
+    def test_invalid_transaction_cost_is_rejected(self):
+        groups={m.parse_date('2025-01-31'):[('AAA',10,.1)],m.parse_date('2025-02-28'):[('AAA',10,.1)]}
+        for cost in [-1, 10000, float('nan')]:
+            with self.assertRaisesRegex(ValueError, 'cost_bps must be finite'):
+                m.evaluate(groups, 1, cost)
+
+    def test_default_cost_assumption_is_not_zero(self):
+        groups={m.parse_date('2025-01-31'):[('AAA',10,.1)],m.parse_date('2025-02-28'):[('AAA',10,.1)]}
+        r=m.evaluate(groups, 1, 0)
+        self.assertEqual(r['transaction_cost_bps_per_turnover'], 0)
+        # CLI defaults are intentionally documented as 25 bps all-in, configurable per strategy.
+        import inspect
+        self.assertIn('default=25.0', inspect.getsource(m.main))
+
+    def test_oos_holdout_only_reports_dates_on_or_after_cutoff(self):
+        groups={
+          m.parse_date('2024-11-30'):[('AAA',10,.50),('BBB',1,-.20)],
+          m.parse_date('2024-12-31'):[('AAA',10,.50),('BBB',1,-.20)],
+          m.parse_date('2025-01-31'):[('AAA',10,.02,m.parse_date('2025-02-01'),m.parse_date('2025-02-28')),('BBB',1,-.01,m.parse_date('2025-02-01'),m.parse_date('2025-02-28'))],
+          m.parse_date('2025-02-28'):[('AAA',10,-.02,m.parse_date('2025-03-01'),m.parse_date('2025-03-31')),('BBB',1,.01,m.parse_date('2025-03-01'),m.parse_date('2025-03-31'))],
+        }
+        r=m.evaluate(groups, .5, 0, 12, '2025-01-01')
+        self.assertEqual(r['evaluation_mode'], 'OUT_OF_SAMPLE_HOLDOUT_BOUNDARIES_VERIFIED')
+        self.assertEqual(r['periods'], 2)
+        self.assertEqual(r['dates'], ['2025-01-31', '2025-02-28'])
+        self.assertIn('Fewer than 24', r['sample_warning'])
+
+    def test_oos_window_rejects_too_few_periods(self):
+        groups={m.parse_date('2025-01-31'):[('AAA',10,.1)],m.parse_date('2025-02-28'):[('AAA',10,.1,m.parse_date('2025-03-01'),m.parse_date('2025-03-31'))]}
+        with self.assertRaisesRegex(ValueError, 'at least two dates'):
+            m.evaluate(groups, 1, 0, 12, '2025-02-01')
+
+
+    def test_oos_cutoff_requires_verifiable_forward_boundaries(self):
+        groups={m.parse_date('2025-01-31'):[('AAA',10,.1)],m.parse_date('2025-02-28'):[('AAA',10,.1)]}
+        with self.assertRaisesRegex(ValueError, 'requires return_start_date and return_end_date'):
+            m.evaluate(groups, 1, 0, 12, '2025-01-01')
+
+    def test_forward_return_must_start_after_score_date(self):
+        with tempfile.TemporaryDirectory() as d:
+            f=Path(d)/'x.csv'
+            f.write_text('asof_date,symbol,factor_score,next_period_return,return_start_date,return_end_date\n2025-01-31,AAA,9,.1,2025-01-31,2025-02-28\n2025-02-28,AAA,9,.1,2025-03-01,2025-03-31\n',encoding='utf-8')
+            with self.assertRaisesRegex(ValueError, 'must be after asof_date'):
+                m.read_rows(f)
+
     def test_point_in_time_minimum_periods(self):
         with tempfile.TemporaryDirectory() as d:
             f=Path(d)/'x.csv'; f.write_text('asof_date,symbol,factor_score,next_period_return\n2025-01-31,AAA,9,.1\n',encoding='utf-8')

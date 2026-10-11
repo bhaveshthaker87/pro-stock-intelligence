@@ -4,6 +4,7 @@ These validate the HTML/JS interaction layer only; live provider accuracy is
 covered separately and is never inferred from mocked fixtures.
 """
 import json
+import shutil
 import time
 import unittest
 from datetime import datetime, timedelta
@@ -15,7 +16,16 @@ except ImportError as exc:  # CI installs Playwright; keep the error explicit lo
     raise RuntimeError("Install Playwright and Chromium to run tests/test_ui_smoke.py") from exc
 
 HTML = Path(__file__).parents[1] / "app/src/main/assets/index.html"
-ENGINE = "V40.53 ANDROID MOBILE DATA + UI SMOKE TESTS + PEER INDICATORS + TECHNICAL SCANNERS"
+ENGINE = "V40.65 BRANDING + CHART"
+
+
+def launch_chromium(playwright):
+    """Prefer Playwright's managed browser; use a system Chromium when present."""
+    system_chromium = shutil.which("chromium") or shutil.which("chromium-browser") or shutil.which("google-chrome")
+    options = {"headless": True, "args": ["--no-sandbox"]}
+    if system_chromium:
+        options["executable_path"] = system_chromium
+    return playwright.chromium.launch(**options)
 
 
 def fixtures():
@@ -78,7 +88,7 @@ class DashboardUISmokeTests(unittest.TestCase):
     def test_core_tabs_buttons_watchlist_alerts_and_query(self):
         errors = []
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True, executable_path="/usr/bin/chromium", args=["--no-sandbox"])
+            browser = launch_chromium(p)
             page = browser.new_page(viewport={"width": 1440, "height": 1000})
             page.on("pageerror", lambda e: errors.append(str(e)))
             mock_js = '''
@@ -91,7 +101,7 @@ class DashboardUISmokeTests(unittest.TestCase):
             html = html[:pos] + "<script>" + mock_js + "</script>" + html[pos:]
             page.set_content(html, wait_until="domcontentloaded", timeout=30000)
             page.wait_for_timeout(250)
-            self.assertIn("V40.53", page.locator(".taglive").first.inner_text())
+            self.assertIn("V40.65", page.locator(".taglive").first.inner_text())
             page.locator("#search").fill("INFY")
             page.locator("#analyze").click()
             page.wait_for_function("document.getElementById('company').textContent.includes('Infosys')", timeout=8000)
@@ -102,6 +112,7 @@ class DashboardUISmokeTests(unittest.TestCase):
             for tab in page.locator(".tab").all():
                 tab.click()
                 self.assertIn("active", tab.get_attribute("class"))
+            page.locator(".tab").first.click()  # Return to Overview before testing dashboard-level query controls.
             self.assertEqual(page.locator(".qcard").count(), 5)
             page.locator("[data-qrun='master']").click()
             page.wait_for_timeout(150)
@@ -132,12 +143,15 @@ class DashboardUISmokeTests(unittest.TestCase):
             page.locator("[data-eventfilter='dividend']").click()
             page.locator("#eventUseCurrentBtn").click()
             page.wait_for_timeout(100)
+            self.assertEqual(page.evaluate("safeNewsHref('javascript:alert(1)')"), "#")
+            self.assertEqual(page.evaluate("safeNewsHref('data:text/html,<script>alert(1)</script>')"), "#")
+            self.assertTrue(page.evaluate("safeNewsHref('https://example.com/news')").startswith("https://"))
             self.assertEqual(errors, [], f"JavaScript errors: {errors}")
             browser.close()
 
     def test_mobile_layout_has_no_page_wide_horizontal_overflow(self):
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True, executable_path="/usr/bin/chromium", args=["--no-sandbox"])
+            browser = launch_chromium(p)
             page = browser.new_page(viewport={"width": 390, "height": 844})
             html = HTML.read_text(encoding="utf-8")
             page.set_content(html, wait_until="domcontentloaded", timeout=30000)
@@ -146,6 +160,130 @@ class DashboardUISmokeTests(unittest.TestCase):
             self.assertLessEqual(dims["document"], dims["viewport"] + 2, f"Horizontal overflow: {dims}")
             browser.close()
 
+    def test_risk_summary_never_claims_low_risk_from_missing_fields(self):
+        html = HTML.read_text(encoding="utf-8")
+        self.assertIn("Risk evidence is incomplete", html)
+        self.assertIn("not a full risk clearance", html)
+        self.assertIn("Low factor score — review evidence and coverage", html)
+
+    def test_quote_data_disclaimer_is_explicit(self):
+        source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("marketDataDisclaimer", source)
+        self.assertIn("verify with the exchange before trading", source)
+
+
+    def test_provider_wording_does_not_claim_unverified_quotes_are_live(self):
+        html = HTML.read_text(encoding="utf-8")
+        source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertNotIn("dataConfidence:'LIVE QUOTE'", html)
+        self.assertNotIn("Verified exchange + Screener HTTP", html)
+        self.assertIn("QUOTE RETURNED • FRESHNESS UNVERIFIED", html)
+        self.assertIn("responseReceivedAt", source)
+        self.assertNotIn('.put("priceTimestamp", System.currentTimeMillis() / 1000L)', source)
+
+    def test_api_response_headers_are_hardened_and_not_public_wildcard(self):
+        source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn('"X-Content-Type-Options" to "nosniff"', source)
+        self.assertIn('"Cache-Control" to "no-store, max-age=0"', source)
+        self.assertNotIn('"Access-Control-Allow-Origin" to "*"', source)
+
+    def test_version_code_and_name_are_aligned(self):
+        gradle = (Path(__file__).parents[1] / "app/build.gradle").read_text(encoding="utf-8")
+        self.assertIn("versionCode 64", gradle)
+        self.assertIn("versionName '40.65'", gradle)
+
+    def test_workflow_artifact_names_match_release_version(self):
+        workflow = (Path(__file__).parents[1] / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
+        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-65-emulator-screenshot", workflow)
+        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-65-debug", workflow)
+        self.assertNotIn("V40-57", workflow)
+        self.assertIn("pull_request:", workflow)
+        self.assertIn("sha256sum app/build/outputs/apk/debug/app-debug.apk", workflow)
+
+    def test_frontend_and_native_engine_version_contract_matches(self):
+        html = HTML.read_text(encoding="utf-8")
+        source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        import re
+        client = re.search(r"CLIENT_ENGINE_VERSION='([^']+)'", html)
+        server = re.search(r'put\("engine", "([^"]+)"\)', source)
+        self.assertIsNotNone(client)
+        self.assertIsNotNone(server)
+        self.assertEqual(client.group(1), server.group(1), "UI must not report a false server-version mismatch")
+        self.assertIn("V40.65", html)
+        self.assertIn("V40.65", source)
+
+
+    def test_webview_navigation_policy_blocks_non_https_and_external_pages_stay_outside_app(self):
+        source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("private fun isAllowedInApp(uri: Uri): Boolean", source)
+        self.assertIn('host == "appassets.androidplatform.net"', source)
+        self.assertIn('host == "screener.in"', source)
+        self.assertIn('Intent(Intent.ACTION_VIEW, uri)', source)
+        self.assertIn('uri.scheme.equals("https", ignoreCase = true)', source)
+        self.assertIn("setAcceptThirdPartyCookies(web, false)", source)
+
+    def test_android_backup_disabled_and_cleartext_blocked(self):
+        manifest = (Path(__file__).parents[1] / "app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
+        self.assertIn('android:allowBackup="false"', manifest)
+        self.assertIn('android:fullBackupContent="false"', manifest)
+        self.assertIn('android:usesCleartextTraffic="false"', manifest)
+
+    def test_mixed_provider_session_is_not_mislabeled_fully_authenticated(self):
+        source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("SESSION-BASED / MIXED SOURCES — VERIFY PROVIDERS AND TIMESTAMPS", source)
+        self.assertNotIn('put("dataConfidence", "AUTHENTICATED")', source)
+        html = (Path(__file__).parents[1] / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertNotIn("dataConfidence:'AUTHENTICATED'", html)
+        self.assertIn("NATIVE ENGINE", html)
+        self.assertIn("confirm dates with the exchange", source)
+
+
+    def test_provider_gateway_contract_and_validator_are_present(self):
+        root = Path(__file__).parents[1]
+        contract = (root / "PROVIDER_GATEWAY.md").read_text(encoding="utf-8")
+        validator = (root / "tools/validate_provider_payloads.py").read_text(encoding="utf-8")
+        self.assertIn("never in Android resources", contract)
+        self.assertIn("marketDataStatus", contract)
+        self.assertIn("absenceVerified", validator)
+        self.assertIn("strictly increasing", validator)
+
+    def test_workflow_checks_foreground_activity_and_least_privilege(self):
+        workflow = (Path(__file__).parents[1] / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
+        self.assertIn("contents: read", workflow)
+        self.assertIn("dumpsys activity activities", workflow)
+        self.assertIn("test -s app/build/outputs/psi-emulator.png", workflow)
+
+    def test_source_claims_disclose_unintegrated_moneycontrol_and_history(self):
+        source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("NOT INTEGRATED — NO VERIFIED ACCESS/FEED CONFIGURED", source)
+        self.assertIn("THIRD_PARTY_HISTORICAL_BARS_NOT_NSE_VERIFIED", source)
+        self.assertIn("NSE_WEBSITE_RESPONSE_NOT_LICENSED_REALTIME_FEED", source)
+
+
+    def test_chart_refresh_and_source_links_are_present(self):
+        html = HTML.read_text(encoding="utf-8")
+        self.assertIn('id="tvRefreshBtn"', html)
+        self.assertIn('id="tvScreenerLinkBtn"', html)
+        self.assertIn('id="tvMoneycontrolLinkBtn"', html)
+        self.assertIn("NOT certified exchange-live", html)
+        self.assertIn("chart-expanded", html)
+
+    def test_screener_chart_endpoint_does_not_mislabel_yahoo_history(self):
+        source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("Screener.in does not expose a documented chart-data API", source)
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_brand_logo_asset_header_and_android_launcher_icon_exist(self):
+        root = Path(__file__).parents[1]
+        html = (root / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        manifest = (root / "app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
+        logo = root / "app/src/main/assets/brand-logo.svg"
+        launcher = root / "app/src/main/res/drawable/ic_launcher.xml"
+        self.assertTrue(logo.exists())
+        self.assertIn('src="brand-logo.svg"', html)
+        self.assertIn('class="brandFooter"', html)
+        self.assertIn('android:icon="@drawable/ic_launcher"', manifest)
+        self.assertTrue(launcher.exists())
+        self.assertIn("40.65", (root / "app/build.gradle").read_text(encoding="utf-8"))
