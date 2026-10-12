@@ -67,3 +67,12 @@ process.stdout.write(JSON.stringify(fn(rows)));'''
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_financial_number_parser_preserves_zero_and_indian_formats(self):
+        script = r"""const fs=require('fs');const html=fs.readFileSync(process.argv[1],'utf8');
+const m=html.match(/function trendParse\(v\)\{[\\s\\S]*?\\n\}/);if(!m)throw new Error('trendParse missing');
+const fn=new Function(m[0]+';return trendParse;')();
+const values=['₹2,125.50','2,125.50','1.25','0.00','-3.40','12.5%','1,25,000 Cr','(3.40)','—','N/A',''];
+process.stdout.write(JSON.stringify(values.map(fn)));"""
+        result = subprocess.run(["node", "-e", script, str(HTML)], text=True, capture_output=True, check=True, timeout=10)
+        self.assertEqual(json.loads(result.stdout), [2125.5, 2125.5, 1.25, 0, -3.4, 12.5, 125000, -3.4, None, None, None])
