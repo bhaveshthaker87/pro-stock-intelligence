@@ -141,6 +141,12 @@ jobs:
             set -eu
             adb wait-for-device
             adb shell getprop sys.boot_completed | grep -q 1
+            # Test the actual app, not just the emulator home screen.
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb shell am force-stop com.prostock.intelligence
+            adb shell am start -n com.prostock.intelligence/.MainActivity
+            sleep 8
+            adb shell dumpsys activity activities | grep -q 'com.prostock.intelligence/.MainActivity'
             mkdir -p app/build/outputs
             adb exec-out screencap -p > app/build/outputs/psi-emulator.png
             test -s app/build/outputs/psi-emulator.png
