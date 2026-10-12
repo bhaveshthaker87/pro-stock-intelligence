@@ -319,7 +319,8 @@ class DashboardUISmokeTests(unittest.TestCase):
         # APK artifacts are uploaded before emulator validation, so device instability
         # cannot prevent artifact publication. Reject shell/PTY screenshot capture, but
         # allow binary-safe exec-out capture followed by PNG signature validation.
-        self.assertIn("dumpsys activity activities", workflow)\n        self.assertIn("com.prostock.intelligence/.MainActivity", workflow)
+        self.assertIn("dumpsys activity activities", workflow)
+        self.assertIn("com.prostock.intelligence/.MainActivity", workflow)
         self.assertNotIn("adb shell pidof com.prostock.intelligence", workflow)
         self.assertNotIn("adb shell screencap -p", workflow)
         self.assertIn("adb exec-out screencap -p", workflow)
