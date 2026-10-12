@@ -16,7 +16,7 @@ except ImportError as exc:  # CI installs Playwright; keep the error explicit lo
     raise RuntimeError("Install Playwright and Chromium to run tests/test_ui_smoke.py") from exc
 
 HTML = Path(__file__).parents[1] / "app/src/main/assets/index.html"
-ENGINE = "V40.74 CHART DATA QUALITY + SCREENER PROBE"
+ENGINE = "V40.75 CHART DATA QUALITY + SCREENER PROBE"
 
 
 def launch_chromium(playwright):
@@ -102,7 +102,7 @@ class DashboardUISmokeTests(unittest.TestCase):
             html = html[:pos] + "<script>" + mock_js + "</script>" + html[pos:]
             page.set_content(html, wait_until="domcontentloaded", timeout=30000)
             page.wait_for_timeout(250)
-            self.assertIn("V40.74", page.locator(".taglive").first.inner_text())
+            self.assertIn("V40.75", page.locator(".taglive").first.inner_text())
             page.locator("#search").fill("INFY")
             page.locator("#analyze").click()
             page.wait_for_function("document.getElementById('company').textContent.includes('Infosys')", timeout=8000)
@@ -227,13 +227,13 @@ class DashboardUISmokeTests(unittest.TestCase):
 
     def test_version_code_and_name_are_aligned(self):
         gradle = (Path(__file__).parents[1] / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 73", gradle)
-        self.assertIn("versionName '40.74'", gradle)
+        self.assertIn("versionCode 74", gradle)
+        self.assertIn("versionName '40.75'", gradle)
 
     def test_workflow_artifact_names_match_release_version(self):
         workflow = (Path(__file__).parents[1] / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
-        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-74-lint-report", workflow)
-        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-74-debug", workflow)
+        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-75-lint-report", workflow)
+        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-75-debug", workflow)
         self.assertNotIn("V40-57", workflow)
         self.assertIn("pull_request:", workflow)
         self.assertIn("sha256sum app/build/outputs/apk/debug/app-debug.apk", workflow)
@@ -247,8 +247,8 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIsNotNone(client)
         self.assertIsNotNone(server)
         self.assertEqual(client.group(1), server.group(1), "UI must not report a false server-version mismatch")
-        self.assertIn("V40.74", html)
-        self.assertIn("V40.74", source)
+        self.assertIn("V40.75", html)
+        self.assertIn("V40.75", source)
 
 
     def test_canonical_preserves_yahoo_index_and_futures_tickers(self):
@@ -319,7 +319,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         # APK artifacts are uploaded before emulator validation, so device instability
         # cannot prevent artifact publication. Reject shell/PTY screenshot capture, but
         # allow binary-safe exec-out capture followed by PNG signature validation.
-        self.assertNotIn("dumpsys activity activities", workflow)
+        self.assertIn("dumpsys activity activities", workflow)\n        self.assertIn("com.prostock.intelligence/.MainActivity", workflow)
         self.assertNotIn("adb shell pidof com.prostock.intelligence", workflow)
         self.assertNotIn("adb shell screencap -p", workflow)
         self.assertIn("adb exec-out screencap -p", workflow)
