@@ -116,7 +116,7 @@ jobs:
         if: always() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-74-debug
+          name: PRO-STOCK-INTELLIGENCE-V40-75-debug
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/app-debug.apk.sha256
@@ -156,7 +156,7 @@ jobs:
         if: always() && hashFiles('app/build/outputs/psi-emulator.png') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-74-emulator-screenshot
+          name: PRO-STOCK-INTELLIGENCE-V40-75-emulator-screenshot
           path: app/build/outputs/psi-emulator.png
           if-no-files-found: error
 
@@ -165,6 +165,6 @@ jobs:
         if: always() && hashFiles('app/build/reports/lint-results-debug.html') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-74-lint-report
+          name: PRO-STOCK-INTELLIGENCE-V40-75-lint-report
           path: app/build/reports/lint-results-debug.html
           if-no-files-found: warn
