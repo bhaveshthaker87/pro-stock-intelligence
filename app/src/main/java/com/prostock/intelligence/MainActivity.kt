@@ -23,6 +23,8 @@ import kotlin.math.abs
 
 class MainActivity : Activity() {
     private lateinit var web: WebView
+    private var filePathCallback: ValueCallback<Array<Uri>>? = null
+    private val csvPickerRequestCode = 4071
     private val provider = NativeProvider()
 
     private fun jsonResponse(json: String): WebResourceResponse =
@@ -50,6 +52,24 @@ class MainActivity : Activity() {
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
             .build()
         web.webChromeClient = object : WebChromeClient() {
+            override fun onShowFileChooser(webView: WebView, callback: ValueCallback<Array<Uri>>, fileChooserParams: FileChooserParams): Boolean {
+                filePathCallback?.onReceiveValue(null)
+                filePathCallback = callback
+                return try {
+                    val pick = Intent(Intent.ACTION_GET_CONTENT).apply {
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                        type = "*/*"
+                        putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("text/csv", "text/comma-separated-values", "text/plain", "application/vnd.ms-excel", "application/octet-stream"))
+                    }
+                    startActivityForResult(Intent.createChooser(pick, "Select authorized CSV export"), csvPickerRequestCode)
+                    true
+                } catch (e: Exception) {
+                    filePathCallback?.onReceiveValue(null)
+                    filePathCallback = null
+                    Log.e("PSI_FILE_PICKER", "Unable to open CSV picker", e)
+                    false
+                }
+            }
             override fun onConsoleMessage(message: ConsoleMessage): Boolean {
                 if (message.messageLevel() == ConsoleMessage.MessageLevel.ERROR) {
                     Log.e("PSI_WEB", "${message.message()} (${message.sourceId()}:${message.lineNumber()})")
@@ -114,7 +134,20 @@ class MainActivity : Activity() {
         web.loadUrl("https://appassets.androidplatform.net/assets/index.html")
     }
 
+    @Deprecated("Deprecated in Android API")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == csvPickerRequestCode) {
+            val callback = filePathCallback
+            filePathCallback = null
+            callback?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, data))
+            return
+        }
+        super.onActivityResult(requestCode, resultCode, data)
+    }
+
     override fun onDestroy() {
+        filePathCallback?.onReceiveValue(null)
+        filePathCallback = null
         if (::web.isInitialized) {
             web.stopLoading()
             web.webViewClient = WebViewClient()
@@ -218,6 +251,35 @@ private class NativeProvider {
             if (code !in 200..299) throw IOException("HTTP $code from $host${if (body.isNotBlank()) ": ${body.take(120)}" else ""}")
             return body
         } finally { c.disconnect() }
+    }
+
+    /**
+     * Attach explicit quote timestamp quality without pretending receipt time is quote time.
+     * This is a diagnostic label only; it cannot establish exchange licensing or real-time rights.
+     */
+    private fun annotateQuoteQuality(quote: JSONObject): JSONObject {
+        val timestamp = when {
+            quote.has("quoteTimestamp") && !quote.isNull("quoteTimestamp") -> quote.optLong("quoteTimestamp", 0L)
+            quote.has("priceTimestamp") && !quote.isNull("priceTimestamp") -> quote.optLong("priceTimestamp", 0L)
+            else -> 0L
+        }
+        val now = System.currentTimeMillis() / 1000L
+        val age = if (timestamp > 0L) now - timestamp else -1L
+        val status = when {
+            timestamp <= 0L -> "UNVERIFIED_NO_PROVIDER_QUOTE_TIMESTAMP"
+            age < -60L -> "INVALID_FUTURE_TIMESTAMP"
+            age < 0L -> "FUTURE_TIMESTAMP_WITHIN_60S_CLOCK_SKEW"
+            age <= 300L -> "TIMESTAMP_WITHIN_5_MINUTES_NOT_A_REALTIME_GUARANTEE"
+            else -> "TIMESTAMP_OLDER_THAN_5_MINUTES_OR_MARKET_CLOSED"
+        }
+        quote.put("quoteTimestampStatus", status)
+        quote.put("quoteTimestampSource", if (timestamp > 0L) "provider_quote_timestamp" else "missing_not_inferred_from_response_time")
+        if (timestamp > 0L) quote.put("quoteAgeSeconds", age)
+        val price = quote.optDouble("price", Double.NaN)
+        quote.put("priceValueValid", finite(price) && price > 0.0)
+        if (!finite(price) || price <= 0.0) quote.put("quoteQuality", "NO_VALID_PRICE")
+        else quote.put("quoteQuality", if (timestamp <= 0L || age > 300L || age < -60L) "PRICE_REQUIRES_SOURCE/TIMESTAMP_VERIFICATION" else "TIMESTAMP_RECENT_PROVIDER_NOT_EXCHANGE_CERTIFIED")
+        return quote
     }
 
     private fun finite(n: Double): Boolean = !n.isNaN() && !n.isInfinite()
@@ -375,10 +437,27 @@ private class NativeProvider {
         }.toList()
     }
 
+    /**
+     * Parse a single numeric financial value without silently accepting a numeric
+     * substring from malformed text. Units are intentionally not converted here:
+     * callers must know the field's expected unit before applying any conversion.
+     */
     private fun asNumber(raw: String?): Double? {
-        if (raw.isNullOrBlank() || raw == "—" || raw == "-" || raw.equals("NA", true)) return null
-        val normalized = raw.replace(",", "").replace("₹", "").replace("%", "").replace("Cr.", "").trim()
-        return Regex("-?[0-9]+(?:\\.[0-9]+)?").find(normalized)?.value?.toDoubleOrNull()
+        if (raw.isNullOrBlank()) return null
+        val input = raw.trim().replace('−', '-')
+        if (input in setOf("—", "–", "-", "N/A", "NA", "NULL", "null", "--")) return null
+        val parenthesizedNegative = input.startsWith("(") && input.endsWith(")")
+        var normalized = if (parenthesizedNegative) input.substring(1, input.length - 1).trim() else input
+        normalized = normalized
+            .replace(",", "")
+            .replace("₹", "")
+            .replace("%", "")
+            .replace(Regex("(?i)\\b(?:cr\\.?|rs\\.?)"), "")
+            .replace(Regex("\\s+"), "")
+        if (!Regex("^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)$").matches(normalized)) return null
+        val parsed = normalized.toDoubleOrNull() ?: return null
+        if (!parsed.isFinite()) return null
+        return if (parenthesizedNegative) -kotlin.math.abs(parsed) else parsed
     }
 
     private fun jsonRows(rows: List<List<String>>): JSONArray = JSONArray().apply {
@@ -409,29 +488,33 @@ private class NativeProvider {
 
     private fun screener(raw: String): JSONObject {
         val s = canonical(raw)
-        val html = get("https://www.screener.in/company/${Uri.encode(s)}/")
-        // Parse the visible ratio list item as a unit. This avoids grabbing a number
-        // from an unrelated script, navigation link, or the next metric.
+        val pageUrl = "https://www.screener.in/company/${Uri.encode(s)}/"
+        val html = get(pageUrl)
+        val pageTitle = Regex("(?is)<h1\\b[^>]*>(.*?)</h1>").find(html)?.groupValues?.get(1)?.let { cleanText(it) }
+        val hasRatioSection = Regex("(?is)<(?:section|div)\\b[^>]*id=[\"']top-ratios[\"']").containsMatchIn(html)
+        val looksLikeLogin = Regex("(?is)<title[^>]*>.*?(?:login|sign in).*?</title>").containsMatchIn(html) ||
+            html.contains("name=\"password\"", ignoreCase = true)
+        if (looksLikeLogin) throw IOException("Screener returned a login page instead of company data; sign in again and retry.")
+        if (pageTitle.isNullOrBlank() || !hasRatioSection) {
+            throw IOException("Screener company page could not be validated for '$s' (wrong symbol, blocked page, or changed markup). No fundamentals accepted.")
+        }
+        // Match the visible label and value in the same ratio list item. Never guess from nearby text.
         fun number(label: String, percent: Boolean = false): Double? {
-            val safeLabel = Regex.escape(label)
             val items = Regex("(?is)<li\\b[^>]*>(.*?)</li>").findAll(html).map { it.groupValues[1] }
-            for (item in items) {
-                val name = Regex("(?is)<span\\b[^>]*class=[\\\"'][^\\\"']*\\bname\\b[^\\\"']*[\\\"'][^>]*>(.*?)</span>")
-                    .find(item)?.groupValues?.getOrNull(1)?.let { cleanText(it) } ?: continue
-                if (!name.equals(label, ignoreCase = true)) continue
-                val valueHtml = Regex("(?is)<span\\b[^>]*class=[\\\"'][^\\\"']*\\bnumber\\b[^\\\"']*[\\\"'][^>]*>(.*?)</span>")
+            val matches = items.mapNotNull { item ->
+                val name = Regex("(?is)<span\\b[^>]*class=[\"'][^\"']*\\bname\\b[^\"']*[\"'][^>]*>(.*?)</span>")
+                    .find(item)?.groupValues?.getOrNull(1)?.let { cleanText(it) } ?: return@mapNotNull null
+                if (!name.equals(label, ignoreCase = true)) return@mapNotNull null
+                val valueHtml = Regex("(?is)<span\\b[^>]*class=[\"'][^\"']*\\bnumber\\b[^\"']*[\"'][^>]*>(.*?)</span>")
                     .find(item)?.groupValues?.getOrNull(1)
-                val parsed = valueHtml?.let { asNumber(cleanText(it)) }
-                if (parsed != null) return parsed
-            }
-            // Conservative fallback: search only script/style-stripped visible text and
-            // take a nearby numeric token. It may remain null rather than inventing a value.
-            val visibleText = cleanText(html)
-            val idx = visibleText.indexOf(label, ignoreCase = true)
-            if (idx < 0) return null
-            val after = visibleText.substring(idx + label.length, minOf(visibleText.length, idx + label.length + 100))
-            val match = Regex("(?:₹\\s*)?(-?[0-9][0-9,]*(?:\\.[0-9]+)?)\\s*${if (percent) "%" else ""}").find(after)
-            return match?.groupValues?.get(1)?.replace(",", "")?.toDoubleOrNull()
+                valueHtml?.let { asNumber(cleanText(it)) }
+            }.distinct()
+            // If repeated labels conflict or the value cannot be parsed, leave it unavailable.
+            // Use collection count here: this is a Sequence-derived List, not an array.
+            if (matches.count() != 1) return null
+            val parsed = matches.single()
+            if ((label.equals("Current Price", true) || label.equals("Market Cap", true) || label.equals("Book Value", true) || label.equals("Stock P/E", true)) && parsed <= 0.0) return null
+            return parsed
         }
         val f = JSONObject()
         number("Current Price")?.let { f.put("price", it) }
@@ -454,7 +537,7 @@ private class NativeProvider {
             }
         fun setLatestFromTable(rows: List<List<String>>, label: String, key: String) {
             val row = rowFor(rows, label) ?: return
-            val value = row.drop(1).firstNotNullOfOrNull { asNumber(it) }
+            val value = row.getOrNull(1)?.let { asNumber(it) }
             if (value != null) f.put(key, value)
         }
         setLatestFromTable(pnlRows, "Net Profit", "netProfit")
@@ -464,22 +547,25 @@ private class NativeProvider {
         // Calculate 3-year CAGR only when both the oldest and latest table values are positive and present.
         fun setCagr(rows: List<List<String>>, label: String, key: String) {
             val row = rowFor(rows, label) ?: return
-            val values = row.drop(1).mapNotNull { asNumber(it) }.take(4)
-            if (values.size >= 4 && values.first() > 0 && values[3] > 0) {
-                // Screener tables are newest-to-oldest; use the latest and the value
-                // three fiscal periods earlier, not the oldest available column.
-                val cagr = (Math.pow(values.first() / values[3], 1.0 / 3.0) - 1.0) * 100.0
+            // Preserve fiscal-column positions. mapNotNull would shift periods when
+            // a value is blank and could silently calculate a false 3-year CAGR.
+            val periods = row.drop(1).take(4).map { asNumber(it) }
+            val latest = periods.getOrNull(0) ?: return
+            val threeYearsBack = periods.getOrNull(3) ?: return
+            if (latest > 0.0 && threeYearsBack > 0.0) {
+                val cagr = (Math.pow(latest / threeYearsBack, 1.0 / 3.0) - 1.0) * 100.0
                 if (cagr.isFinite()) f.put(key, cagr)
             }
         }
         setCagr(pnlRows, "Sales", "sales3y")
         setCagr(pnlRows, "Net Profit", "profit3y")
         setCagr(pnlRows, "EPS in Rs", "eps3y")
-        val currentAssets = rowFor(balanceRows, "Current Assets")?.drop(1)?.firstNotNullOfOrNull { asNumber(it) }
-        val currentLiabilities = rowFor(balanceRows, "Current Liabilities")?.drop(1)?.firstNotNullOfOrNull { asNumber(it) }
+        // Derived ratios must use the newest fiscal column; never skip a blank latest cell.
+        val currentAssets = rowFor(balanceRows, "Current Assets")?.getOrNull(1)?.let { asNumber(it) }
+        val currentLiabilities = rowFor(balanceRows, "Current Liabilities")?.getOrNull(1)?.let { asNumber(it) }
         if (currentAssets != null && currentLiabilities != null && currentLiabilities > 0) f.put("currentRatio", currentAssets / currentLiabilities)
-        val latestOperating = rowFor(pnlRows, "Operating Profit")?.drop(1)?.firstNotNullOfOrNull { asNumber(it) }
-        val latestInterest = rowFor(pnlRows, "Interest")?.drop(1)?.firstNotNullOfOrNull { asNumber(it) }
+        val latestOperating = rowFor(pnlRows, "Operating Profit")?.getOrNull(1)?.let { asNumber(it) }
+        val latestInterest = rowFor(pnlRows, "Interest")?.getOrNull(1)?.let { asNumber(it) }
         if (latestOperating != null && latestInterest != null && latestInterest > 0) f.put("interestCoverage", latestOperating / latestInterest)
         if (pnlRows.isNotEmpty()) f.put("pnl", jsonRows(pnlRows))
         if (qRows.isNotEmpty()) {
@@ -509,8 +595,19 @@ private class NativeProvider {
                 }
             }
         }
-        val name = Regex("(?is)<h1[^>]*>(.*?)</h1>").find(html)?.groupValues?.get(1)?.let { cleanText(it) } ?: stockName(s)
-        f.put("name", name).put("symbol", s).put("sector", stockSector(s)).put("provider", "Screener.in")
+        val fetchedAt = System.currentTimeMillis()
+        val fieldKeys = listOf("price", "marketCap", "pe", "bookValue", "dividendYield", "roce", "roe", "debtEquity", "eps", "netProfit", "operatingProfit", "opm", "sales3y", "profit3y", "eps3y", "currentRatio", "interestCoverage", "quarterly", "shareholding")
+        val available = fieldKeys.count { f.has(it) && !f.isNull(it) }
+        val qualityFlags = JSONArray()
+        if (available < 6) qualityFlags.put("LOW_FUNDAMENTAL_COVERAGE")
+        if (!f.has("pe")) qualityFlags.put("PE_UNAVAILABLE_OR_NON_POSITIVE")
+        if (!f.has("eps")) qualityFlags.put("EPS_UNAVAILABLE")
+        if (!f.has("roce")) qualityFlags.put("ROCE_UNAVAILABLE")
+        f.put("name", pageTitle).put("symbol", s).put("sector", stockSector(s)).put("provider", "Screener.in")
+            .put("sourceUrl", pageUrl).put("fetchedAtEpochMs", fetchedAt)
+            .put("fundamentalStatus", if (available >= 6) "PAGE_VALIDATED_PARTIAL_FIELDS_MAY_BE_MISSING" else "PAGE_VALIDATED_LOW_COVERAGE")
+            .put("availableFundamentalFields", available).put("expectedFundamentalFields", fieldKeys.size)
+            .put("qualityFlags", qualityFlags)
         return f
     }
 
@@ -523,6 +620,66 @@ private class NativeProvider {
         return JSONObject().put("connected", active).put("loggedIn", active).put("validated", false)
             .put("loginUrl", if (active) JSONObject.NULL else "https://www.screener.in/login/")
             .put("message", if (active) "Screener session cookie detected; server-side validity is not confirmed until a protected request succeeds." else "Tap to sign in to Screener inside this app. After login, return with the Android Back button.")
+    }
+
+    /**
+     * Report provider capabilities honestly. A public Moneycontrol page can be opened
+     * without login, but no automated extraction is performed without an authorized feed.
+     */
+    private fun providerStatus(raw: String): JSONObject {
+        val symbol = canonical(raw)
+        val checkedAt = System.currentTimeMillis()
+        val screenerActive = screenerLoggedIn()
+        val moneycontrolUrl = "https://www.moneycontrol.com/search/?search_str=" + URLEncoder.encode(symbol, "UTF-8")
+        val screener = JSONObject()
+            .put("provider", "Screener.in")
+            .put("mode", "Existing in-app authenticated session")
+            .put("sessionCookieDetected", screenerActive)
+            .put("requestValidated", false)
+            .put("status", if (screenerActive) "SESSION_COOKIE_DETECTED_LIVE_PROBE_PENDING" else "LOGIN_REQUIRED")
+            .put("loginRequired", true)
+            .put("documentedApiConfigured", false)
+            .put("message", if (screenerActive) "A session cookie exists. A live company-page request is being validated; cookie presence alone is not proof of login." else "Use the existing Screener Login button, sign in, return to the dashboard, and retry.")
+        if (screenerActive) {
+            val probeStarted = System.currentTimeMillis()
+            try {
+                val fundamentals = screener(symbol)
+                val fields = JSONArray()
+                val knownFields = arrayOf("price", "marketCap", "pe", "bookValue", "dividendYield", "roce", "roe", "debtEquity", "eps", "name")
+                knownFields.filter { fundamentals.has(it) && !fundamentals.isNull(it) }.forEach { fields.put(it) }
+                screener
+                    .put("requestValidated", true)
+                    .put("status", "LIVE_COMPANY_PAGE_VALIDATED")
+                    .put("companyName", fundamentals.optString("name", symbol))
+                    .put("validatedFieldCount", fields.length())
+                    .put("validatedFields", fields)
+                    .put("fetchedAtEpochMs", System.currentTimeMillis())
+                    .put("validationDurationMs", System.currentTimeMillis() - probeStarted)
+                    .put("sourceUrl", "https://www.screener.in/company/${Uri.encode(symbol)}/")
+                    .put("message", "Live company page fetched and expected structure parsed. This validates page access and parsing, not independent accuracy of every financial value.")
+            } catch (e: Exception) {
+                screener
+                    .put("requestValidated", false)
+                    .put("status", "LIVE_VALIDATION_FAILED")
+                    .put("validationDurationMs", System.currentTimeMillis() - probeStarted)
+                    .put("errorType", e.javaClass.simpleName)
+                    .put("message", "Live Screener request did not validate. Re-login if needed, check connectivity, and retry. No live fundamentals should be claimed from this probe.")
+            }
+        }
+        val moneycontrol = JSONObject()
+            .put("provider", "Moneycontrol")
+            .put("mode", "Public website viewer + permitted user-export import")
+            .put("loginRequiredForPublicViewing", false)
+            .put("publicPageUrl", moneycontrolUrl)
+            .put("automatedDataIntegration", "DISABLED_NO_AUTHORIZED_FEED_CONFIGURED")
+            .put("dataFetched", false)
+            .put("message", "Public pages can be viewed without login. Automated extraction is disabled until an authorized documented feed/API or explicit written permission is configured. Public page access is not a data feed.")
+        return JSONObject()
+            .put("symbol", symbol)
+            .put("checkedAtEpochMs", checkedAt)
+            .put("Screener.in", screener)
+            .put("Moneycontrol", moneycontrol)
+            .put("overall", if (screener.optBoolean("requestValidated", false)) "SCREENER_LIVE_VALIDATED_MONEYCONTROL_NOT_AUTOMATED" else "PARTIAL_PROVIDER_COVERAGE_NOT_ALL_SOURCES_LIVE")
     }
 
     private fun coreCoverage(f: JSONObject): JSONObject {
@@ -540,7 +697,11 @@ private class NativeProvider {
         val quoteFuture = executor.submit<JSONObject> {
             var nse: JSONObject? = null
             var nseError: String? = null
-            try { nse = nseQuote(raw) } catch (e: Exception) { nseError = e.message ?: "NSE public quote unavailable" }
+            val bseListingSelected = raw.trim().uppercase(Locale.ROOT).endsWith(".BO")
+            try {
+                if (bseListingSelected) nseError = "BSE listing selected; use the .BO third-party quote path; NSE quote endpoint is not exchange-specific"
+                else nse = nseQuote(raw)
+            } catch (e: Exception) { nseError = e.message ?: "NSE public quote unavailable" }
             try {
                 val hist = yahoo(raw, "1y")
                 val out = nse ?: JSONObject()
@@ -584,11 +745,12 @@ private class NativeProvider {
             }
         }
         val quote = result(quoteFuture, JSONObject().put("symbol", s).put("rows", JSONArray()).put("provider", "Unavailable").put("providerError", "NSE/third-party quote lookup timed out"))
+        annotateQuoteQuality(quote)
         val f = result(fundamentalFuture, JSONObject().put("symbol", s).put("name", stockName(s)).put("providerError", "Screener.in request timed out"))
         executor.shutdownNow()
 
         val market = JSONObject()
-        val keys = arrayOf("symbol", "resolvedSymbol", "price", "previousClose", "dayChangePct", "currency", "high52", "low52", "rows", "provider")
+        val keys = arrayOf("symbol", "resolvedSymbol", "price", "previousClose", "dayChangePct", "currency", "high52", "low52", "rows", "provider", "quoteTimestamp", "priceTimestamp", "quoteTimestampStatus", "quoteTimestampSource", "quoteAgeSeconds", "quoteQuality", "priceValueValid", "quoteStatus", "marketDataStatus", "marketDataDisclaimer")
         keys.forEach { k -> if (quote.has(k)) market.put(k, quote.get(k)) }
         if (includeFundamentals) {
             val iter = f.keys()
@@ -601,7 +763,9 @@ private class NativeProvider {
         val rows = quote.optJSONArray("rows") ?: JSONArray()
         val history = JSONObject().put("rows", rows).put("provider", quote.optString("provider", "Yahoo Finance"))
         val hasFundamentals = arrayOf("marketCap", "pe", "roce", "roe", "debtEquity", "eps", "bookValue").any { f.has(it) && !f.isNull(it) }
-        val data = JSONObject().put("symbol", s).put("name", f.optString("name", stockName(s)))
+        val selectedExchange = when { raw.trim().uppercase(Locale.ROOT).endsWith(".BO") -> "BSE"; raw.trim().uppercase(Locale.ROOT).endsWith(".NS") -> "NSE"; else -> "NSE primary; BSE availability varies" }
+        market.put("exchange", selectedExchange)
+        val data = JSONObject().put("symbol", s).put("exchange", selectedExchange).put("name", f.optString("name", stockName(s)))
             .put("quote", quote).put("market", market).put("fundamentals", f).put("history", history)
             .put("ohlcv", rows).put("technicalSeries", rows)
             .put("dataConfidence", when { quote.has("price") && hasFundamentals -> "PARTIAL — VERIFY SOURCE/TIMESTAMP"; quote.has("price") -> "QUOTE AVAILABLE — NOT GUARANTEED REAL-TIME"; hasFundamentals -> "FUNDAMENTALS ONLY"; else -> "UNAVAILABLE" })
@@ -610,7 +774,7 @@ private class NativeProvider {
                 .put("Moneycontrol", "NOT INTEGRATED — NO VERIFIED ACCESS/FEED CONFIGURED")
                 .put("NSE", if (quote.optString("provider").startsWith("NSE")) "PUBLIC WEBSITE ENDPOINT (NOT LICENSED FEED)" else quote.optString("nseProviderWarning", "UNAVAILABLE"))
                 .put("Screener.in", if (f.has("providerError")) "UNAVAILABLE" else if (screenerLoggedIn()) "APP SESSION DETECTED; PROTECTED REQUEST STILL REQUIRED TO VALIDATE" else "PUBLIC COMPANY PAGE"))
-            .put("fundamentalCoverage", coreCoverage(f))
+            .put("quoteQuality", quote.optString("quoteQuality", "UNVERIFIED")).put("quoteTimestampStatus", quote.optString("quoteTimestampStatus", "UNVERIFIED_NO_PROVIDER_QUOTE_TIMESTAMP")).put("fundamentalCoverage", coreCoverage(f))
         val warnings = JSONArray()
         if (quote.has("providerError")) warnings.put(quote.optString("providerError"))
         if (f.has("providerError")) warnings.put(f.optString("providerError"))
@@ -901,6 +1065,35 @@ private class NativeProvider {
         return out
     }
 
+    /**
+     * Broad Indian equity autocomplete using Yahoo Finance's public search response.
+     * This is discovery only, not an exchange-authoritative security master or a licensed feed.
+     * Preserve .NS/.BO suffixes so quote lookup uses the selected listing when available.
+     */
+    private fun equitySearch(term: String, limit: Int = 12): List<JSONObject> {
+        val q = term.trim()
+        if (q.length < 1) return emptyList()
+        val url = "https://query1.finance.yahoo.com/v1/finance/search?q=${URLEncoder.encode(q, "UTF-8")}&quotesCount=${limit.coerceIn(1, 20)}&newsCount=0"
+        val root = JSONObject(get(url))
+        val quotes = root.optJSONArray("quotes") ?: JSONArray()
+        val out = mutableListOf<JSONObject>()
+        val seen = mutableSetOf<String>()
+        for (i in 0 until quotes.length()) {
+            val item = quotes.optJSONObject(i) ?: continue
+            val ticker = item.optString("symbol", "").uppercase(Locale.ROOT)
+            val type = item.optString("quoteType", "")
+            if (type.isNotBlank() && type != "EQUITY") continue
+            if (!ticker.endsWith(".NS") && !ticker.endsWith(".BO")) continue
+            if (!seen.add(ticker)) continue
+            val base = ticker.removeSuffix(".NS").removeSuffix(".BO")
+            val exchange = if (ticker.endsWith(".BO")) "BSE" else "NSE"
+            out.add(JSONObject().put("symbol", ticker).put("name", item.optString("shortname", item.optString("longname", base)))
+                .put("exchange", exchange).put("sector", "Equity").put("provider", "Yahoo Finance search"))
+            if (out.size >= limit.coerceIn(1, 20)) break
+        }
+        return out
+    }
+
     fun handle(path: String): String {
         val p = path.substringBefore("?")
         val q = parseQuery(path)
@@ -908,29 +1101,40 @@ private class NativeProvider {
         val s = canonical(raw)
         return try {
             when (p) {
-                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.66 PRO HARDENING").put("data", JSONObject().put("ok", true)).toString()
+                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.74 CHART DATA QUALITY + SCREENER PROBE").put("data", JSONObject().put("ok", true).put("moneycontrolIntegration", "PUBLIC_VIEW_ONLY_AUTOMATED_FEED_NOT_CONFIGURED").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
+                "/api/providers/status" -> JSONObject().put("ok", true).put("data", providerStatus(raw)).toString()
                 "/api/screener/status" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
                 "/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
                 "/api/screener/disconnect" -> JSONObject().put("ok", true).put("data", JSONObject().put("connected", false).put("loggedIn", false).put("message", "Sign out from Screener inside the web page to end the session.")).toString()
                 "/api/search-suggestions" -> {
-                    val term = (q["q"] ?: "").uppercase(Locale.ROOT).replace(Regex("[^A-Z0-9]"), "")
-                    val matches = stocks.filter { term.isBlank() || it.symbol.contains(term) || it.name.uppercase(Locale.ROOT).replace(Regex("[^A-Z0-9]"), "").contains(term) || (term.contains("INFOSYS") && it.symbol == "INFY") }
-                        .take(12).map { JSONObject().put("symbol", it.symbol).put("name", it.name).put("exchange", "NSE").put("sector", it.sector) }
-                    val arr = JSONArray(); matches.forEach { arr.put(it) }
-                    JSONObject().put("ok", true).put("data", arr).toString()
+                    val originalTerm = (q["q"] ?: "").trim()
+                    val term = originalTerm.uppercase(Locale.ROOT).replace(Regex("[^A-Z0-9]"), "")
+                    val local = stocks.filter { term.isBlank() || it.symbol.contains(term) || it.name.uppercase(Locale.ROOT).replace(Regex("[^A-Z0-9]"), "").contains(term) || (term.contains("INFOSYS") && it.symbol == "INFY") }
+                        .take(12).map { JSONObject().put("symbol", it.symbol).put("name", it.name).put("exchange", "NSE/BSE").put("sector", it.sector).put("provider", "Built-in fallback list") }
+                    val external = if (originalTerm.length >= 2) try { equitySearch(originalTerm, 12) } catch (_: Exception) { emptyList() } else emptyList()
+                    val combined = (external + local).distinctBy { it.optString("symbol").uppercase(Locale.ROOT) }.take(12)
+                    val arr = JSONArray(); combined.forEach { arr.put(it) }
+                    JSONObject().put("ok", true).put("data", arr).put("count", combined.size)
+                        .put("searchProvider", if (external.isNotEmpty()) "Yahoo Finance search + local fallback" else "Local fallback; broad search unavailable")
+                        .put("coverageDisclaimer", "Autocomplete is broad best-effort discovery, not a complete official NSE/BSE security master. Quotes can be delayed or unavailable.").toString()
                 }
                 "/api/quote", "/api/fast" -> {
                     val history = try { yahoo(raw, "5d") } catch (_: Exception) { JSONObject().put("rows", JSONArray()).put("provider", "Unavailable") }
-                    val quote = try { nseQuote(raw) } catch (nseError: Exception) {
-                        val fallback = JSONObject().put("symbol", s).put("providerError", "NSE public quote unavailable: ${nseError.message ?: "blocked"}")
+                    val quote = try {
+                        if (raw.trim().uppercase(Locale.ROOT).endsWith(".BO")) throw IOException("BSE listing selected; using .BO third-party quote lookup")
+                        nseQuote(raw)
+                    } catch (nseError: Exception) {
+                        val fallback = JSONObject().put("symbol", s).put("providerError", "Exchange quote fallback: ${nseError.message ?: "NSE public quote unavailable"}")
                         if (history.has("price")) {
-                            fallback.put("price", history.get("price")).put("provider", "Yahoo Finance fallback (not NSE/Moneycontrol)")
-                            listOf("previousClose", "dayChangePct", "high52", "low52", "priceTimestamp").forEach { k -> if (history.has(k)) fallback.put(k, history.get(k)) }
-                            fallback.put("marketDataDisclaimer", "NSE quote unavailable; third-party fallback may be delayed and is not an NSE/Moneycontrol live quote.")
+                            fallback.put("price", history.get("price")).put("provider", "Yahoo Finance fallback (not exchange-certified real-time)")
+                            listOf("previousClose", "dayChangePct", "high52", "low52", "priceTimestamp", "quoteTimestamp").forEach { k -> if (history.has(k)) fallback.put(k, history.get(k)) }
+                            fallback.put("marketDataDisclaimer", "Third-party quote may be delayed, incomplete or unavailable; it is not a licensed NSE/BSE real-time feed.")
                         }
                         fallback
                     }
                     quote.put("rows", history.optJSONArray("rows") ?: JSONArray())
+                    annotateQuoteQuality(quote)
+                    quote.put("exchange", if (raw.trim().uppercase(Locale.ROOT).endsWith(".BO")) "BSE" else if (raw.trim().uppercase(Locale.ROOT).endsWith(".NS")) "NSE" else "NSE primary; BSE availability varies")
                     quote.put("historyProvider", history.optString("provider", "Unavailable"))
                     quote.put("historyStatus", "THIRD_PARTY_HISTORICAL_BARS_NOT_NSE_VERIFIED")
                     val data = JSONObject().put("symbol", s).put("name", stockName(s)).put("quote", quote)
@@ -1053,7 +1257,7 @@ private class NativeProvider {
                     .put("statusText", "No dates are inferred. Use the official NSE event calendar for announced board-meeting/result dates and the financial-results filings page for submitted results.")
                     .put("officialUrl", "https://www.nseindia.com/companies-listing/corporate-filings-event-calendar")
                     .put("resultsUrl", "https://www.nseindia.com/companies-listing/corporate-filings-financial-results").put("liveData", false)).toString()
-                "/api/cache-clear" -> JSONObject().put("ok", true).put("data", JSONObject().put("cleared", true)).toString()
+                "/api/cache-clear" -> JSONObject().put("ok", true).put("data", JSONObject().put("cleared", false).put("cacheConfigured", false).put("message", "No persistent provider cache is configured; fresh provider requests will be attempted.")).toString()
                 else -> JSONObject().put("ok", false).put("error", "Mobile API endpoint not implemented: $p").toString()
             }
         } catch (e: Exception) {
