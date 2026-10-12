@@ -1101,7 +1101,7 @@ private class NativeProvider {
         val s = canonical(raw)
         return try {
             when (p) {
-                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.74 CHART DATA QUALITY + SCREENER PROBE").put("data", JSONObject().put("ok", true).put("moneycontrolIntegration", "PUBLIC_VIEW_ONLY_AUTOMATED_FEED_NOT_CONFIGURED").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
+                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.75 CHART DATA QUALITY + SCREENER PROBE").put("data", JSONObject().put("ok", true).put("moneycontrolIntegration", "PUBLIC_VIEW_ONLY_AUTOMATED_FEED_NOT_CONFIGURED").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
                 "/api/providers/status" -> JSONObject().put("ok", true).put("data", providerStatus(raw)).toString()
                 "/api/screener/status" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
                 "/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
