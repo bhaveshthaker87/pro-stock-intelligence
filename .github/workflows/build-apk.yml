@@ -91,6 +91,9 @@ jobs:
           python3 -m pip install --upgrade pip playwright
           python3 -m playwright install --with-deps chromium
 
+      - name: Compile Python tests before execution
+        run: python -m compileall -q tests tools
+
       - name: Run project unit and UI smoke tests
         shell: bash
         run: |
