@@ -76,3 +76,6 @@ const values=['₹2,125.50','2,125.50','1.25','0.00','-3.40','12.5%','1,25,000 C
 process.stdout.write(JSON.stringify(values.map(fn)));"""
         result = subprocess.run(["node", "-e", script, str(HTML)], text=True, capture_output=True, check=True, timeout=10)
         self.assertEqual(json.loads(result.stdout), [2125.5, 2125.5, 1.25, 0, -3.4, 12.5, 125000, -3.4, None, None, None])
+
+if __name__ == "__main__":
+    unittest.main()
