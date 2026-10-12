@@ -66,7 +66,7 @@ process.stdout.write(JSON.stringify(fn(rows)));'''
 
     def test_financial_number_parser_preserves_zero_and_indian_formats(self):
         script = r"""const fs=require('fs');const html=fs.readFileSync(process.argv[1],'utf8');
-const m=html.match(/function trendParse\(v\)\{[\\s\\S]*?\\n\}/);if(!m)throw new Error('trendParse missing');
+const m=html.match(/function trendParse\(v\)\{[\s\S]*?\n\}/);if(!m)throw new Error('trendParse missing');
 const fn=new Function(m[0]+';return trendParse;')();
 const values=['₹2,125.50','2,125.50','1.25','0.00','-3.40','12.5%','1,25,000 Cr','(3.40)','—','N/A',''];
 process.stdout.write(JSON.stringify(values.map(fn)));"""
