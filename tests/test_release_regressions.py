@@ -37,7 +37,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
         self.assertIn("V40.74 CHART DATA QUALITY + SCREENER PROBE", html)
         self.assertIn('"engine", "V40.74 CHART DATA QUALITY + SCREENER PROBE"', source)
-        self.assertIn("versionCode 73; versionName '40.74'", gradle)
+        self.assertIn("versionCode 74; versionName '40.75'", gradle)
 
 
     def test_screener_login_or_changed_markup_is_rejected(self):
