@@ -136,7 +136,9 @@ jobs:
           arch: x86_64
           profile: pixel_2
           script: |
-            set -euo pipefail
+            # android-emulator-runner runs this through /bin/sh (dash), which
+            # does not support Bash's pipefail option.
+            set -eu
             adb wait-for-device
             adb shell getprop sys.boot_completed | grep -q 1
             mkdir -p app/build/outputs
