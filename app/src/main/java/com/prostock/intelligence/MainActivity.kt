@@ -510,7 +510,8 @@ private class NativeProvider {
                 valueHtml?.let { asNumber(cleanText(it)) }
             }.distinct()
             // If repeated labels conflict or the value cannot be parsed, leave it unavailable.
-            if (matches.size != 1) return null
+            // Use collection count here: this is a Sequence-derived List, not an array.
+            if (matches.count() != 1) return null
             val parsed = matches.single()
             if ((label.equals("Current Price", true) || label.equals("Market Cap", true) || label.equals("Book Value", true) || label.equals("Stock P/E", true)) && parsed <= 0.0) return null
             return parsed
