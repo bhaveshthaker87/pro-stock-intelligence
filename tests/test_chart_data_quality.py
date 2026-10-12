@@ -64,10 +64,6 @@ process.stdout.write(JSON.stringify(fn(rows)));'''
         out = self.run_clean_rows([{"date": "2025-01-02T00:00:00Z", "open": 100, "high": 102, "low": 99, "close": 101, "volume": 3}])
         self.assertEqual(out[0]["time"], 1735776000000)
 
-
-if __name__ == "__main__":
-    unittest.main()
-
     def test_financial_number_parser_preserves_zero_and_indian_formats(self):
         script = r"""const fs=require('fs');const html=fs.readFileSync(process.argv[1],'utf8');
 const m=html.match(/function trendParse\(v\)\{[\\s\\S]*?\\n\}/);if(!m)throw new Error('trendParse missing');
