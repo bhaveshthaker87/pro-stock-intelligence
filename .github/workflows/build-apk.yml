@@ -102,7 +102,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gradle --no-daemon :app:assembleDebug --stacktrace
+          gradle :app:assembleDebug --no-daemon --stacktrace
 
       - name: Generate APK SHA-256 checksum
         if: always() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''
@@ -126,7 +126,37 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gradle --no-daemon :app:lintDebug --stacktrace
+          gradle :app:lintDebug --no-daemon --stacktrace
+
+      - name: Run Android emulator smoke test and capture screenshot
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          script: |
+            set -euo pipefail
+            adb wait-for-device
+            adb shell getprop sys.boot_completed | grep -q 1
+            mkdir -p app/build/outputs
+            adb exec-out screencap -p > app/build/outputs/psi-emulator.png
+            test -s app/build/outputs/psi-emulator.png
+            python3 - <<'PY'
+            from pathlib import Path
+            p = Path("app/build/outputs/psi-emulator.png")
+            data = p.read_bytes()
+            assert data.startswith(bytes.fromhex("89504e470d0a1a0a")), "Emulator screenshot is not a valid PNG"
+            print(f"Valid emulator screenshot: {p} ({len(data)} bytes)")
+            PY
+
+      - name: Upload emulator screenshot
+        if: always() && hashFiles('app/build/outputs/psi-emulator.png') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: PRO-STOCK-INTELLIGENCE-V40-74-emulator-screenshot
+          path: app/build/outputs/psi-emulator.png
+          if-no-files-found: error
 
 
       - name: Upload Android lint report
