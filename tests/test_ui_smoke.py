@@ -316,10 +316,14 @@ class DashboardUISmokeTests(unittest.TestCase):
     def test_workflow_checks_foreground_activity_and_least_privilege(self):
         workflow = (Path(__file__).parents[1] / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
         self.assertIn("contents: read", workflow)
-        # APK delivery must not depend on a flaky emulator; runtime validation is a separate concern.
+        # APK artifacts are uploaded before emulator validation, so device instability
+        # cannot prevent artifact publication. Reject shell/PTY screenshot capture, but
+        # allow binary-safe exec-out capture followed by PNG signature validation.
         self.assertNotIn("dumpsys activity activities", workflow)
         self.assertNotIn("adb shell pidof com.prostock.intelligence", workflow)
-        self.assertNotIn("screencap -p", workflow)
+        self.assertNotIn("adb shell screencap -p", workflow)
+        self.assertIn("adb exec-out screencap -p", workflow)
+        self.assertIn("Valid emulator screenshot", workflow)
         self.assertIn("Upload APK and checksum", workflow)
 
     def test_source_claims_disclose_unintegrated_moneycontrol_and_history(self):
