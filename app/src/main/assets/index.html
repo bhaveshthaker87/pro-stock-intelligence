@@ -735,6 +735,31 @@ body[data-nav-page="chart"] .stock{margin-bottom:10px}
 .intelStockLink{border:0;background:transparent;color:#0b5fa5;font:inherit;font-weight:900;cursor:pointer;padding:2px 0;text-align:left;text-decoration:none}
 .intelStockLink:hover{color:#07508e;text-decoration:underline}.intelClickableRow{cursor:pointer}.intelClickableRow:hover td{background:#eef7ff!important}.intelClickableRow:focus{outline:2px solid #5b9cff;outline-offset:-2px}
 .intelTable tbody tr:hover .intelStockLink{color:#064f91}
+
+/* V40.75 chart readability: reserve separate rows for instrument metadata and indicator legend. */
+.tvwork .tvhead{display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:7px!important;padding:10px 12px 8px!important;background:#131722!important}
+.tvwork .tvhead>div:first-child{min-width:0}
+.tvwork .tvtitle{overflow-wrap:anywhere;line-height:1.25}
+.tvwork .tvsubtitle{line-height:1.45;overflow-wrap:anywhere}
+.tvwork .tvlegend{display:flex!important;gap:6px 12px!important;align-items:center!important;white-space:normal!important;line-height:1.5}
+.tvwork .tvlegend span{white-space:nowrap}
+.tvwork .tvpane.pricepane{margin-top:0!important;min-height:280px}
+.tvwork .paneLabel{left:10px!important;top:8px!important;max-width:calc(100% - 20px);white-space:normal!important;line-height:1.4}
+.tvwork .tvindicator{left:10px!important;top:34px!important;max-width:calc(100% - 20px);white-space:normal!important;line-height:1.4}
+.tvwork .tvtip{max-width:calc(100% - 16px);overflow-wrap:anywhere}
+@media(max-width:900px){
+ .tvwork .tvhead{padding:8px 9px!important}
+ .tvwork .tvlegend{gap:4px 8px!important;font-size:10px!important}
+ .tvwork .tvpane.pricepane{height:360px!important}
+ .tvwork .tvpane.rsipane,.tvwork .tvpane.volpane{height:100px!important}
+ .tvwork .paneLabel{font-size:10px!important}
+ .tvwork .tvindicator{font-size:10px!important;top:31px!important}
+}
+@media(max-width:420px){
+ .tvwork .tvpane.pricepane{height:330px!important}
+ .tvwork .tvlegend{font-size:9px!important}
+ .tvwork .tvhead{gap:5px!important}
+}
 </style>
 
 <script src="csv-import.js"></script>
