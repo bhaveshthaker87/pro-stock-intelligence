@@ -144,13 +144,7 @@ jobs:
             mkdir -p app/build/outputs
             adb exec-out screencap -p > app/build/outputs/psi-emulator.png
             test -s app/build/outputs/psi-emulator.png
-            python3 - <<'PY'
-            from pathlib import Path
-            p = Path("app/build/outputs/psi-emulator.png")
-            data = p.read_bytes()
-            assert data.startswith(bytes.fromhex("89504e470d0a1a0a")), "Emulator screenshot is not a valid PNG"
-            print(f"Valid emulator screenshot: {p} ({len(data)} bytes)")
-            PY
+            python3 -c 'from pathlib import Path; p=Path("app/build/outputs/psi-emulator.png"); data=p.read_bytes(); assert data.startswith(bytes.fromhex("89504e470d0a1a0a")), "Emulator screenshot is not a valid PNG"; print("Valid emulator screenshot: {} ({} bytes)".format(p, len(data)))'
 
       - name: Upload emulator screenshot
         if: always() && hashFiles('app/build/outputs/psi-emulator.png') != ''
