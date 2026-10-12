@@ -5,7 +5,7 @@ dependencies {
 }
 
 android { namespace 'com.prostock.intelligence'; compileSdk 35
-    defaultConfig { applicationId 'com.prostock.intelligence'; minSdk 26; targetSdk 35; versionCode 73; versionName '40.74' }
+    defaultConfig { applicationId 'com.prostock.intelligence'; minSdk 26; targetSdk 35; versionCode 74; versionName '40.75' }
 
 
     compileOptions {
