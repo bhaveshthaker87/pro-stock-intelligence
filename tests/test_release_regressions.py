@@ -38,6 +38,11 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("V40.77 LIVE-REFRESH + CHART READABILITY", html)
         self.assertIn('"engine", "V40.77 LIVE-REFRESH + CHART READABILITY"', source)
         self.assertIn("versionCode 76; versionName '40.77'", gradle)
+        self.assertIn("DASHBOARD_VERSION='V40.77'", html)
+        self.assertIn("window.__PSI_BOOT_VERSION='V40.77'", html)
+        self.assertNotIn("DASHBOARD_VERSION='V40.75'", html)
+        self.assertNotIn("window.__PSI_BOOT_VERSION='V40.75'", html)
+        self.assertIn(".researchRibbon:after{content:'V40.77'", html)
 
 
     def test_screener_session_cookie_checks_both_hosts_and_surfaces_parse_error(self):
