@@ -21,8 +21,8 @@ class ReleaseRegressionTests(unittest.TestCase):
     def test_ui_and_native_engine_versions_match(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn("V40.76 SCREENER SESSION + FUNDAMENTAL RECOVERY", html)
-        self.assertIn('"engine", "V40.76 SCREENER SESSION + FUNDAMENTAL RECOVERY"', source)
+        self.assertIn("V40.77 LIVE CHART + DATA RELIABILITY", html)
+        self.assertIn('"engine", "V40.77 LIVE CHART + DATA RELIABILITY"', source)
 
     def test_fundamental_parser_fails_closed_instead_of_guessing_nearby_number(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
@@ -35,9 +35,9 @@ class ReleaseRegressionTests(unittest.TestCase):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("V40.76 SCREENER SESSION + FUNDAMENTAL RECOVERY", html)
-        self.assertIn('"engine", "V40.76 SCREENER SESSION + FUNDAMENTAL RECOVERY"', source)
-        self.assertIn("versionCode 75; versionName '40.76'", gradle)
+        self.assertIn("V40.77 LIVE CHART + DATA RELIABILITY", html)
+        self.assertIn('"engine", "V40.77 LIVE CHART + DATA RELIABILITY"', source)
+        self.assertIn("versionCode 76; versionName '40.77'", gradle)
 
 
     def test_screener_session_cookie_checks_both_hosts_and_surfaces_parse_error(self):
@@ -149,3 +149,20 @@ class ReleaseRegressionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+    def test_chart_auto_refresh_is_visible_only_and_honestly_labeled(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn('id="tvAutoRefreshBtn"', html)
+        self.assertIn("setInterval(()=>{if(chartAutoRefreshEnabled&&document.visibilityState!=='hidden')refreshChartQuietly()},60000)", html)
+        self.assertIn("provider freshness not certified; not guaranteed exchange-live", html)
+        self.assertIn("previous chart retained", html)
+        self.assertIn("document.addEventListener('visibilitychange'", html)
+
+    def test_chart_refresh_preserves_view_and_uses_validated_provider_rows(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("const incoming=cleanRows(d.rows||[])", html)
+        self.assertIn("if(wasAtEnd)", html)
+        self.assertIn("view.end=incoming.length-1", html)
+        self.assertIn("drawPriceChart(incoming);drawRSI(incoming);updateTechnicalFromRows(incoming)", html)
+        self.assertIn("not certified exchange-live", html)
