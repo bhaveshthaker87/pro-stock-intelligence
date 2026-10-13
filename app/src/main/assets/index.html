@@ -775,7 +775,7 @@ const DASHBOARD_VERSION='V40.75';
 </script>
 <script>
 const $=id=>document.getElementById(id);
-const CLIENT_ENGINE_VERSION='V40.76 SCREENER SESSION + FUNDAMENTAL RECOVERY';
+const CLIENT_ENGINE_VERSION='V40.77 LIVE-REFRESH + CHART READABILITY';
 async function verifyEngineVersion(){try{const r=await fetch('/api/health?ts='+Date.now(),{cache:'no-store'});const j=await r.json();const live=String(j.engine||'');const tag=document.querySelector('.taglive');if(tag)tag.textContent=live.startsWith(CLIENT_ENGINE_VERSION)?'V40.76 SCREENER SESSION + FUNDAMENTAL RECOVERY':'SERVER '+(live.split(' PRO')[0]||'VERSION MISMATCH');if(!live.startsWith(CLIENT_ENGINE_VERSION))toast('App UI/API version mismatch. Rebuild APK from the matching project version.')}catch(e){const tag=document.querySelector('.taglive');if(tag)tag.textContent='V40.76 SCREENER SESSION + FUNDAMENTAL RECOVERY';}}
 const api=async (u,timeoutMs)=>{const ctl=new AbortController();const path=String(u).split('?')[0];const budget=timeoutMs||({ '/api/fast':5000,'/api/history':11000,'/api/analyze':19000,'/api/peers':20000,'/api/news':7000,'/api/quote':4500,'/api/indices':25000,'/api/search-suggestions':5000,'/api/bootstrap':13000,'/api/company-events':7500}[path]||9000);const timer=setTimeout(()=>ctl.abort(),budget);try{const r=await fetch(u,{cache:'no-store',signal:ctl.signal});const j=await r.json();if(!j.ok)throw Error(j.error||'Request failed');return j.data}finally{clearTimeout(timer)}};
 verifyEngineVersion();
