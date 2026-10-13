@@ -189,5 +189,12 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn('"debt to equity"', source)
         self.assertIn('"eps in rs" -> setOf("eps in rs", "eps")', source)
 
+
+    def test_null_or_zero_price_does_not_count_as_successful_quote(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("function hasUsablePrice(v){return v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v))&&Number(v)>0}", html)
+        self.assertIn("const hasQuote=!!(fast.quote&&hasUsablePrice(fast.quote.price));", html)
+        self.assertIn("if(b.quote&&hasUsablePrice(b.quote.price))", html)
+
 if __name__ == "__main__":
     unittest.main()
