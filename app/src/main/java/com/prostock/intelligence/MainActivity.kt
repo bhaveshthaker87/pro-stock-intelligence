@@ -548,6 +548,10 @@ private class NativeProvider {
             if (value != null) f.put(key, value)
         }
         setLatestFromTable(pnlRows, "Net Profit", "netProfit")
+        // EPS is commonly present in the profit/loss table, not in the top-ratios list.
+        // Prefer the explicit ratio value when present; otherwise use the latest reported EPS cell.
+        if (!f.has("eps")) setLatestFromTable(pnlRows, "EPS in Rs", "eps")
+        if (!f.has("eps")) setLatestFromTable(pnlRows, "EPS", "eps")
         setLatestFromTable(pnlRows, "Operating Profit", "operatingProfit")
         setLatestFromTable(pnlRows, "OPM %", "opm")
         setLatestFromTable(pnlRows, "Interest", "interestExpense")
