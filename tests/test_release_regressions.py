@@ -170,5 +170,16 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("if(validPrice(currentMarket.price)) mergedMarket.price=Number(currentMarket.price)", html)
         self.assertIn("Quote:currentMarket.provider||historicalQuote.provider||'Unavailable'", html)
 
+
+    def test_quote_auto_refresh_runs_for_all_timeframes(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        start = html.index("window.__psiAutoRefreshTimer=setInterval(async()=>{")
+        end = html.index("},60000);", start)
+        block = html[start:end]
+        self.assertIn("document.visibilityState!=='visible')return", block)
+        self.assertNotIn("activeRange!=='1d')return", block)
+        self.assertIn("api('/api/quote?symbol='+encodeURIComponent(sym),9000)", block)
+        self.assertIn("if(activeRange==='1d'&&sym===currentChartSymbol())", block)
+
 if __name__ == "__main__":
     unittest.main()
