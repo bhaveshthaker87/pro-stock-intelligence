@@ -1284,16 +1284,31 @@ async function refreshChartQuietly(){
   chartAutoRefreshBusy=true;
   const symbol=currentChartSymbol(),token=analysisToken,range=activeRange||'1y';
   try{
-    const d=await api('/api/history?symbol='+encodeURIComponent(symbol)+'&range='+encodeURIComponent(range),12000);
+    const [quoteResult,historyResult]=await Promise.allSettled([
+      api('/api/quote?symbol='+encodeURIComponent(symbol),9000),
+      api('/api/history?symbol='+encodeURIComponent(symbol)+'&range='+encodeURIComponent(range),12000)
+    ]);
     if(token!==analysisToken||symbol!==currentChartSymbol())return;
-    const incoming=cleanRows(d.rows||[]);
+    if(quoteResult.status==='fulfilled'){
+      const qd=quoteResult.value||{},q=qd.quote||qd;
+      if(Number.isFinite(Number(q.price))&&Number(q.price)>0)applyQuote(q,qd.name||$('company').textContent,symbol);
+      else $('date').textContent='Auto-refresh quote returned no valid price; last displayed quote retained';
+    }else $('date').textContent='Auto-refresh quote failed: '+(quoteResult.reason?.message||'provider unavailable')+'; last displayed quote retained';
+    if(historyResult.status!=='fulfilled'){
+      $('chartStatus').textContent='Auto-refresh history failed: '+(historyResult.reason?.message||'provider unavailable')+' • previous chart retained';
+      return;
+    }
+    const d=historyResult.value||{},incoming=cleanRows(d.rows||[]);
     if(!incoming.length){$('chartStatus').textContent='Auto-refresh checked • provider returned no valid bars • previous chart retained • not certified exchange-live';return;}
+    if(d.chartMode!=='PRICE_SERIES'&&!chartRangeSufficient(incoming,range)){
+      $('chartStatus').textContent=chartCoverageMessage(incoming,range)+' • previous chart retained; provider freshness not certified';
+      return;
+    }
     const previous=cleanRows(window.chartRows||[]);
-    const previousEnd=window.chartView?.end??(previous.length-1);
-    const wasAtEnd=previousEnd>=previous.length-2;
-    window.chartRows=incoming;
     const view=window.chartView||(window.chartView={start:0,end:incoming.length-1,crosshair:null,showVolume:true,showSma:true,showNw:true,showRsi:true});
-    if(wasAtEnd){const visibleCount=Math.max(20,previousEnd-(window.chartView?.start||0)+1);view.end=incoming.length-1;view.start=Math.max(0,view.end-visibleCount+1);}
+    const previousEnd=view.end??(previous.length-1),wasAtEnd=previousEnd>=previous.length-2;
+    window.chartRows=incoming;
+    if(wasAtEnd){const visibleCount=Math.max(20,previousEnd-(view.start||0)+1);view.end=incoming.length-1;view.start=Math.max(0,view.end-visibleCount+1);}
     else {view.start=Math.min(view.start,incoming.length-1);view.end=Math.max(view.start+1,Math.min(view.end,incoming.length-1));}
     drawPriceChart(incoming);drawRSI(incoming);updateTechnicalFromRows(incoming);
     const last=incoming[incoming.length-1],raw=Number(last.time||last.date||0),ms=raw>0?(raw<1e12?raw*1000:raw):0;
