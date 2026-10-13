@@ -639,11 +639,29 @@ private class NativeProvider {
                 it.substringAfter("=", "").isNotBlank()
         }
     }
-    private fun screenerStatus(): JSONObject {
-        val active = screenerLoggedIn()
-        return JSONObject().put("connected", active).put("loggedIn", active).put("validated", false)
-            .put("loginUrl", if (active) JSONObject.NULL else "https://www.screener.in/login/")
-            .put("message", if (active) "Screener session cookie detected. Protected company data is not confirmed until a protected request succeeds." else "Tap to sign in to Screener inside this app. After login, return with the Android Back button.")
+    private fun screenerStatus(raw: String): JSONObject {
+        val cookieDetected = screenerLoggedIn()
+        if (!cookieDetected) {
+            return JSONObject().put("connected", false).put("loggedIn", false).put("validated", false)
+                .put("loginUrl", "https://www.screener.in/login/")
+                .put("message", "Screener session cookie not detected. Sign in and return to the app.")
+        }
+        // A cookie alone is not proof of authentication: validate it against a protected company page.
+        return try {
+            val f = screener(raw)
+            val fields = JSONArray()
+            arrayOf("price", "marketCap", "pe", "bookValue", "dividendYield", "roce", "roe", "debtEquity", "eps").filter {
+                f.has(it) && !f.isNull(it)
+            }.forEach { fields.put(it) }
+            JSONObject().put("connected", true).put("loggedIn", true).put("validated", true)
+                .put("loginUrl", JSONObject.NULL).put("companyName", f.optString("name", canonical(raw)))
+                .put("validatedFieldCount", fields.length()).put("validatedFields", fields)
+                .put("message", "Authenticated Screener company request succeeded; " + fields.length() + " supported fields parsed.")
+        } catch (e: Exception) {
+            JSONObject().put("connected", true).put("loggedIn", false).put("validated", false)
+                .put("loginUrl", "https://www.screener.in/login/")
+                .put("message", "Session cookie detected, but protected company request failed: " + (e.message ?: "unknown provider error"))
+        }
     }
 
     /**
@@ -1127,8 +1145,8 @@ private class NativeProvider {
             when (p) {
                 "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.76 SCREENER SESSION + FUNDAMENTAL RECOVERY").put("data", JSONObject().put("ok", true).put("moneycontrolIntegration", "PUBLIC_VIEW_ONLY_AUTOMATED_FEED_NOT_CONFIGURED").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
                 "/api/providers/status" -> JSONObject().put("ok", true).put("data", providerStatus(raw)).toString()
-                "/api/screener/status" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
-                "/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
+                "/api/screener/status" -> JSONObject().put("ok", true).put("data", screenerStatus(s)).toString()
+                "/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerStatus(s)).toString()
                 "/api/screener/disconnect" -> JSONObject().put("ok", true).put("data", JSONObject().put("connected", false).put("loggedIn", false).put("message", "Sign out from Screener inside the web page to end the session.")).toString()
                 "/api/search-suggestions" -> {
                     val originalTerm = (q["q"] ?: "").trim()
