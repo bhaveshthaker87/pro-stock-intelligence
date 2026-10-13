@@ -196,5 +196,11 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("const hasQuote=!!(fast.quote&&hasUsablePrice(fast.quote.price));", html)
         self.assertIn("if(b.quote&&hasUsablePrice(b.quote.price))", html)
 
+
+    def test_screener_enrichment_preserves_explicit_bse_listing(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("val f = screener(raw); val y = yahoo(raw, \"5d\")", source)
+        self.assertIn("Preserve the user's explicit .BO listing for quote resolution.", source)
+
 if __name__ == "__main__":
     unittest.main()
