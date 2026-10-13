@@ -1185,7 +1185,10 @@ private class NativeProvider {
                 }
                 "/api/screener/live" -> {
                     if (!screenerLoggedIn()) throw IOException("Screener login is not active. Tap Screener Login first.")
-                    val f = screener(s); val y = yahoo(s, "5d")
+                    // Preserve the user's explicit .BO listing for quote resolution.
+                    // canonical(s) removes the suffix and can otherwise route a BSE
+                    // selection to the NSE Yahoo ticker when the primary quote is unavailable.
+                    val f = screener(raw); val y = yahoo(raw, "5d")
                     JSONObject().put("ok", true).put("data", JSONObject().put("symbol", s).put("name", f.optString("name", stockName(s))).put("quote", y).put("fundamentals", f).put("dataConfidence", "SESSION-BASED / MIXED SOURCES — VERIFY PROVIDERS AND TIMESTAMPS")).toString()
                 }
                 "/api/indices" -> JSONObject().put("ok", true).put("data", marketIndices()).toString()
