@@ -1055,7 +1055,7 @@ function drawPriceChart(rows){
   const vr=visibleChartRows(rows);
   const vals=[];vr.forEach(r=>['low','high','close','dma50','dma200','nwLower','nwUpper'].forEach(k=>{if(finite(r[k]))vals.push(r[k])}));if(!vals.length)return;
   let lo=Math.min(...vals),hi=Math.max(...vals),pad=(hi-lo)*.06||1;lo-=pad;hi+=pad;
-  const L=72,R=82,T=30,B=28,plotW=w-L-R,plotH=h-T-B,volH=window.chartView?.showVolume?Math.max(44,plotH*.18):0,priceH=plotH-volH-8;
+  const compact=w<520,L=compact?54:72,R=compact?70:82,T=compact?24:30,B=compact?30:28,plotW=w-L-R,plotH=h-T-B,volH=window.chartView?.showVolume?Math.max(compact?30:44,plotH*.18):0,priceH=plotH-volH-8;
   const x=i=>L+(vr.length===1?plotW/2:(i/(vr.length-1))*plotW),y=v=>T+(hi-v)/(hi-lo)*priceH;
   c.font='10px Segoe UI';for(let k=0;k<=5;k++){const yy=T+k*priceH/5;c.strokeStyle='#2a2f3a';c.lineWidth=1;c.beginPath();c.moveTo(L,yy);c.lineTo(w-R,yy);c.stroke();c.fillStyle='#9aa8bb';c.fillText(money(hi-(hi-lo)*k/5),w-R+8,yy+3)}
   const ticks=Math.min(8,Math.max(4,Math.floor(plotW/120)));for(let k=0;k<=ticks;k++){const i=Math.round((vr.length-1)*k/ticks),xx=x(i);c.strokeStyle='#202631';c.beginPath();c.moveTo(xx,T);c.lineTo(xx,T+priceH+volH+5);c.stroke();const dt=vr[i]?.time?new Date(vr[i].time):null;if(dt){c.fillStyle='#7f8b9e';c.fillText(dt.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:vr.length>300?'2-digit':undefined}),Math.max(L,Math.min(w-R-52,xx-24)),h-8)}}
