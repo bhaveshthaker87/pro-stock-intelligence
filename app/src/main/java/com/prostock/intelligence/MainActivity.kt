@@ -241,8 +241,15 @@ private class NativeProvider {
         val host = URL(url).host.lowercase(Locale.ROOT)
         if (host == "screener.in" || host.endsWith(".screener.in")) {
             c.setRequestProperty("Referer", "https://www.screener.in/")
-            val cookie = CookieManager.getInstance().getCookie("https://www.screener.in")
-            if (!cookie.isNullOrBlank()) c.setRequestProperty("Cookie", cookie)
+            // WebView may store host-only and parent-domain cookies differently.
+            val manager = CookieManager.getInstance()
+            val cookieParts = listOf(
+                manager.getCookie("https://www.screener.in"),
+                manager.getCookie("https://screener.in")
+            ).filterNotNull().flatMap { it.split(";") }
+                .map { it.trim() }.filter { it.contains("=") && !it.startsWith("=") }
+                .distinctBy { it.substringBefore("=") }
+            if (cookieParts.isNotEmpty()) c.setRequestProperty("Cookie", cookieParts.joinToString("; "))
         }
         try {
             val code = c.responseCode
@@ -611,9 +618,22 @@ private class NativeProvider {
         return f
     }
 
+    private fun screenerCookieHeader(): String {
+        val manager = CookieManager.getInstance()
+        return listOf(
+            manager.getCookie("https://www.screener.in"),
+            manager.getCookie("https://screener.in")
+        ).filterNotNull().flatMap { it.split(";") }
+            .map { it.trim() }.filter { it.contains("=") && !it.startsWith("=") }
+            .distinctBy { it.substringBefore("=") }.joinToString("; ")
+    }
+
     private fun screenerLoggedIn(): Boolean {
-        val cookie = CookieManager.getInstance().getCookie("https://www.screener.in") ?: return false
-        return cookie.split(";").any { it.trim().startsWith("sessionid=") }
+        // Cookie presence is only a pre-check; protected requests still validate the session.
+        return screenerCookieHeader().split(";").any {
+            it.trim().substringBefore("=").equals("sessionid", ignoreCase = true) &&
+                it.substringAfter("=", "").isNotBlank()
+        }
     }
     private fun screenerStatus(): JSONObject {
         val active = screenerLoggedIn()
@@ -773,7 +793,7 @@ private class NativeProvider {
                 .put("History", quote.optString("historyProvider", "Unavailable"))
                 .put("Moneycontrol", "NOT INTEGRATED — NO VERIFIED ACCESS/FEED CONFIGURED")
                 .put("NSE", if (quote.optString("provider").startsWith("NSE")) "PUBLIC WEBSITE ENDPOINT (NOT LICENSED FEED)" else quote.optString("nseProviderWarning", "UNAVAILABLE"))
-                .put("Screener.in", if (f.has("providerError")) "UNAVAILABLE" else if (screenerLoggedIn()) "APP SESSION DETECTED; PROTECTED REQUEST STILL REQUIRED TO VALIDATE" else "PUBLIC COMPANY PAGE"))
+                .put("Screener.in", if (f.has("providerError")) "UNAVAILABLE: " + f.optString("providerError") else "Screener.in page parsed; field freshness/accuracy still requires verification"))
             .put("quoteQuality", quote.optString("quoteQuality", "UNVERIFIED")).put("quoteTimestampStatus", quote.optString("quoteTimestampStatus", "UNVERIFIED_NO_PROVIDER_QUOTE_TIMESTAMP")).put("fundamentalCoverage", coreCoverage(f))
         val warnings = JSONArray()
         if (quote.has("providerError")) warnings.put(quote.optString("providerError"))
@@ -1101,7 +1121,7 @@ private class NativeProvider {
         val s = canonical(raw)
         return try {
             when (p) {
-                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.75 CHART DATA QUALITY + SCREENER PROBE").put("data", JSONObject().put("ok", true).put("moneycontrolIntegration", "PUBLIC_VIEW_ONLY_AUTOMATED_FEED_NOT_CONFIGURED").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
+                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.76 SCREENER SESSION + FUNDAMENTAL RECOVERY").put("data", JSONObject().put("ok", true).put("moneycontrolIntegration", "PUBLIC_VIEW_ONLY_AUTOMATED_FEED_NOT_CONFIGURED").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
                 "/api/providers/status" -> JSONObject().put("ok", true).put("data", providerStatus(raw)).toString()
                 "/api/screener/status" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
                 "/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
