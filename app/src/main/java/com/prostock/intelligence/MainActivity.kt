@@ -643,7 +643,7 @@ private class NativeProvider {
         val active = screenerLoggedIn()
         return JSONObject().put("connected", active).put("loggedIn", active).put("validated", false)
             .put("loginUrl", if (active) JSONObject.NULL else "https://www.screener.in/login/")
-            .put("message", if (active) "Screener session cookie detected; server-side validity is not confirmed until a protected request succeeds." else "Tap to sign in to Screener inside this app. After login, return with the Android Back button.")
+            .put("message", if (active) "Screener session cookie detected. Protected company data is not confirmed until a protected request succeeds." else "Tap to sign in to Screener inside this app. After login, return with the Android Back button.")
     }
 
     /**
