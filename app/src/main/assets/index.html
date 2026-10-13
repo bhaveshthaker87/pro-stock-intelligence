@@ -1159,12 +1159,23 @@ async function runAnalysis(){const entered=$('search').value.trim();if(!entered)
     if(live.__error){window.screenerEnrichmentError=live.__error;setProviderStatus('Screener fundamentals not loaded: '+live.__error,false);return;}
     window.screenerEnrichmentError=null;
     const cur=window.lastAnalysisData||{};
+    const currentMarket=cur.market||{};
+    const screenerFundamentals=live.fundamentals||{};
+    const historicalQuote=live.quote||{};
+    // /api/screener/live currently returns Yahoo historical quote data, not a
+    // certified real-time quote. Merge it only as fallback; never overwrite an
+    // already returned current quote with a possibly stale historical close.
+    const mergedMarket={...screenerFundamentals,...historicalQuote,...currentMarket};
+    const validPrice=v=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v))&&Number(v)>0;
+    if(validPrice(currentMarket.price)) mergedMarket.price=Number(currentMarket.price);
+    else if(validPrice(historicalQuote.price)) mergedMarket.price=Number(historicalQuote.price);
+    else if(validPrice(screenerFundamentals.price)) mergedMarket.price=Number(screenerFundamentals.price);
     const merged={...cur, symbol:live.symbol||cur.symbol||window.sym,
-      market:{...(cur.market||{}),...(live.quote||{}),...(live.fundamentals||{})},
-      fundamentals:{...(cur.fundamentals||{}),...(live.fundamentals||{})},
+      market:mergedMarket,
+      fundamentals:{...(cur.fundamentals||{}),...screenerFundamentals},
       dataConfidence:'SESSION-BASED / MIXED SOURCES — VERIFY PROVIDERS AND TIMESTAMPS',
-      dataSources:{...(cur.dataSources||{}),Screener: 'SESSION DETECTED; QUERY RESPONSE RECEIVED; FIELD FRESHNESS NOT CERTIFIED'}};
-    window.recoveryData={...(window.recoveryData||{}),quote:{...(window.recoveryData?.quote||{}),...(live.quote||{})},fundamentals:{...(window.recoveryData?.fundamentals||{}),...(live.fundamentals||{})}};
+      dataSources:{...(cur.dataSources||{}),Quote:currentMarket.provider||historicalQuote.provider||'Unavailable',Screener:'Authenticated company page parsed; field freshness is separate from quote freshness and is not exchange-certified'}};
+    window.recoveryData={...(window.recoveryData||{}),quote:{...(window.recoveryData?.quote||{}),...historicalQuote,...(validPrice(currentMarket.price)?{price:Number(currentMarket.price),provider:currentMarket.provider,quoteTimestamp:currentMarket.quoteTimestamp,priceTimestamp:currentMarket.priceTimestamp}:{})},fundamentals:{...(window.recoveryData?.fundamentals||{}),...screenerFundamentals}};
     applyFullData(merged);
     setProviderStatus('Provider responses loaded • verify quote source and timestamp • Screener fields enriched in background',true);
   }).catch(()=>{});
