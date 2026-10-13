@@ -21,8 +21,8 @@ class ReleaseRegressionTests(unittest.TestCase):
     def test_ui_and_native_engine_versions_match(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn("V40.77 SCREENER SESSION + FUNDAMENTAL RECOVERY", html)
-        self.assertIn('"engine", "V40.77 SCREENER SESSION + FUNDAMENTAL RECOVERY"', source)
+        self.assertIn("V40.77 LIVE-REFRESH + CHART READABILITY", html)
+        self.assertIn('"engine", "V40.77 LIVE-REFRESH + CHART READABILITY"', source)
 
     def test_fundamental_parser_fails_closed_instead_of_guessing_nearby_number(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
@@ -35,8 +35,8 @@ class ReleaseRegressionTests(unittest.TestCase):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("V40.77 SCREENER SESSION + FUNDAMENTAL RECOVERY", html)
-        self.assertIn('"engine", "V40.77 SCREENER SESSION + FUNDAMENTAL RECOVERY"', source)
+        self.assertIn("V40.77 LIVE-REFRESH + CHART READABILITY", html)
+        self.assertIn('"engine", "V40.77 LIVE-REFRESH + CHART READABILITY"', source)
         self.assertIn("versionCode 76; versionName '40.77'", gradle)
 
 
