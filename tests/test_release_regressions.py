@@ -181,5 +181,13 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("api('/api/quote?symbol='+encodeURIComponent(sym),9000)", block)
         self.assertIn("if(activeRange==='1d'&&sym===currentChartSymbol())", block)
 
+
+    def test_screener_ratio_parser_scopes_labels_and_accepts_debt_alias(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("val ratiosSectionHtml = Regex", source)
+        self.assertIn("findAll(ratiosSectionHtml)", source)
+        self.assertIn('"debt to equity"', source)
+        self.assertIn('"eps in rs" -> setOf("eps in rs", "eps")', source)
+
 if __name__ == "__main__":
     unittest.main()
