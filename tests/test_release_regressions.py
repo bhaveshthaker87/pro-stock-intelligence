@@ -213,5 +213,11 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("f[k]!==null&&f[k]!==undefined&&f[k]!==''&&Number.isFinite(Number(f[k]))", html)
         self.assertIn("Number(f.price)>0", html)
 
+
+    def test_invalid_refresh_quote_does_not_clear_last_valid_display(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("Quote refresh returned no valid price; previous display retained.", html)
+        self.assertIn("if(hasUsablePrice(q.price))applyQuote(q,d.name||$('company').textContent,sym)", html)
+
 if __name__ == "__main__":
     unittest.main()
