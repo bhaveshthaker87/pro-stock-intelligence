@@ -965,6 +965,7 @@ let analysisToken=0;
 function setProviderStatus(msg,ok=true){const el=$('providerStatus');if(el){el.textContent=msg;el.style.borderColor=ok?'#dbe7ef':'#f2b8bd';el.style.color=ok?'#55718b':'#b4232f'}}
 function setLoading(on){$('analyze').disabled=!!on;$('analyze').textContent=on?'Analyzing…':'Analyze';}
 function safeNum(v){const n=Number(v);return Number.isFinite(n)?n:null}
+function hasUsablePrice(v){return v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v))&&Number(v)>0}
 function cleanRows(rows){
   const parseBarTime=(value)=>{
     if(value==null||value==='')return null;
@@ -1185,7 +1186,7 @@ async function runAnalysis(){const entered=$('search').value.trim();if(!entered)
   // another provider timeout.
   try{
     const fast=await api('/api/fast?symbol='+encodeURIComponent(symbol),5000);if(token!==analysisToken)return;
-    const hasQuote=!!(fast.quote&&Number.isFinite(Number(fast.quote.price)));
+    const hasQuote=!!(fast.quote&&hasUsablePrice(fast.quote.price));
     if(hasQuote){applyQuote(fast.quote,fast.name,fast.symbol); updateResearchCockpit({market:{...(fast.quote||{}),symbol:fast.symbol,name:fast.name},dataConfidence:'QUOTE RETURNED • FRESHNESS UNVERIFIED',fundamentalCoverage:{coreFields:0,coreTotal:7},dataSources:{'Live Quote':fast.provider||'Provider response (freshness unverified)'}});} else setProviderStatus(fast.warning||'Fast quote unavailable — checking fallback sources…',false);
     window.sym=fast.symbol||window.sym;
     const rows=cleanRows(fast.rows||[]);
@@ -1198,7 +1199,7 @@ async function runAnalysis(){const entered=$('search').value.trim();if(!entered)
       try{
         const b=await api('/api/bootstrap?symbol='+encodeURIComponent(symbol),13000);if(token!==analysisToken)return;
         window.recoveryData=b;window.sym=b.symbol||window.sym;
-        if(b.quote&&Number.isFinite(Number(b.quote.price))){applyQuote(b.quote,b.name,b.symbol);updateResearchCockpit({market:{...(b.quote||{}),symbol:b.symbol,name:b.name},dataConfidence:'QUOTE RETURNED • FRESHNESS UNVERIFIED',fundamentalCoverage:{coreFields:0,coreTotal:7},dataSources:{Bootstrap:b.diagnostics?.quoteProvider||'Fallback quote response (freshness unverified)'}});}
+        if(b.quote&&hasUsablePrice(b.quote.price)){applyQuote(b.quote,b.name,b.symbol);updateResearchCockpit({market:{...(b.quote||{}),symbol:b.symbol,name:b.name},dataConfidence:'QUOTE RETURNED • FRESHNESS UNVERIFIED',fundamentalCoverage:{coreFields:0,coreTotal:7},dataSources:{Bootstrap:b.diagnostics?.quoteProvider||'Fallback quote response (freshness unverified)'}});}
         if(b.fundamentals&&Object.keys(b.fundamentals).length){
           const mini={symbol:b.symbol||window.sym,market:b.quote||{},fundamentals:b.fundamentals,ohlcv:[],technicalSeries:(b.history&&b.history.rows)||[],dataConfidence:'PARTIAL',dataSources:{Bootstrap:'NSE public website endpoint + third-party history + Screener (verify freshness)'}};
           applyFullData(mini);
@@ -1216,7 +1217,7 @@ async function runAnalysis(){const entered=$('search').value.trim();if(!entered)
     setProviderStatus('Fast quote unavailable — checking fallback sources…',false);
     try{
       const b=await api('/api/bootstrap?symbol='+encodeURIComponent(symbol),13000);if(token!==analysisToken)return;window.recoveryData=b;window.sym=b.symbol||window.sym;
-      if(b.quote&&Number.isFinite(Number(b.quote.price))){applyQuote(b.quote,b.name,b.symbol);updateResearchCockpit({market:{...(b.quote||{}),symbol:b.symbol,name:b.name},dataConfidence:'QUOTE RETURNED • FRESHNESS UNVERIFIED',fundamentalCoverage:{coreFields:0,coreTotal:7},dataSources:{Bootstrap:b.diagnostics?.quoteProvider||'Fallback quote response (freshness unverified)'}});}
+      if(b.quote&&hasUsablePrice(b.quote.price)){applyQuote(b.quote,b.name,b.symbol);updateResearchCockpit({market:{...(b.quote||{}),symbol:b.symbol,name:b.name},dataConfidence:'QUOTE RETURNED • FRESHNESS UNVERIFIED',fundamentalCoverage:{coreFields:0,coreTotal:7},dataSources:{Bootstrap:b.diagnostics?.quoteProvider||'Fallback quote response (freshness unverified)'}});}
       if(b.fundamentals&&Object.keys(b.fundamentals).length){const mini={symbol:b.symbol||window.sym,market:b.quote||{},fundamentals:b.fundamentals,ohlcv:[],technicalSeries:(b.history&&b.history.rows)||[],dataConfidence:'PARTIAL',dataSources:{Bootstrap:'NSE public website endpoint + third-party history + Screener (verify freshness)'}};applyFullData(mini)}
       if(b.history&&b.history.rows?.length){$('chartStatus').textContent=(b.history.provider||'Verified technical series')+' • '+b.history.rows.length+' points • '+(b.history.warning||'');window.chartRows=cleanRows(b.history.rows);window.chartView={start:0,end:Math.max(0,window.chartRows.length-1),crosshair:null,showVolume:true,showSma:true,showNw:true,showRsi:true};document.querySelectorAll('.tvctl').forEach(x=>x.classList.add('active'));drawPriceChart(window.chartRows);drawRSI(window.chartRows);updateTechnicalFromRows(window.chartRows)}
     }catch(be){setProviderStatus('Provider recovery unavailable — continuing with full analysis/cache…',false)}
