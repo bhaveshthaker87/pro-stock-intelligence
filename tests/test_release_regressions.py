@@ -21,8 +21,8 @@ class ReleaseRegressionTests(unittest.TestCase):
     def test_ui_and_native_engine_versions_match(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn("V40.76 SCREENER SESSION + FUNDAMENTAL RECOVERY", html)
-        self.assertIn('"engine", "V40.76 SCREENER SESSION + FUNDAMENTAL RECOVERY"', source)
+        self.assertIn("V40.77 AUTH VALIDATION + CHART REFRESH", html)
+        self.assertIn('"engine", "V40.77 AUTH VALIDATION + CHART REFRESH"', source)
 
     def test_fundamental_parser_fails_closed_instead_of_guessing_nearby_number(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
@@ -35,9 +35,9 @@ class ReleaseRegressionTests(unittest.TestCase):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("V40.76 SCREENER SESSION + FUNDAMENTAL RECOVERY", html)
-        self.assertIn('"engine", "V40.76 SCREENER SESSION + FUNDAMENTAL RECOVERY"', source)
-        self.assertIn("versionCode 75; versionName '40.76'", gradle)
+        self.assertIn("V40.77 AUTH VALIDATION + CHART REFRESH", html)
+        self.assertIn('"engine", "V40.77 AUTH VALIDATION + CHART REFRESH"', source)
+        self.assertIn("versionCode 76; versionName '40.77'", gradle)
 
 
     def test_screener_session_cookie_checks_both_hosts_and_surfaces_parse_error(self):
@@ -149,3 +149,16 @@ class ReleaseRegressionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_screener_status_validates_protected_company_request(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("private fun screenerStatus(raw: String)", source)
+        self.assertIn("protected company request failed", source)
+        self.assertIn('"/api/screener/status" -> JSONObject().put("ok", true).put("data", screenerStatus(s))', source)
+
+    def test_chart_refresh_is_provider_labelled_and_preserves_view(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("window.__psiChartRefreshTimer=setInterval", html)
+        self.assertIn("provider refresh enabled; real-time feed not certified", html)
+        self.assertIn("const wasPinnedToLatest=", html)
+        self.assertIn("Chart refresh failed; keeping last valid candles.", html)
