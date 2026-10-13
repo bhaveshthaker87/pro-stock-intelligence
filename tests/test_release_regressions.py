@@ -157,8 +157,12 @@ class ReleaseRegressionTests(unittest.TestCase):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         self.assertIn("window.__psiAutoRefreshTimer=setInterval", html)
         self.assertIn("document.visibilityState!=='visible'", html)
-        self.assertIn("activeRange!=='1d'", html)
-        self.assertIn("loadChart('1d',{preserveView:true})", html)
+        start = html.index("window.__psiAutoRefreshTimer=setInterval(async()=>{")
+        end = html.index("},60000);", start)
+        refresh = html[start:end]
+        self.assertNotIn("activeRange!=='1d')return", refresh)
+        self.assertIn("if(activeRange==='1d'&&sym===currentChartSymbol())", refresh)
+        self.assertIn("loadChart('1d',{preserveView:true})", refresh)
         self.assertIn("NOT certified exchange-live", html)
         self.assertIn("Math.max(46,Math.min(72,w*.13))", html)
 
