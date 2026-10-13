@@ -1108,8 +1108,13 @@ async function loadChart(range, options={}){
       if(range!=='1d'){
         try{
           const fb=await api('/api/screener-chart?symbol='+encodeURIComponent(window.sym||$('search').value.trim())+'&range='+encodeURIComponent(range),7000);
-          rows=cleanRows(fb.rows||[]);d=fb;
-        }catch(_e){}
+          const fallbackRows=cleanRows(fb.rows||[]);
+          // Never discard usable primary-provider candles just because an optional fallback is empty or invalid.
+          if(fallbackRows.length && (chartRangeSufficient(fallbackRows,range)||!rows.length)){rows=fallbackRows;d=fb;}
+          else if(rows.length){d.historyWarning='requested range is incomplete; showing available primary-provider bars';}
+        }catch(_e){
+          if(rows.length)d.historyWarning='fallback unavailable; showing available primary-provider bars';
+        }
       }
     }
     if(!rows.length)throw Error('No usable chart history was returned by the configured source.');
