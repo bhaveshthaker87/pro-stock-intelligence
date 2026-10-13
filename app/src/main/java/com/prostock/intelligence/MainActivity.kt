@@ -499,6 +499,10 @@ private class NativeProvider {
         val html = get(pageUrl)
         val pageTitle = Regex("(?is)<h1\\b[^>]*>(.*?)</h1>").find(html)?.groupValues?.get(1)?.let { cleanText(it) }
         val hasRatioSection = Regex("(?is)<(?:section|div)\\b[^>]*id=[\"']top-ratios[\"']").containsMatchIn(html)
+        // Restrict ratio matching to the dedicated section to avoid duplicate labels
+        // elsewhere in the page being treated as ambiguous.
+        val ratiosSectionHtml = Regex("(?is)<section\\b[^>]*id=[\"']top-ratios[\"'][^>]*>(.*?)</section>")
+            .find(html)?.groupValues?.get(1) ?: html
         val looksLikeLogin = Regex("(?is)<title[^>]*>.*?(?:login|sign in).*?</title>").containsMatchIn(html) ||
             html.contains("name=\"password\"", ignoreCase = true)
         if (looksLikeLogin) throw IOException("Screener returned a login page instead of company data; sign in again and retry.")
@@ -507,11 +511,18 @@ private class NativeProvider {
         }
         // Match the visible label and value in the same ratio list item. Never guess from nearby text.
         fun number(label: String, percent: Boolean = false): Double? {
-            val items = Regex("(?is)<li\\b[^>]*>(.*?)</li>").findAll(html).map { it.groupValues[1] }
+            val items = Regex("(?is)<li\\b[^>]*>(.*?)</li>").findAll(ratiosSectionHtml).map { it.groupValues[1] }
             val matches = items.mapNotNull { item ->
                 val name = Regex("(?is)<span\\b[^>]*class=[\"'][^\"']*\\bname\\b[^\"']*[\"'][^>]*>(.*?)</span>")
                     .find(item)?.groupValues?.getOrNull(1)?.let { cleanText(it) } ?: return@mapNotNull null
-                if (!name.equals(label, ignoreCase = true)) return@mapNotNull null
+                val normalizedName = name.lowercase(Locale.ROOT).replace(Regex("[^a-z0-9]+"), " ").trim()
+                val normalizedLabel = label.lowercase(Locale.ROOT).replace(Regex("[^a-z0-9]+"), " ").trim()
+                val acceptedLabels = when (normalizedLabel) {
+                    "debt equity" -> setOf("debt equity", "debt to equity")
+                    "eps in rs" -> setOf("eps in rs", "eps")
+                    else -> setOf(normalizedLabel)
+                }
+                if (normalizedName !in acceptedLabels) return@mapNotNull null
                 val valueHtml = Regex("(?is)<span\\b[^>]*class=[\"'][^\"']*\\bnumber\\b[^\"']*[\"'][^>]*>(.*?)</span>")
                     .find(item)?.groupValues?.getOrNull(1)
                 valueHtml?.let { asNumber(cleanText(it)) }
