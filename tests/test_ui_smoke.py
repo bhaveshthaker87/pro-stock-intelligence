@@ -326,6 +326,10 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn("adb exec-out screencap -p", workflow)
         self.assertIn("Valid emulator screenshot", workflow)
         self.assertIn("Upload APK and checksum", workflow)
+        self.assertIn("api-level: 34", workflow)
+        self.assertIn("emulator-boot-timeout: 900", workflow)
+        self.assertIn("disable-animations: true", workflow)
+        self.assertIn("-gpu swiftshader_indirect", workflow)
 
     def test_source_claims_disclose_unintegrated_moneycontrol_and_history(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
@@ -390,9 +394,6 @@ class DashboardUISmokeTests(unittest.TestCase):
             self.assertEqual(errors, [])
             browser.close()
 
-if __name__ == "__main__":
-    unittest.main()
-
     def test_brand_logo_asset_header_and_android_launcher_icon_exist(self):
         root = Path(__file__).parents[1]
         html = (root / "app/src/main/assets/index.html").read_text(encoding="utf-8")
@@ -404,7 +405,7 @@ if __name__ == "__main__":
         self.assertIn('class="brand"', html)
         self.assertIn('android:icon="@drawable/ic_launcher"', manifest)
         self.assertTrue(launcher.exists())
-        self.assertIn("40.74", (root / "app/build.gradle").read_text(encoding="utf-8"))
+        self.assertIn("versionName '40.77'", (root / "app/build.gradle").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
