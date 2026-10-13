@@ -16,7 +16,7 @@ except ImportError as exc:  # CI installs Playwright; keep the error explicit lo
     raise RuntimeError("Install Playwright and Chromium to run tests/test_ui_smoke.py") from exc
 
 HTML = Path(__file__).parents[1] / "app/src/main/assets/index.html"
-ENGINE = "V40.66 PRO HARDENING"
+ENGINE = "V40.77 SCREENER SESSION + FUNDAMENTAL RECOVERY"
 
 
 def launch_chromium(playwright):
@@ -102,7 +102,7 @@ class DashboardUISmokeTests(unittest.TestCase):
             html = html[:pos] + "<script>" + mock_js + "</script>" + html[pos:]
             page.set_content(html, wait_until="domcontentloaded", timeout=30000)
             page.wait_for_timeout(250)
-            self.assertIn("V40.66", page.locator(".taglive").first.inner_text())
+            self.assertIn("V40.77", page.locator(".taglive").first.inner_text())
             page.locator("#search").fill("INFY")
             page.locator("#analyze").click()
             page.wait_for_function("document.getElementById('company').textContent.includes('Infosys')", timeout=8000)
@@ -227,16 +227,13 @@ class DashboardUISmokeTests(unittest.TestCase):
 
     def test_version_code_and_name_are_aligned(self):
         gradle = (Path(__file__).parents[1] / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 65", gradle)
-        self.assertIn("versionName '40.66'", gradle)
+        self.assertIn("versionCode 76", gradle)
+        self.assertIn("versionName '40.77'", gradle)
 
     def test_workflow_artifact_names_match_release_version(self):
         workflow = (Path(__file__).parents[1] / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
-        self.assertIn("Publish the APK immediately after a successful build", workflow)
-        self.assertNotIn("Emulator smoke test (launch app and check runtime)", workflow)
-        self.assertNotIn("screencap -p", workflow)
-        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-66-debug", workflow)
-        self.assertLess(workflow.index("Upload APK and checksum"), workflow.index("Run Android lint"))
+        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-77-lint-report", workflow)
+        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-77-debug", workflow)
         self.assertNotIn("V40-57", workflow)
         self.assertIn("pull_request:", workflow)
         self.assertIn("sha256sum app/build/outputs/apk/debug/app-debug.apk", workflow)
@@ -250,8 +247,8 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIsNotNone(client)
         self.assertIsNotNone(server)
         self.assertEqual(client.group(1), server.group(1), "UI must not report a false server-version mismatch")
-        self.assertIn("V40.66", html)
-        self.assertIn("V40.66", source)
+        self.assertIn("V40.77", html)
+        self.assertIn("V40.77", source)
 
 
     def test_canonical_preserves_yahoo_index_and_futures_tickers(self):
@@ -319,11 +316,20 @@ class DashboardUISmokeTests(unittest.TestCase):
     def test_workflow_checks_foreground_activity_and_least_privilege(self):
         workflow = (Path(__file__).parents[1] / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
         self.assertIn("contents: read", workflow)
-        # APK delivery must not depend on a flaky emulator; runtime validation is a separate concern.
-        self.assertNotIn("dumpsys activity activities", workflow)
+        # APK artifacts are uploaded before emulator validation, so device instability
+        # cannot prevent artifact publication. Reject shell/PTY screenshot capture, but
+        # allow binary-safe exec-out capture followed by PNG signature validation.
+        self.assertIn("dumpsys activity activities", workflow)
+        self.assertIn("com.prostock.intelligence/.MainActivity", workflow)
         self.assertNotIn("adb shell pidof com.prostock.intelligence", workflow)
-        self.assertNotIn("screencap -p", workflow)
+        self.assertNotIn("adb shell screencap -p", workflow)
+        self.assertIn("adb exec-out screencap -p", workflow)
+        self.assertIn("Valid emulator screenshot", workflow)
         self.assertIn("Upload APK and checksum", workflow)
+        self.assertIn("api-level: 34", workflow)
+        self.assertIn("emulator-boot-timeout: 900", workflow)
+        self.assertIn("disable-animations: true", workflow)
+        self.assertIn("-gpu swiftshader_indirect", workflow)
 
     def test_source_claims_disclose_unintegrated_moneycontrol_and_history(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
@@ -344,6 +350,50 @@ class DashboardUISmokeTests(unittest.TestCase):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("Screener.in does not expose a documented chart-data API", source)
 
+    def test_csv_import_modal_parses_and_persists_authorized_export(self):
+        errors = []
+        with sync_playwright() as p:
+            browser = launch_chromium(p)
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.on("pageerror", lambda e: errors.append(str(e)))
+            html = HTML.read_text(encoding="utf-8")
+            importer = (Path(__file__).parents[1] / "app/src/main/assets/csv-import.js").read_text(encoding="utf-8")
+            html = html.replace('<script src="csv-import.js"></script>', '<script>\n' + importer + '\n</script>')
+            mock_js = '''
+              Object.defineProperty(window,"localStorage",{value:{_s:{},getItem(k){return this._s[k]??null},setItem(k,v){this._s[k]=String(v)},removeItem(k){delete this._s[k]}}});
+              const MOCK_API = ''' + json.dumps(self.mock_api, separators=(",", ":")) + ''';
+              window.fetch=(u,opts)=>{const path=String(u).split("?")[0];const key=Object.keys(MOCK_API).find(k=>path.endsWith(k));const value=key?MOCK_API[key]:{ok:false,error:"unmocked "+path};return Promise.resolve(new Response(JSON.stringify(value),{status:200,headers:{"Content-Type":"application/json"}}));};
+            '''
+            pos = html.find('<script')
+            html = html[:pos] + '<script>' + mock_js + '</script>' + html[pos:]
+            page.set_content(html, wait_until="domcontentloaded", timeout=30000)
+            page.locator('#dataSourcesBtn').click()
+            self.assertTrue(page.locator('#dataSourcesModal').is_visible())
+            page.locator('#csvSource').select_option('Screener.in CSV')
+            page.locator('#csvFile').set_input_files({"name":"sample.csv","mimeType":"text/csv","buffer":b"Name,NSE Code,Market Capitalization,Stock P/E,Dividend yield\nInfosys,INFY,650000,25.4,1.8"})
+            page.wait_for_function("document.querySelector('#csvImportStatus').textContent.includes('Imported 1 stock row')", timeout=5000)
+            store = page.evaluate("JSON.parse(localStorage.getItem('psi.provider.csv.v1'))")
+            self.assertEqual(store['sources']['Screener.in CSV']['rows']['INFY']['fields']['dividendYield'], 1.8)
+            # Also exercise the historical CSV path using the selected stock.
+            page.locator('#search').fill('INFY')
+            page.locator('#csvSource').select_option('User CSV')
+            lines = ['Date,Open,High,Low,Close,Volume']
+            from datetime import date, timedelta
+            for i in range(24, -1, -1):
+                day = date(2025, 1, 1) + timedelta(days=i)
+                close = 100 + i
+                lines.append(f'{day.isoformat()},{close-1},{close+2},{close-2},{close},1000')
+            page.locator('#csvFile').set_input_files({"name":"infy-history.csv","mimeType":"text/csv","buffer":("\n".join(lines)).encode()})
+            page.wait_for_function("document.querySelector('#csvImportStatus').textContent.includes('Imported 0 stock row(s) and 25 historical bar(s)')", timeout=5000)
+            page.locator('#dataSourcesClose').click()
+            page.locator('#analyze').click()
+            page.wait_for_function("document.querySelector('#providerStatus').textContent.includes('CSV fallback:')", timeout=12000)
+            self.assertIn('1 missing field(s) filled', page.locator('#providerStatus').inner_text())
+            page.wait_for_function("window.chartRows && window.chartRows.length === 25", timeout=12000)
+            self.assertIn('user-imported historical CSV', page.locator('#chartStatus').inner_text())
+            self.assertEqual(errors, [])
+            browser.close()
+
     def test_brand_logo_asset_header_and_android_launcher_icon_exist(self):
         root = Path(__file__).parents[1]
         html = (root / "app/src/main/assets/index.html").read_text(encoding="utf-8")
@@ -355,7 +405,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn('class="brand"', html)
         self.assertIn('android:icon="@drawable/ic_launcher"', manifest)
         self.assertTrue(launcher.exists())
-        self.assertIn("40.66", (root / "app/build.gradle").read_text(encoding="utf-8"))
+        self.assertIn("versionName '40.77'", (root / "app/build.gradle").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

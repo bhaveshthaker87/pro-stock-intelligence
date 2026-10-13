@@ -82,6 +82,7 @@ jobs:
           while IFS= read -r -d '' file; do
             node --check "$file"
           done < <(find /tmp/psi-js -type f -name '*.js' -print0)
+          node --check app/src/main/assets/csv-import.js
 
       - name: Install browser-test dependencies
         shell: bash
@@ -89,6 +90,9 @@ jobs:
           set -euo pipefail
           python3 -m pip install --upgrade pip playwright
           python3 -m playwright install --with-deps chromium
+
+      - name: Compile Python tests before execution
+        run: python -m compileall -q tests tools
 
       - name: Run project unit and UI smoke tests
         shell: bash
@@ -101,7 +105,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gradle --no-daemon :app:assembleDebug --stacktrace
+          gradle :app:assembleDebug --no-daemon --stacktrace
 
       - name: Generate APK SHA-256 checksum
         if: always() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''
@@ -115,7 +119,7 @@ jobs:
         if: always() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-66-debug
+          name: PRO-STOCK-INTELLIGENCE-V40-77-debug
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/app-debug.apk.sha256
@@ -125,13 +129,48 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gradle --no-daemon :app:lintDebug --stacktrace
+          gradle :app:lintDebug --no-daemon --stacktrace
+
+      - name: Run Android emulator smoke test and capture screenshot
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-boot-timeout: 900
+          disable-animations: true
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none
+          script: |
+            # android-emulator-runner runs this through /bin/sh (dash), which
+            # does not support Bash's pipefail option.
+            set -eu
+            adb wait-for-device
+            adb shell getprop sys.boot_completed | grep -q 1
+            # Test the actual app, not just the emulator home screen.
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb shell am force-stop com.prostock.intelligence
+            adb shell am start -n com.prostock.intelligence/.MainActivity
+            sleep 8
+            adb shell dumpsys activity activities | grep -q 'com.prostock.intelligence/.MainActivity'
+            mkdir -p app/build/outputs
+            adb exec-out screencap -p > app/build/outputs/psi-emulator.png
+            test -s app/build/outputs/psi-emulator.png
+            python3 -c 'from pathlib import Path; p=Path("app/build/outputs/psi-emulator.png"); data=p.read_bytes(); assert data.startswith(bytes.fromhex("89504e470d0a1a0a")), "Emulator screenshot is not a valid PNG"; print("Valid emulator screenshot: {} ({} bytes)".format(p, len(data)))'
+
+      - name: Upload emulator screenshot
+        if: always() && hashFiles('app/build/outputs/psi-emulator.png') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: PRO-STOCK-INTELLIGENCE-V40-77-emulator-screenshot
+          path: app/build/outputs/psi-emulator.png
+          if-no-files-found: error
 
 
       - name: Upload Android lint report
         if: always() && hashFiles('app/build/reports/lint-results-debug.html') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-66-lint-report
+          name: PRO-STOCK-INTELLIGENCE-V40-77-lint-report
           path: app/build/reports/lint-results-debug.html
           if-no-files-found: warn
