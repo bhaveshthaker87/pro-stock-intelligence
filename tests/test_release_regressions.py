@@ -206,5 +206,12 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("val f = screener(raw); val y = yahoo(raw, \"5d\")", source)
         self.assertIn("Preserve the user's explicit .BO listing for quote resolution.", source)
 
+
+    def test_missing_numeric_values_are_not_coerced_to_zero(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("function safeNum(v){if(v===null||v===undefined||v==='')return null;", html)
+        self.assertIn("f[k]!==null&&f[k]!==undefined&&f[k]!==''&&Number.isFinite(Number(f[k]))", html)
+        self.assertIn("Number(f.price)>0", html)
+
 if __name__ == "__main__":
     unittest.main()
