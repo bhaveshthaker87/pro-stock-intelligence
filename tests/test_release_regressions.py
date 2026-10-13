@@ -166,3 +166,4 @@ if __name__ == "__main__":
         self.assertIn("view.end=incoming.length-1", html)
         self.assertIn("drawPriceChart(incoming);drawRSI(incoming);updateTechnicalFromRows(incoming)", html)
         self.assertIn("not certified exchange-live", html)
+        self.assertIn("const compact=w<520,L=compact?54:72,R=compact?70:82", html)
