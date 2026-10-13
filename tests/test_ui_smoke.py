@@ -339,7 +339,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn('id="tvRefreshBtn"', html)
         self.assertIn('id="tvScreenerLinkBtn"', html)
         self.assertIn('id="tvMoneycontrolLinkBtn"', html)
-        self.assertIn("NOT certified exchange-live", html)
+        self.assertIn("provider refresh enabled; real-time feed not certified", html)
         self.assertIn("chart-expanded", html)
 
     def test_screener_chart_endpoint_does_not_mislabel_yahoo_history(self):
