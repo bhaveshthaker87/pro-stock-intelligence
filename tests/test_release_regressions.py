@@ -21,8 +21,8 @@ class ReleaseRegressionTests(unittest.TestCase):
     def test_ui_and_native_engine_versions_match(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn("V40.76 SCREENER SESSION + FUNDAMENTAL RECOVERY", html)
-        self.assertIn('"engine", "V40.76 SCREENER SESSION + FUNDAMENTAL RECOVERY"', source)
+        self.assertIn("V40.77 SCREENER SESSION + FUNDAMENTAL RECOVERY", html)
+        self.assertIn('"engine", "V40.77 SCREENER SESSION + FUNDAMENTAL RECOVERY"', source)
 
     def test_fundamental_parser_fails_closed_instead_of_guessing_nearby_number(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
@@ -35,9 +35,9 @@ class ReleaseRegressionTests(unittest.TestCase):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("V40.76 SCREENER SESSION + FUNDAMENTAL RECOVERY", html)
-        self.assertIn('"engine", "V40.76 SCREENER SESSION + FUNDAMENTAL RECOVERY"', source)
-        self.assertIn("versionCode 75; versionName '40.76'", gradle)
+        self.assertIn("V40.77 SCREENER SESSION + FUNDAMENTAL RECOVERY", html)
+        self.assertIn('"engine", "V40.77 SCREENER SESSION + FUNDAMENTAL RECOVERY"', source)
+        self.assertIn("versionCode 76; versionName '40.77'", gradle)
 
 
     def test_screener_session_cookie_checks_both_hosts_and_surfaces_parse_error(self):
@@ -146,6 +146,16 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn('"DISABLED_NO_AUTHORIZED_FEED_CONFIGURED"', source)
         self.assertIn('"dataFetched", false', source)
         self.assertIn("Public page access is not a data feed", source)
+
+
+    def test_v4077_chart_refresh_is_provider_honest_and_zoom_preserving(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("window.__psiAutoRefreshTimer=setInterval", html)
+        self.assertIn("document.visibilityState!=='visible'", html)
+        self.assertIn("activeRange!=='1d'", html)
+        self.assertIn("loadChart('1d',{preserveView:true})", html)
+        self.assertIn("NOT certified exchange-live", html)
+        self.assertIn("Math.max(46,Math.min(72,w*.13))", html)
 
 if __name__ == "__main__":
     unittest.main()
