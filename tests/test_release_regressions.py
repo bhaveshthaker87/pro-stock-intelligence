@@ -162,5 +162,13 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("NOT certified exchange-live", html)
         self.assertIn("Math.max(46,Math.min(72,w*.13))", html)
 
+
+    def test_screener_enrichment_never_overwrites_existing_quote_with_history(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("const currentMarket=cur.market||{}", html)
+        self.assertIn("const historicalQuote=live.quote||{}", html)
+        self.assertIn("if(validPrice(currentMarket.price)) mergedMarket.price=Number(currentMarket.price)", html)
+        self.assertIn("Quote:currentMarket.provider||historicalQuote.provider||'Unavailable'", html)
+
 if __name__ == "__main__":
     unittest.main()
