@@ -1295,17 +1295,24 @@ $('tvRefreshBtn')?.addEventListener('click',async()=>{const sym=currentChartSymb
 // Best-effort intraday refresh only: the upstream source may be delayed and is not certified exchange-live.
 window.__psiAutoRefreshBusy=false;
 window.__psiAutoRefreshTimer=setInterval(async()=>{
-  if(window.__psiAutoRefreshBusy||document.visibilityState!=='visible'||activeRange!=='1d')return;
+  // Refresh the selected stock's quote on every chart timeframe while visible.
+  // Refresh intraday candles only in the 1D view; long-range candles are daily
+  // bars and should not be repeatedly reloaded every minute.
+  if(window.__psiAutoRefreshBusy||document.visibilityState!=='visible')return;
   const sym=currentChartSymbol();if(!sym)return;
   window.__psiAutoRefreshBusy=true;
   try{
-    const [quoteResult]=await Promise.allSettled([
-      api('/api/quote?symbol='+encodeURIComponent(sym),9000),
-      loadChart('1d',{preserveView:true})
+    const quoteResult=await Promise.allSettled([
+      api('/api/quote?symbol='+encodeURIComponent(sym),9000)
     ]);
-    if(quoteResult.status==='fulfilled'&&sym===currentChartSymbol()){
-      const d=quoteResult.value,q=d.quote||d;
+    if(quoteResult[0].status==='fulfilled'&&sym===currentChartSymbol()){
+      const d=quoteResult[0].value,q=d.quote||d;
       applyQuote(q,d.name||$('company').textContent,sym);
+    }else if(quoteResult[0].status==='rejected'&&sym===currentChartSymbol()){
+      $('date').textContent='Quote refresh failed: '+(quoteResult[0].reason?.message||'provider unavailable');
+    }
+    if(activeRange==='1d'&&sym===currentChartSymbol()){
+      await loadChart('1d',{preserveView:true});
     }
   }catch(e){console.warn('Chart auto-refresh failed',e?.message||e)}
   finally{window.__psiAutoRefreshBusy=false}
