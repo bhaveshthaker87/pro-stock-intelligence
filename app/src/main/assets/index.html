@@ -57,6 +57,29 @@ body{background:linear-gradient(180deg,#eef5fa,#f8fbfd);color:var(--text)}
 .brandFooter small{display:block;margin-top:4px;color:#bcd1e5;font-size:10px;letter-spacing:1.4px}
 @media(max-width:760px){.brand{min-width:0!important;flex:1 1 auto}.brandLogo{width:40px;height:40px;flex-basis:40px}.brandText>div{font-size:16px!important}.brandText small{font-size:8px!important}.brandFooter{padding:12px}.brandFooter img{width:48px;height:48px}}
 
+
+/* Diamond mobile chart pass: prevent toolbar/legend collisions and give candles a usable plot area. */
+@media(max-width:600px){
+  .tvwork{border-radius:16px!important;overflow:hidden!important}
+  .tvtoolbar.tvtoolbar-pro{display:flex!important;align-items:flex-start!important;flex-wrap:wrap!important;gap:5px!important;padding:8px!important}
+  .tvsymbol{flex:1 1 100%!important;min-width:0!important;gap:6px!important}
+  .tvmaincontrols,.tvrightcontrols{flex:1 1 100%!important;display:flex!important;flex-wrap:wrap!important;gap:4px!important}
+  .tvmini{font-size:10px!important;padding:6px 7px!important;min-height:29px!important}
+  .tvhead{display:block!important;padding:9px 10px!important}
+  .tvtitle{font-size:13px!important;line-height:1.35!important;white-space:normal!important}
+  .tvsubtitle{font-size:10px!important;line-height:1.4!important;white-space:normal!important}
+  .tvlegend{display:none!important}
+  .tvpane.pricepane{height:390px!important;min-height:350px!important}
+  .tvpane.rsipane{height:150px!important;min-height:130px!important}
+  .tvranges{display:flex!important;gap:3px!important;overflow-x:auto!important;white-space:nowrap!important;padding:7px 5px!important}
+  .tvranges button{flex:0 0 auto!important;font-size:10px!important;padding:7px 8px!important}
+  #chartStatus{max-width:100%!important;overflow-wrap:anywhere!important}
+}
+@media(min-width:601px) and (max-width:900px){
+  .tvlegend{display:flex!important;flex-wrap:wrap!important;gap:5px!important}
+  .tvtoolbar.tvtoolbar-pro{flex-wrap:wrap!important}
+}
+
 </style>
 <style id="v40-7-query-polish">
 .querySection{border-radius:14px;padding:14px;background:linear-gradient(180deg,#fff,#f8fbff)}
