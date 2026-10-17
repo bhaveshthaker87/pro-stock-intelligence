@@ -207,7 +207,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("val f = screener(raw)", source)
         self.assertIn("AUTHORIZED_NSE_FEED_NOT_CONFIGURED", source)
         self.assertIn("Screener provides fundamentals here; it is not used as a quote or candle provider.", source)
-        self.assertIn("Preserve the user's explicit .BO listing for quote resolution.", source)
+        self.assertIn('raw.trim().uppercase(Locale.ROOT).endsWith(".BO") -> "BSE"', source)
 
 
     def test_missing_numeric_values_are_not_coerced_to_zero(self):
