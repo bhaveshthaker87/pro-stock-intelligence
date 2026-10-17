@@ -1,9 +1,21 @@
 from pathlib import Path
+import re
 import unittest
 
 ROOT = Path(__file__).parents[1]
 
 class ReleaseRegressionTests(unittest.TestCase):
+    def test_emulator_smoke_waits_for_android_services_and_retries_transient_install(self):
+        workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
+        self.assertIn("service check package", workflow)
+        self.assertIn("service check activity", workflow)
+        self.assertIn("while [ \"$attempt\" -lt 4 ]; do", workflow)
+        self.assertIn("APK installation failed after 4 attempts", workflow)
+        self.assertIn("adb logcat -d -t 1200", workflow)
+        self.assertIn("adb shell am start -W -n com.prostock.intelligence/.MainActivity", workflow)
+        self.assertNotIn("for attempt in $(seq", workflow)
+        self.assertNotIn("seq 1 180", workflow)
+
     def test_emulator_screenshot_does_not_write_to_sdcard(self):
         workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
         self.assertIn("adb exec-out screencap -p > app/build/outputs/psi-emulator.png", workflow)
@@ -22,8 +34,8 @@ class ReleaseRegressionTests(unittest.TestCase):
     def test_ui_and_native_engine_versions_match(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn("V40.79 NSE-FEED REQUIRED + SCREENER FUNDAMENTALS", html)
-        self.assertIn('"engine", "V40.79 NSE-FEED REQUIRED + SCREENER FUNDAMENTALS"', source)
+        self.assertIn("V40.80 AUTHORIZED GATEWAY + SCREENER FUNDAMENTALS", html)
+        self.assertIn('"engine", "V40.80 AUTHORIZED GATEWAY + SCREENER FUNDAMENTALS"', source)
 
     def test_fundamental_parser_fails_closed_instead_of_guessing_nearby_number(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
@@ -36,14 +48,14 @@ class ReleaseRegressionTests(unittest.TestCase):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("V40.79 NSE-FEED REQUIRED + SCREENER FUNDAMENTALS", html)
-        self.assertIn('"engine", "V40.79 NSE-FEED REQUIRED + SCREENER FUNDAMENTALS"', source)
-        self.assertIn("versionCode 78; versionName '40.79'", gradle)
-        self.assertIn("DASHBOARD_VERSION='V40.79'", html)
-        self.assertIn("window.__PSI_BOOT_VERSION='V40.79'", html)
+        self.assertIn("V40.80 AUTHORIZED GATEWAY + SCREENER FUNDAMENTALS", html)
+        self.assertIn('"engine", "V40.80 AUTHORIZED GATEWAY + SCREENER FUNDAMENTALS"', source)
+        self.assertIn("versionCode 79; versionName '40.80'", gradle)
+        self.assertIn("DASHBOARD_VERSION='V40.80'", html)
+        self.assertIn("window.__PSI_BOOT_VERSION='V40.80'", html)
         self.assertNotIn("DASHBOARD_VERSION='V40.75'", html)
         self.assertNotIn("window.__PSI_BOOT_VERSION='V40.75'", html)
-        self.assertIn(".researchRibbon:after{content:'V40.79'", html)
+        self.assertIn(".researchRibbon:after{content:'V40.80'", html)
 
 
     def test_screener_session_cookie_checks_both_hosts_and_surfaces_parse_error(self):
@@ -51,7 +63,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn('manager.getCookie("https://www.screener.in")', source)
         self.assertIn('manager.getCookie("https://screener.in")', source)
         self.assertIn("private fun screenerCookieHeader()", source)
-        self.assertIn("Protected company data is not confirmed", source)
+        self.assertIn("Screener HTTP 403 Forbidden", source)
         self.assertIn('f.optString("providerError")', source)
 
     def test_ui_surfaces_screener_enrichment_failure(self):
@@ -189,7 +201,9 @@ class ReleaseRegressionTests(unittest.TestCase):
 
     def test_screener_ratio_parser_scopes_labels_and_accepts_debt_alias(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn("val ratiosSectionHtml = Regex", source)
+        self.assertIn("val ratioContainer = Regex", source)
+        self.assertIn("val ratiosSectionHtml = ratioContainer?.groupValues?.get(2) ?: \"\"", source)
+        self.assertIn("section|div|ul|ol", source)
         self.assertIn("findAll(ratiosSectionHtml)", source)
         self.assertIn('"debt to equity"', source)
         self.assertIn('"eps in rs" -> setOf("eps in rs", "eps")', source)
@@ -221,6 +235,40 @@ class ReleaseRegressionTests(unittest.TestCase):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         self.assertIn("Quote refresh returned no valid price; previous display retained.", html)
         self.assertIn("if(hasUsablePrice(q.price))applyQuote(q,d.name||$('company').textContent,sym)", html)
+
+
+    def test_screener_top_ratios_parser_accepts_ul_container_and_reports_403(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        pattern = re.search(r'val ratioContainer = Regex\("""(.*?)"""\)', source)
+        self.assertIsNotNone(pattern, "Kotlin top-ratios container regex is missing")
+        regex = re.compile(pattern.group(1), re.IGNORECASE | re.DOTALL)
+        samples = [
+            '<ul id="top-ratios"><li><span class="name">Stock P/E</span><span class="number">24.5</span></li></ul>',
+            '<section id="top-ratios"><li><span class="name">Stock P/E</span><span class="number">24.5</span></li></section>',
+            '<div id="top-ratios"><li><span class="name">Stock P/E</span><span class="number">24.5</span></li></div>',
+        ]
+        for sample in samples:
+            with self.subTest(sample=sample[:20]):
+                match = regex.search(sample)
+                self.assertIsNotNone(match)
+                self.assertIn("Stock P/E", match.group(2))
+        self.assertIn('HTTP_403_FORBIDDEN', source)
+        self.assertIn('recommendedAction', source)
+        self.assertIn('This app will not bypass access controls', source)
+
+    def test_authorized_indices_gateway_is_validated_and_ci_smoke_is_conditional(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
+        docs = (ROOT / "PROVIDER_GATEWAY.md").read_text(encoding="utf-8")
+        self.assertIn('gatewayGet("/v1/indices")', source)
+        self.assertIn('put("/v1/indices")', source)
+        self.assertIn("Index feed timestamp is in the future", source)
+        self.assertIn("Index feed is stale for declared", source)
+        self.assertIn("/v1/indices", workflow)
+        self.assertIn("PROVIDER_GATEWAY_BASE_URL", workflow)
+        self.assertIn("No live-feed pass is claimed", workflow)
+        self.assertIn("Index names must match the dashboard labels", docs)
+
 
 if __name__ == "__main__":
     unittest.main()

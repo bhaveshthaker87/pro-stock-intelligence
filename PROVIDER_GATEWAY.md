@@ -31,3 +31,29 @@ Events: same metadata plus `rows`; each row includes `symbol`, `eventType` (`RES
 The app must not treat a paid website login as permission to extract or redistribute structured data. Moneycontrol's published Terms of Use restrict automated extraction and machine-readable reuse without prior express written permission; Screener's published terms describe personal, non-commercial viewing and restrict copying/mirroring. This project therefore does not scrape Moneycontrol, invent undocumented endpoints, or label Yahoo/NSE fallback data as Moneycontrol data. The chart toolbar links directly to the relevant company/source search pages.
 
 Before enabling structured Moneycontrol or Screener data in the gateway, provide the vendor's written authorization/API documentation, response schema, allowed use (personal display, storage, historical data and corporate events), and authentication requirements. Configure the vendor secret only in server-side environment secrets. The current APK intentionally contains no vendor credentials.
+
+## V40.80 app gateway contract
+
+The Android app reads a non-secret URL from the Gradle property `providerGatewayBaseUrl`. Example build invocation:
+
+```bash
+./gradlew assembleDebug -PproviderGatewayBaseUrl=https://YOUR-OWN-GATEWAY.example
+```
+
+Do not put vendor API keys, cookies, passwords, or tokens in this property. The gateway must enforce authentication and keep credentials in server-side environment secrets. An empty property intentionally leaves live quote/history/event feeds unavailable. The app does not scrape NSE or bypass Screener HTTP 403.
+
+Required HTTPS routes:
+- `GET /v1/quote?symbol=INFY`: normalized quote schema above. The app rejects mismatched symbols, missing source/status/time, future timestamps, stale quotes, and delayed quotes without `delayMinutes`.
+- `GET /v1/history?symbol=INFY&range=1y`: normalized history schema above. Rows are checked for chronological timezone-aware timestamps, positive OHLC, valid high/low, and nonnegative volume.
+- `GET /v1/events?eventType=ALL` (or `RESULTS`, `DIVIDEND`, `SPLIT`, etc.; optional `symbol`): normalized event schema above. Rows without symbol, type, title, event date, or timezone-aware announcement time are rejected. Empty result sets are never presented as proof that no events exist.
+- `GET /v1/dividends`: `{ "source":"Provider Name", "asOf":"2026-10-17T10:00:00+05:30", "rows":[...] }`. Each row should contain `company`, `symbol`, `CMP Rs.`, `Div Yld %`, `Mar Cap Rs.Cr.`, and `ROCE %` where provided. The app rejects missing source/time and stale/future data.
+
+The app build can be configured to point at this gateway, but live production data will remain unavailable until a real, licensed provider gateway is deployed and configured. A successful APK build is not evidence that a vendor subscription or endpoint is active.
+
+
+## V40.80 authorized index snapshot route
+
+- `GET /v1/indices` returns `{ "source":"Vendor Name", "asOf":"2026-10-17T10:00:00+05:30", "marketDataStatus":"REALTIME", "rows":[{"name":"NIFTY 50","value":25000.5,"changePct":0.42}] }`.
+- `marketDataStatus` must be `REALTIME`, `DELAYED`, or `EOD`; delayed data requires positive integer `delayMinutes`. The app rejects missing source/status/time, stale/future data, non-positive index values and non-finite change percentages.
+- Index names must match the dashboard labels (for example `NIFTY 50`, `NIFTY BANK`, `NIFTY IT`). Missing rows remain unavailable; the app never substitutes a quote from a different index.
+- CI probes this endpoint only when the repository variable `PROVIDER_GATEWAY_BASE_URL` is set. If it is unset, CI explicitly reports the live-feed E2E test as skipped. That skip is not a pass for live data.

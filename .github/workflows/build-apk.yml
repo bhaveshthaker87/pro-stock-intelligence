@@ -3,6 +3,10 @@ name: Build PRO STOCK INTELLIGENCE APK
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
   push:
@@ -11,10 +15,13 @@ on:
       - expert-remediation-v40-67
       - expert-pro-hardening-v40-66
       - v40-78-nse-screener-only
+      - fix/v40-79-diamond-data-chart
+      - fix/v40-80-provider-gateway-validation
   pull_request:
     branches:
       - main
       - v40-77-chart-refresh-readability
+      - v40-78-nse-screener-only
 
 jobs:
   build:
@@ -102,12 +109,56 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tests -v
 
+      # Live validation runs only when an HTTPS gateway URL is explicitly configured.
+      # Vendor credentials belong on the gateway server and must never be GitHub build args or APK resources.
+      - name: Validate configured authorized provider gateway
+        shell: bash
+        env:
+          PROVIDER_GATEWAY_BASE_URL: ${{ vars.PROVIDER_GATEWAY_BASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PROVIDER_GATEWAY_BASE_URL:-}" ]; then
+            echo "::notice::Live provider E2E test skipped: repository variable PROVIDER_GATEWAY_BASE_URL is not configured. No live-feed pass is claimed."
+            exit 0
+          fi
+          case "$PROVIDER_GATEWAY_BASE_URL" in https://*) ;; *) echo "Gateway URL must use HTTPS."; exit 1;; esac
+          mkdir -p /tmp/psi-provider
+          curl --fail --silent --show-error --max-time 15 "$PROVIDER_GATEWAY_BASE_URL/v1/quote?symbol=INFY" -o /tmp/psi-provider/quote.json
+          curl --fail --silent --show-error --max-time 20 "$PROVIDER_GATEWAY_BASE_URL/v1/history?symbol=INFY&range=1y" -o /tmp/psi-provider/history.json
+          curl --fail --silent --show-error --max-time 15 "$PROVIDER_GATEWAY_BASE_URL/v1/events?eventType=ALL" -o /tmp/psi-provider/events.json
+          curl --fail --silent --show-error --max-time 15 "$PROVIDER_GATEWAY_BASE_URL/v1/dividends" -o /tmp/psi-provider/dividends.json
+          curl --fail --silent --show-error --max-time 15 "$PROVIDER_GATEWAY_BASE_URL/v1/indices" -o /tmp/psi-provider/indices.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("/tmp/psi-provider")
+          for name in ("quote", "history", "events", "dividends", "indices"):
+              p = json.loads((root / f"{name}.json").read_text(encoding="utf-8"))
+              if isinstance(p.get("data"), dict): p = p["data"]
+              (root / f"{name}.json").write_text(json.dumps(p), encoding="utf-8")
+          p = json.loads((root / "indices.json").read_text(encoding="utf-8"))
+          if not isinstance(p.get("source"), str) or not p["source"].strip(): raise SystemExit("Index payload missing source")
+          if not isinstance(p.get("asOf"), str) or not p["asOf"].strip(): raise SystemExit("Index payload missing asOf timestamp")
+          if p.get("marketDataStatus") not in {"REALTIME", "DELAYED", "EOD"}: raise SystemExit("Index payload missing valid marketDataStatus")
+          if not isinstance(p.get("rows"), list): raise SystemExit("Index payload rows must be an array")
+          p = json.loads((root / "dividends.json").read_text(encoding="utf-8"))
+          if not isinstance(p.get("source"), str) or not p["source"].strip(): raise SystemExit("Dividend payload missing source")
+          if not isinstance(p.get("asOf"), str) or not p["asOf"].strip(): raise SystemExit("Dividend payload missing asOf timestamp")
+          if not isinstance(p.get("rows"), list): raise SystemExit("Dividend payload rows must be an array")
+          print("Index/dividend payload contracts valid.")
+          PY
+          python3 tools/validate_provider_payloads.py quote /tmp/psi-provider/quote.json
+          python3 tools/validate_provider_payloads.py history /tmp/psi-provider/history.json
+          python3 tools/validate_provider_payloads.py events /tmp/psi-provider/events.json
+
       # Publish the APK immediately after a successful build; emulator validation is intentionally separate so an unstable virtual device cannot block delivery.
       - name: Build debug APK
         shell: bash
+        env:
+          PROVIDER_GATEWAY_BASE_URL: ${{ vars.PROVIDER_GATEWAY_BASE_URL }}
         run: |
           set -euo pipefail
-          gradle :app:assembleDebug --no-daemon --stacktrace
+          gradle :app:assembleDebug --no-daemon --stacktrace -PproviderGatewayBaseUrl="${PROVIDER_GATEWAY_BASE_URL:-}"
 
       - name: Generate APK SHA-256 checksum
         if: always() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''
@@ -121,7 +172,7 @@ jobs:
         if: always() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-79-debug
+          name: PRO-STOCK-INTELLIGENCE-V40-80-debug
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/app-debug.apk.sha256
@@ -144,27 +195,100 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none
           script: |
-            # android-emulator-runner runs this through /bin/sh (dash), which
-            # does not support Bash's pipefail option.
             set -eu
-            adb wait-for-device
-            adb shell getprop sys.boot_completed | grep -q 1
-            # Test the actual app, not just the emulator home screen.
-            adb install -r app/build/outputs/apk/debug/app-debug.apk
-            adb shell am force-stop com.prostock.intelligence
-            adb shell am start -n com.prostock.intelligence/.MainActivity
-            sleep 8
-            adb shell dumpsys activity activities | grep -q 'com.prostock.intelligence/.MainActivity'
             mkdir -p app/build/outputs
-            adb exec-out screencap -p > app/build/outputs/psi-emulator.png
-            test -s app/build/outputs/psi-emulator.png
-            python3 -c 'from pathlib import Path; p=Path("app/build/outputs/psi-emulator.png"); data=p.read_bytes(); assert data.startswith(bytes.fromhex("89504e470d0a1a0a")), "Emulator screenshot is not a valid PNG"; print("Valid emulator screenshot: {} ({} bytes)".format(p, len(data)))'
+            adb wait-for-device
+            # Android emulator may take up to 9 minutes on cold hosted runners.
+            boot_ready=0
+            attempt=0
+            while [ "$attempt" -lt 180 ]; do
+              attempt=$((attempt + 1))
+              boot_state="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r' || true)"
+              if [ "$boot_state" = "1" ]; then boot_ready=1; break; fi
+              sleep 3
+            done
+            if [ "$boot_ready" != "1" ]; then
+              echo "Emulator boot timed out."
+              adb devices -l || true
+              adb logcat -d -t 500 || true
+              exit 1
+            fi
 
+            # Wait for Android package/activity services after framework boot.
+            services_ready=0
+            attempt=0
+            while [ "$attempt" -lt 30 ]; do
+              attempt=$((attempt + 1))
+              package_ready="$(adb shell service check package 2>/dev/null || true)"
+              activity_ready="$(adb shell service check activity 2>/dev/null || true)"
+              if echo "$package_ready" | grep -q 'found' && echo "$activity_ready" | grep -q 'found'; then
+                services_ready=1
+                break
+              fi
+              sleep 2
+            done
+            if [ "$services_ready" != "1" ]; then
+              echo "Android package/activity services did not become ready."
+              adb shell service list || true
+              adb logcat -d -t 800 || true
+              exit 1
+            fi
+
+            installed=0
+            attempt=0
+            while [ "$attempt" -lt 4 ]; do
+              attempt=$((attempt + 1))
+              if adb install -r app/build/outputs/apk/debug/app-debug.apk; then
+                installed=1
+                break
+              fi
+              echo "APK install attempt $attempt failed; retrying after emulator health check."
+              adb wait-for-device || true
+              sleep $((attempt * 3))
+              boot_state="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r' || true)"
+              package_ready="$(adb shell service check package 2>/dev/null || true)"
+              if [ "$boot_state" != "1" ] || ! echo "$package_ready" | grep -q 'found'; then
+                adb devices -l || true
+                adb logcat -d -t 1000 || true
+              fi
+            done
+            if [ "$installed" != "1" ]; then
+              echo "APK installation failed after 4 attempts."
+              adb shell pm path com.prostock.intelligence || true
+              adb shell service list || true
+              adb logcat -d -t 1200 || true
+              exit 1
+            fi
+
+            adb shell am force-stop com.prostock.intelligence
+            adb shell am start -W -n com.prostock.intelligence/.MainActivity
+            python3 -m pip install --quiet pillow numpy
+
+            dashboard_ready=0
+            attempt=0
+            while [ "$attempt" -lt 30 ]; do
+              attempt=$((attempt + 1))
+              if adb shell dumpsys activity activities 2>/dev/null | grep -q 'com.prostock.intelligence/.MainActivity'; then
+                adb exec-out screencap -p > app/build/outputs/psi-emulator.png
+                if python3 -c 'from PIL import Image; import numpy as np; a=np.asarray(Image.open("app/build/outputs/psi-emulator.png").convert("RGB")); nonwhite=float((a < 245).any(axis=2).mean()); colors=int(np.unique(a.reshape(-1,3),axis=0).shape[0]); print("Visual readiness: nonwhite={:.3f}, colors={}".format(nonwhite,colors)); raise SystemExit(0 if nonwhite > 0.05 and colors > 2500 else 1)'; then
+                  dashboard_ready=1
+                  break
+                fi
+              fi
+              sleep 2
+            done
+            if [ "$dashboard_ready" != "1" ]; then
+              adb logcat -d -s PSI_WEB:E AndroidRuntime:E chromium:E || true
+              echo "Dashboard did not render; screenshot remained blank or visually incomplete."
+              exit 1
+            fi
+            test -s app/build/outputs/psi-emulator.png
+            python3 -c 'from pathlib import Path; p=Path("app/build/outputs/psi-emulator.png"); data=p.read_bytes(); assert data.startswith(bytes.fromhex("89504e470d0a1a0a")), "Emulator screenshot is not a valid PNG"; print("Valid emulator screenshot — rendered app: {} ({} bytes)".format(p, len(data)))'
       - name: Upload emulator screenshot
         if: always() && hashFiles('app/build/outputs/psi-emulator.png') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-79-emulator-screenshot
+          name: PRO-STOCK-INTELLIGENCE-V40-80-emulator-screenshot
           path: app/build/outputs/psi-emulator.png
           if-no-files-found: error
 
@@ -173,6 +297,6 @@ jobs:
         if: always() && hashFiles('app/build/reports/lint-results-debug.html') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-79-lint-report
+          name: PRO-STOCK-INTELLIGENCE-V40-80-lint-report
           path: app/build/reports/lint-results-debug.html
           if-no-files-found: warn
