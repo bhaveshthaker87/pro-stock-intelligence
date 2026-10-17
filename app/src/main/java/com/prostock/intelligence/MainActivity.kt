@@ -469,7 +469,7 @@ private class NativeProvider {
         // Screener's company page uses <ul id="top-ratios"> in some layouts.
         // Older code accepted only section/div, causing all valuation ratios to be dropped
         // even when the company page was fetched successfully.
-        val ratioContainer = Regex("(?is)<(section|div|ul|ol)\\b[^>]*id=[\\"']top-ratios[\\"'][^>]*>(.*?)</\\\\1>")
+        val ratioContainer = Regex("""(?is)<(section|div|ul|ol)\b[^>]*id=["']top-ratios["'][^>]*>(.*?)</\1>""")
             .find(html)
         val hasRatioSection = ratioContainer != null
         // Parse only the matched container; do not fall back to the entire document,
