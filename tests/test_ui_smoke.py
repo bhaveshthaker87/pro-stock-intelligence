@@ -335,7 +335,12 @@ class DashboardUISmokeTests(unittest.TestCase):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("NOT INTEGRATED — NO VERIFIED ACCESS/FEED CONFIGURED", source)
         self.assertIn("AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED", source)
+        self.assertIn("screenerReferencePrice", source)
+        self.assertIn("FUNDAMENTALS ONLY — SCREENER PRICE IS REFERENCE ONLY", source)
         self.assertIn("authorized NSE real-time API/feed configured", source)
+        html = HTML.read_text(encoding="utf-8")
+        self.assertIn("Screener Reference Price (not live)", html)
+        self.assertIn("Screener reference price only • live NSE quote unavailable", html)
 
 
     def test_chart_refresh_and_source_links_are_present(self):
