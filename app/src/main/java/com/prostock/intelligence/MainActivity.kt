@@ -742,12 +742,12 @@ private class NativeProvider {
             } catch (e: Exception) {
                 JSONObject().put("symbol", s)
                     .put("provider", "Unavailable")
-                    .put("status", "AUTHORIZED_NSE_FEED_NOT_CONFIGURED")
+                    .put("status", if (gatewayConfigured()) "PROVIDER_GATEWAY_VALIDATION_FAILED" else "AUTHORIZED_NSE_FEED_NOT_CONFIGURED")
                     .put("rows", JSONArray())
                     .put("historyProvider", "Unavailable")
                     .put("historyStatus", "AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED")
                     .put("providerError", e.message ?: "Authorized NSE quote feed is not configured")
-                    .put("marketDataDisclaimer", "No authorized NSE real-time or historical feed is configured. No third-party fallback is used.")
+                    .put("marketDataDisclaimer", if (gatewayConfigured()) "Configured provider gateway failed validation; price is unavailable. No fallback is used." else "No authorized NSE real-time or historical feed is configured. No third-party fallback is used.")
             }
         }
         val fundamentalFuture = executor.submit<JSONObject> {
@@ -1004,10 +1004,10 @@ private class NativeProvider {
                 }
                 "/api/quote", "/api/fast" -> {
                     val quote = try { nseQuote(raw) } catch (e: Exception) {
-                        JSONObject().put("symbol", s).put("status", "AUTHORIZED_NSE_FEED_NOT_CONFIGURED")
+                        JSONObject().put("symbol", s).put("status", if (gatewayConfigured()) "PROVIDER_GATEWAY_VALIDATION_FAILED" else "AUTHORIZED_NSE_FEED_NOT_CONFIGURED")
                             .put("provider", "Unavailable").put("price", JSONObject.NULL)
                             .put("quoteTimestamp", JSONObject.NULL)
-                            .put("marketDataDisclaimer", "No authorized NSE real-time feed is configured. No third-party fallback is used.")
+                            .put("marketDataDisclaimer", if (gatewayConfigured()) "Configured provider gateway failed validation; price is unavailable. No fallback is used." else "No authorized NSE real-time feed is configured. No third-party fallback is used.")
                             .put("providerError", e.message ?: "Authorized NSE quote feed unavailable")
                     }
                     quote.put("rows", JSONArray()).put("historyProvider", "Unavailable")
