@@ -741,7 +741,7 @@ private class NativeProvider {
         val symbol = canonical(raw)
         return JSONObject().put("symbol", symbol).put("news", JSONArray())
             .put("provider", "Unavailable")
-            .put("statusText", "News is unavailable: Yahoo Finance is disabled and no authorized NSE/Screener news endpoint is configured.")
+            .put("statusText", "News is unavailable because no authorized NSE/Screener news endpoint is configured.")
     }
 
     /** No automated scraping of NSE public website endpoints without an authorized feed contract. */
@@ -778,7 +778,7 @@ private class NativeProvider {
     }
 
     /**
-     * Broad Indian equity autocomplete using Yahoo Finance's public search response.
+     * Local equity autocomplete; broad provider search is intentionally disabled.
      * This is discovery only, not an exchange-authoritative security master or a licensed feed.
      * Preserve .NS/.BO suffixes so quote lookup uses the selected listing when available.
      */
@@ -806,7 +806,7 @@ private class NativeProvider {
                     val combined = (external + local).distinctBy { it.optString("symbol").uppercase(Locale.ROOT) }.take(12)
                     val arr = JSONArray(); combined.forEach { arr.put(it) }
                     JSONObject().put("ok", true).put("data", arr).put("count", combined.size)
-                        .put("searchProvider", if (external.isNotEmpty()) "Yahoo Finance search + local fallback" else "Local fallback; broad search unavailable")
+                        .put("searchProvider", if (external.isNotEmpty()) "Authorized security-master search" else "Local symbol list only; broad search unavailable")
                         .put("coverageDisclaimer", "Autocomplete is broad best-effort discovery, not a complete official NSE/BSE security master. Quotes can be delayed or unavailable.").toString()
                 }
                 "/api/quote", "/api/fast" -> {
@@ -865,7 +865,7 @@ private class NativeProvider {
                         .put("method", "Peer prices and technical metrics require verified historical candles.")
                         .put("statusText", "Peer comparison is unavailable until an authorized NSE historical-data feed is configured. No third-party price history is used.")).toString()
                 "/api/news" -> {
-                    val news = try { unavailableNews(raw) } catch (e: Exception) { JSONObject().put("symbol", s).put("news", JSONArray()).put("statusText", "Yahoo Finance news unavailable: ${e.message ?: "provider error"}").put("provider", "Unavailable") }
+                    val news = try { unavailableNews(raw) } catch (e: Exception) { JSONObject().put("symbol", s).put("news", JSONArray()).put("statusText", "Authorized news source unavailable: ${e.message ?: "provider error"}").put("provider", "Unavailable") }
                     JSONObject().put("ok", true).put("data", news).toString()
                 }
                 "/api/company-events" -> JSONObject().put("ok", true).put("data",
