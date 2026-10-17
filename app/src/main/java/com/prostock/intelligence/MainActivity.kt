@@ -713,9 +713,14 @@ private class NativeProvider {
     }
 
     private fun historyData(raw: String, range: String): JSONObject {
-        val y = yahoo(raw, range)
-        return JSONObject().put("symbol", y.optString("symbol")).put("rows", y.optJSONArray("rows") ?: JSONArray())
-            .put("provider", y.optString("provider", "Yahoo Finance")).put("historyStatus", "THIRD_PARTY_HISTORICAL_BARS_NOT_NSE_VERIFIED").put("chartMode", "OHLCV")
+        val symbol = canonical(raw)
+        return JSONObject().put("symbol", symbol).put("rows", JSONArray())
+            .put("provider", "Unavailable")
+            .put("historyStatus", "AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED")
+            .put("chartMode", "OHLCV")
+            .put("statusText", "Historical candles are unavailable until an authorized NSE historical-data feed is configured. No third-party fallback is used.")
+            .put("rangeRequested", range)
+            .put("quoteTimestamp", JSONObject.NULL)
     }
 
     private fun htmlEntities(s: String): String = s.replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<")
@@ -834,65 +839,16 @@ private class NativeProvider {
                 .put("marketDataDisclaimer", "No usable quote returned. Do not use a blank or historical value as a live price."))
         }
 
-        // One NSE snapshot supplies most Indian indices in one network round-trip.
-        try {
-            nseIndexSnapshot().forEach { (label, data) -> out.put(label, data) }
-        } catch (_: Exception) {
-            // Fall through to provider-per-symbol requests below.
+        // Fail closed: no historical or third-party fallback is allowed to masquerade as a current index quote.
+        // Keep explicit null values so the UI can show that an authorized feed is not configured.
+        specs.keys.forEach { label ->
+            out.optJSONObject(label)
+                ?.put("status", "AUTHORIZED_NSE_FEED_NOT_CONFIGURED")
+                ?.put("sourceType", "NO_AUTHORIZED_FEED")
+                ?.put("quoteTimestamp", JSONObject.NULL)
+                ?.put("isExchangeCertifiedRealtime", false)
+                ?.put("marketDataDisclaimer", "No authorized NSE real-time feed is configured. No live index value is available.")
         }
-
-        val needsFallback = specs.filter { (label, _) ->
-            out.optJSONObject(label)?.optString("priceSource") == "NONE"
-        }
-        val executor = Executors.newFixedThreadPool(6)
-        try {
-            val tasks = needsFallback.map { (label, symbol) ->
-                java.util.concurrent.Callable {
-                    val data = yahoo(symbol, "5d")
-                    val rows = data.optJSONArray("rows") ?: JSONArray()
-                    val last = if (rows.length() > 0) rows.getJSONObject(rows.length() - 1) else JSONObject()
-                    val prev = if (rows.length() > 1) rows.getJSONObject(rows.length() - 2) else JSONObject()
-                    val currentQuote = data.optDouble("price", Double.NaN)
-                    val previousQuote = data.optDouble("previousClose", Double.NaN)
-                    val priceSource = data.optString("priceSource", "HISTORICAL_CLOSE_FALLBACK")
-                    val value = if (finite(currentQuote) && currentQuote > 0) currentQuote else last.optDouble("close", Double.NaN)
-                    val previous = if (finite(previousQuote) && previousQuote > 0) previousQuote else prev.optDouble("close", Double.NaN)
-                    val hasValue = finite(value) && value > 0
-                    val status = when {
-                        !hasValue -> "NO_VALID_PRICE"
-                        priceSource == "HISTORICAL_CLOSE_FALLBACK" -> "HISTORICAL_ONLY"
-                        else -> "QUOTE_RETURNED_FRESHNESS_UNVERIFIED"
-                    }
-                    val obj = JSONObject()
-                        .put("status", status).put("provider", data.optString("provider", "Yahoo Finance"))
-                        .put("priceSource", priceSource).put("sourceType", "THIRD_PARTY_DELAY_POSSIBLE")
-                        .put("currency", data.optString("currency", if (label.contains("GLOBAL")) "USD" else "INR"))
-                        .put("isExchangeCertifiedRealtime", false)
-                        .put("marketDataDisclaimer", "Third-party data may be delayed or unavailable; verify with the exchange before trading.")
-                    putFinite(obj, "value", value)
-                    if (finite(value) && finite(previous) && previous > 0) putFinite(obj, "changePct", (value / previous - 1.0) * 100.0)
-                    val timestamp = when {
-                        data.optLong("quoteTimestamp") > 0 -> data.optLong("quoteTimestamp")
-                        data.optLong("priceTimestamp") > 0 -> data.optLong("priceTimestamp")
-                        last.optLong("time") > 0 -> last.optLong("time") / 1000L
-                        else -> 0L
-                    }
-                    if (timestamp > 0) obj.put("quoteTimestamp", timestamp)
-                    if (data.has("quoteTimeText")) obj.put("quoteTimeText", data.optString("quoteTimeText"))
-                    label to obj
-                }
-            }
-            // Global deadline prevents one blocked provider from stalling the whole panel.
-            val futures = executor.invokeAll(tasks, 9000, TimeUnit.MILLISECONDS)
-            futures.forEachIndexed { index, future ->
-                if (!future.isCancelled) {
-                    try {
-                        val (label, data) = future.get()
-                        if (data.optString("status") != "NO_VALID_PRICE") out.put(label, data)
-                    } catch (_: Exception) { }
-                }
-            }
-        } finally { executor.shutdownNow() }
         return out
     }
 
@@ -911,7 +867,7 @@ private class NativeProvider {
         val s = canonical(raw)
         return try {
             when (p) {
-                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.78 NSE-FEED REQUIRED + SCREENER FUNDAMENTALS").put("data", JSONObject().put("ok", true).put("moneycontrolIntegration", "DISABLED_BY_V40_78_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
+                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.78 NSE-FEED REQUIRED + SCREENER FUNDAMENTALS").put("data", JSONObject().put("ok", true).put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
                 "/api/providers/status" -> JSONObject().put("ok", true).put("data", providerStatus(raw)).toString()
                 "/api/screener/status" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
                 "/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
@@ -963,8 +919,18 @@ private class NativeProvider {
                     // Preserve the user's explicit .BO listing for quote resolution.
                     // canonical(s) removes the suffix and can otherwise route a BSE
                     // selection to the NSE Yahoo ticker when the primary quote is unavailable.
-                    val f = screener(raw); val y = yahoo(raw, "5d")
-                    JSONObject().put("ok", true).put("data", JSONObject().put("symbol", s).put("name", f.optString("name", stockName(s))).put("quote", y).put("fundamentals", f).put("dataConfidence", "SESSION-BASED / MIXED SOURCES — VERIFY PROVIDERS AND TIMESTAMPS")).toString()
+                    val f = screener(raw)
+                    val unavailableQuote = JSONObject()
+                        .put("symbol", s)
+                        .put("status", "AUTHORIZED_NSE_FEED_NOT_CONFIGURED")
+                        .put("provider", "Unavailable")
+                        .put("price", JSONObject.NULL)
+                        .put("quoteTimestamp", JSONObject.NULL)
+                        .put("marketDataDisclaimer", "Screener provides fundamentals here; it is not used as a quote or candle provider.")
+                    JSONObject().put("ok", true).put("data", JSONObject().put("symbol", s)
+                        .put("name", f.optString("name", stockName(s)))
+                        .put("quote", unavailableQuote).put("fundamentals", f)
+                        .put("dataConfidence", "SCREENER FUNDAMENTALS FETCHED; NSE QUOTE UNAVAILABLE UNTIL AUTHORIZED FEED IS CONFIGURED")).toString()
                 }
                 "/api/indices" -> JSONObject().put("ok", true).put("data", marketIndices()).toString()
                 "/api/queries" -> JSONObject().put("ok", true).put("data", JSONArray().apply { queryDefs.forEach { put(it) } }).toString()
