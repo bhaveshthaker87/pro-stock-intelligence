@@ -16,7 +16,7 @@ except ImportError as exc:  # CI installs Playwright; keep the error explicit lo
     raise RuntimeError("Install Playwright and Chromium to run tests/test_ui_smoke.py") from exc
 
 HTML = Path(__file__).parents[1] / "app/src/main/assets/index.html"
-ENGINE = "V40.79 NSE-FEED REQUIRED + SCREENER FUNDAMENTALS"
+ENGINE = "V40.80 AUTHORIZED GATEWAY + SCREENER FUNDAMENTALS"
 
 
 def launch_chromium(playwright):
@@ -452,6 +452,32 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn(".tvtoolbar-pro .tvmaincontrols,.tvtoolbar-pro .tvrightcontrols{flex:1 1 100%!important", html)
         self.assertIn(".tvpane.pricepane{height:390px!important", html)
 
+
+    def test_v4080_gateway_is_https_configurable_and_secrets_stay_server_side(self):
+        gradle = (Path(__file__).parents[1] / "app/build.gradle").read_text(encoding="utf-8")
+        source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("providerGatewayBaseUrl", gradle)
+        self.assertIn("PROVIDER_GATEWAY_BASE_URL", source)
+        self.assertIn('"/v1/quote"', source)
+        self.assertIn('"/v1/history"', source)
+        self.assertIn('"/v1/events"', source)
+        self.assertIn('"/v1/dividends"', source)
+        self.assertIn("Provider quote is stale", source)
+        self.assertIn("Provider returned a different symbol", source)
+        self.assertIn("credentialsInApk", source)
+
+    def test_screener_403_is_reported_without_bypass_or_response_body(self):
+        source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("Screener returned HTTP 403 Forbidden", source)
+        self.assertIn("will not bypass the restriction", source)
+        self.assertIn('if (code !in 200..299) throw IOException("HTTP $code from $host")', source)
+
+    def test_live_events_require_gateway_source_and_timestamp(self):
+        source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("Event feed source is missing", source)
+        self.assertIn("Event feed timestamp is stale or in the future", source)
+        self.assertIn("Empty results mean no rows were returned, not that no events exist.", source)
+        self.assertIn("This is not confirmation that no result dates are scheduled.", source)
 
 if __name__ == "__main__":
     unittest.main()
