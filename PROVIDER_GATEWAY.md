@@ -49,3 +49,11 @@ Required HTTPS routes:
 - `GET /v1/dividends`: `{ "source":"Provider Name", "asOf":"2026-10-17T10:00:00+05:30", "rows":[...] }`. Each row should contain `company`, `symbol`, `CMP Rs.`, `Div Yld %`, `Mar Cap Rs.Cr.`, and `ROCE %` where provided. The app rejects missing source/time and stale/future data.
 
 The app build can be configured to point at this gateway, but live production data will remain unavailable until a real, licensed provider gateway is deployed and configured. A successful APK build is not evidence that a vendor subscription or endpoint is active.
+
+
+## V40.80 authorized index snapshot route
+
+- `GET /v1/indices` returns `{ "source":"Vendor Name", "asOf":"2026-10-17T10:00:00+05:30", "marketDataStatus":"REALTIME", "rows":[{"name":"NIFTY 50","value":25000.5,"changePct":0.42}] }`.
+- `marketDataStatus` must be `REALTIME`, `DELAYED`, or `EOD`; delayed data requires positive integer `delayMinutes`. The app rejects missing source/status/time, stale/future data, non-positive index values and non-finite change percentages.
+- Index names must match the dashboard labels (for example `NIFTY 50`, `NIFTY BANK`, `NIFTY IT`). Missing rows remain unavailable; the app never substitutes a quote from a different index.
+- CI probes this endpoint only when the repository variable `PROVIDER_GATEWAY_BASE_URL` is set. If it is unset, CI explicitly reports the live-feed E2E test as skipped. That skip is not a pass for live data.
