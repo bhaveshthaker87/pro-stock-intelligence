@@ -1183,7 +1183,7 @@ async function runAnalysis(){const entered=$('search').value.trim();if(!entered)
   })();
   authEnrichment.then(live=>{
     if(!live || token!==analysisToken) return;
-    if(live.__error){window.screenerEnrichmentError=live.__error;setProviderStatus('Screener fundamentals not loaded: '+live.__error,false);return;}
+    if(live.__error){window.screenerEnrichmentError=live.__error;const action='Use Data Sources / CSV to import a permitted Screener export.';setProviderStatus('Screener fundamentals not loaded: '+live.__error+' • '+action,false);toast('Screener data was blocked. Data Sources / CSV → import an authorized Screener CSV.');return;}
     window.screenerEnrichmentError=null;
     const cur=window.lastAnalysisData||{};
     const currentMarket=cur.market||{};
