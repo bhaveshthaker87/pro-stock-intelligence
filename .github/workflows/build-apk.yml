@@ -14,6 +14,7 @@ on:
   pull_request:
     branches:
       - main
+      - v40-77-chart-refresh-readability
 
 jobs:
   build:
