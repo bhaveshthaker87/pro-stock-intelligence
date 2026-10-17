@@ -325,7 +325,7 @@ private class NativeProvider {
             URLEncoder.encode(it.key, "UTF-8") + "=" + URLEncoder.encode(it.value, "UTF-8")
         }
         val url = URL(urlText)
-        if (!url.host.isNotBlank() || url.userInfo != null) throw IOException("Invalid provider gateway URL")
+        if (url.host.isBlank() || urlText.substringAfter("://").substringBefore("/").contains("@")) throw IOException("Invalid provider gateway URL")
         val c = url.openConnection() as HttpURLConnection
         c.connectTimeout = 5000
         c.readTimeout = 8000
