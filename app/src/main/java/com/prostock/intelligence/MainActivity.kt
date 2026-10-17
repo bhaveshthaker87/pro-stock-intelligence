@@ -308,16 +308,6 @@ private class NativeProvider {
         throw IOException("NSE live quotes are blocked: this installation has no authorized NSE real-time API/feed configured. Public website scraping is disabled; no price was fabricated.")
     }
 
-    /**
-     * V40.79 policy: Yahoo Finance is not an allowed provider.
-     * Historical candles must come from an authorized NSE data product.
-     */
-    private fun yahoo(raw: String, range: String = "1y"): JSONObject {
-        val symbol = canonical(raw)
-        if (symbol.isBlank()) throw IOException("Enter a valid NSE symbol")
-        throw IOException("NSE historical candles are unavailable: configure an authorized NSE historical-data feed. Yahoo Finance fallback is disabled.")
-    }
-
     private fun sectionTableRows(html: String, sectionId: String): List<List<String>> {
         val idRegex = Regex("(?is)<section\\b[^>]*id=[\"']" + Regex.escape(sectionId) + "[\"'][^>]*>")
         val sectionMatch = idRegex.find(html)
@@ -732,67 +722,21 @@ private class NativeProvider {
     }
 
     private fun technicalScan(kind: String): JSONObject {
-        val executor = Executors.newFixedThreadPool(8)
-        val completion = java.util.concurrent.ExecutorCompletionService<JSONObject>(executor)
-        val submittedAt = System.nanoTime()
-        // Explicit Callable avoids Kotlin selecting ExecutorService.submit(Runnable),
-        // which can fail type inference for the value-returning lambda in CI.
-        val jobs: List<java.util.concurrent.Future<JSONObject>> = stocks.map { stock ->
-            completion.submit(java.util.concurrent.Callable<JSONObject> {
-            val y = yahoo(stock.symbol, "1y")
-            val arr = y.optJSONArray("rows") ?: JSONArray()
-            val closes = (0 until arr.length()).mapNotNull { i ->
-                val v = arr.optJSONObject(i)?.optDouble("close", Double.NaN) ?: Double.NaN
-                if (finite(v) && v > 0) v else null
-            }
-            val out = JSONObject().put("symbol", stock.symbol).put("Company", stock.name)
-            if (closes.size >= 2) {
-                val last = closes.last(); val prev = closes[closes.lastIndex - 1]
-                val change = (last / prev - 1.0) * 100.0
-                putFinite(out, "CMP Rs.", last); putFinite(out, "Day Change %", change)
-                if (closes.size >= 15) {
-                    // Wilder RSI(14), aligned with the dashboard chart calculation.
-                    var avgGain = 0.0; var avgLoss = 0.0
-                    for (i in 1..14) { val delta = closes[i] - closes[i - 1]; avgGain += maxOf(delta, 0.0); avgLoss += maxOf(-delta, 0.0) }
-                    avgGain /= 14.0; avgLoss /= 14.0
-                    for (i in 15 until closes.size) { val delta = closes[i] - closes[i - 1]; avgGain = (avgGain * 13.0 + maxOf(delta, 0.0)) / 14.0; avgLoss = (avgLoss * 13.0 + maxOf(-delta, 0.0)) / 14.0 }
-                    val rsi = when { avgLoss == 0.0 && avgGain > 0 -> 100.0; avgLoss == 0.0 -> 50.0; else -> 100.0 - (100.0 / (1.0 + avgGain / avgLoss)) }
-                    putFinite(out, "RSI(14)", rsi)
-                }
-                out.put("Data Date", java.text.SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH).format(java.util.Date(arr.getJSONObject(arr.length()-1).optLong("time", 0L))))
-                out.put("Provider", "Yahoo Finance third-party daily-bar data; latest bar may be partial during market hours")
-            }
-            out
-            })
-        }
-        val found = mutableListOf<JSONObject>()
-        var completed = 0
-        try {
-            while (completed < jobs.size && (System.nanoTime() - submittedAt) < TimeUnit.SECONDS.toNanos(24)) {
-                val future = completion.poll(250, TimeUnit.MILLISECONDS) ?: continue
-                completed++
-                try {
-                    val row = future.get()
-                    val hasPrice = row.has("CMP Rs.")
-                    if (!hasPrice) continue
-                    val match = if (kind == "oversold") row.optDouble("RSI(14)", Double.NaN).let { finite(it) && it <= 30.0 }
-                        else row.optDouble("Day Change %", Double.NaN).let { finite(it) && it <= -5.0 }
-                    if (match) found.add(row)
-                } catch (_: Exception) { }
-            }
-        } finally { jobs.forEach { it.cancel(true) }; executor.shutdownNow() }
-        found.sortBy { if (kind == "oversold") it.optDouble("RSI(14)", 100.0) else it.optDouble("Day Change %", 0.0) }
-        val rows = JSONArray().apply { found.forEachIndexed { i, row -> row.put("S.No.", i + 1); put(row) } }
-        val columns = JSONArray(listOf("S.No.", "Company", "CMP Rs.", "RSI(14)", "Day Change %", "Data Date", "Provider"))
-        val elapsed = TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - submittedAt)
-        val criteria = if (kind == "oversold") "RSI(14) ≤ 30" else "latest daily-bar change ≤ -5%"
-        return JSONObject().put("columns", columns).put("rows", rows).put("count", rows.length())
-            .put("provider", "Yahoo Finance third-party daily data").put("pagesFetched", 1).put("allResultsLoaded", completed == jobs.size)
-            .put("scanUniverse", stocks.size).put("symbolsChecked", completed).put("elapsedSeconds", elapsed)
-            .put("statusText", "$criteria; $completed/${stocks.size} tracked symbols checked. Daily-bar data can be delayed or partial during market hours; this is not a whole-market scan.")
+        return JSONObject().put("rows", JSONArray())
+            .put("provider", "Unavailable")
+            .put("queryId", kind)
+            .put("partial", true)
+            .put("statusText", "Technical scans are unavailable until an authorized NSE historical-data feed supplies verified candles. RSI, moving averages and signals are not fabricated.")
+            .put("historyStatus", "AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED")
     }
 
-    /** News is intentionally unavailable until an allowed NSE/Screener news source is implemented. */
+    private fun unavailableNews(raw: String): JSONObject {
+        val symbol = canonical(raw)
+        return JSONObject().put("symbol", symbol).put("news", JSONArray())
+            .put("provider", "Unavailable")
+            .put("statusText", "News is unavailable until an authorized NSE/company-filings source is configured. No third-party news fallback is used.")
+    }
+
     private fun yahooNews(raw: String): JSONObject {
         val symbol = canonical(raw)
         return JSONObject().put("symbol", symbol).put("news", JSONArray())
@@ -915,78 +859,13 @@ private class NativeProvider {
                     JSONObject().put("ok", true).put("data", data).toString()
                 }
                 "/api/resolve-stock" -> JSONObject().put("ok", true).put("data", JSONObject().put("symbol", s).put("name", stockName(s)).put("sector", stockSector(s))).toString()
-                "/api/peers" -> {
-                    val candidates = mapOf(
-                        "TCS" to listOf("INFY", "HCLTECH", "WIPRO", "TECHM", "LTIM"),
-                        "INFY" to listOf("TCS", "HCLTECH", "WIPRO", "TECHM", "LTIM"),
-                        "HCLTECH" to listOf("TCS", "INFY", "WIPRO", "TECHM", "LTIM"),
-                        "WIPRO" to listOf("TCS", "INFY", "HCLTECH", "TECHM", "LTIM"),
-                        "TECHM" to listOf("TCS", "INFY", "HCLTECH", "WIPRO", "LTIM"),
-                        "RELIANCE" to listOf("ONGC", "IOC", "BPCL", "ADANIENT", "COALINDIA"),
-                        "HDFCBANK" to listOf("ICICIBANK", "KOTAKBANK", "AXISBANK", "SBIN", "INDUSINDBK"),
-                        "ICICIBANK" to listOf("HDFCBANK", "KOTAKBANK", "AXISBANK", "SBIN", "INDUSINDBK"),
-                        "ITC" to listOf("HINDUNILVR", "NESTLEIND", "BRITANNIA", "DABUR", "MARICO"),
-                        "SUNPHARMA" to listOf("CIPLA", "DRREDDY", "DIVISLAB", "TORNTPHARM", "LUPIN"),
-                        "MARUTI" to listOf("M&M", "TATAMOTORS", "HEROMOTOCO", "EICHERMOT", "BAJAJ-AUTO")
-                    )
-                    val names = candidates[s] ?: emptyList()
-                    val executor = Executors.newFixedThreadPool(4)
-                    val tasks = names.map { symbol -> executor.submit<JSONObject?> {
-                        try {
-                            val f = screener(symbol)
-                            val y = yahoo(symbol, "1y")
-                            val rows = y.optJSONArray("rows") ?: JSONArray()
-                            val closes = (0 until rows.length()).mapNotNull { i -> rows.optJSONObject(i)?.optDouble("close", Double.NaN)?.takeIf { finite(it) && it > 0 } }
-                            if (closes.isEmpty()) return@submit null
-                            val item = JSONObject().put("symbol", symbol).put("name", f.optString("name", stockName(symbol)))
-                                .put("sector", f.optString("sector", stockSector(symbol))).put("dataStatus", "PARTIAL_PROVIDER_VALIDATED")
-                                .put("provider", "Screener.in fundamentals + Yahoo Finance price history")
-                            putFinite(item, "price", y.optDouble("price", closes.last()))
-                            putFinite(item, "marketCap", f.optDouble("marketCap", Double.NaN))
-                            putFinite(item, "pe", f.optDouble("pe", Double.NaN))
-                            putFinite(item, "roce", f.optDouble("roce", Double.NaN))
-                            putFinite(item, "roe", f.optDouble("roe", Double.NaN))
-                            putFinite(item, "qProfit", f.optDouble("qProfit", Double.NaN))
-                            putFinite(item, "high52", y.optDouble("high52", Double.NaN))
-                            putFinite(item, "low52", y.optDouble("low52", Double.NaN))
-                            // Peer trend metrics need daily history, not the five-day quote window.
-                            if (closes.size >= 50) putFinite(item, "dma50", closes.takeLast(50).average())
-                            if (closes.size >= 200) putFinite(item, "dma200", closes.takeLast(200).average())
-                            if (closes.size >= 15) {
-                                var avgGain = 0.0; var avgLoss = 0.0
-                                for (i in 1..14) { val d = closes[i] - closes[i - 1]; avgGain += maxOf(d, 0.0); avgLoss += maxOf(-d, 0.0) }
-                                avgGain /= 14.0; avgLoss /= 14.0
-                                for (i in 15 until closes.size) {
-                                    val d = closes[i] - closes[i - 1]
-                                    avgGain = (avgGain * 13.0 + maxOf(d, 0.0)) / 14.0
-                                    avgLoss = (avgLoss * 13.0 + maxOf(-d, 0.0)) / 14.0
-                                }
-                                putFinite(item, "rsi14", when { avgLoss == 0.0 && avgGain > 0 -> 100.0; avgLoss == 0.0 -> 50.0; else -> 100.0 - 100.0 / (1.0 + avgGain / avgLoss) })
-                            }
-                            // Require at least a price and two independent fundamental fields; otherwise do not present the row as validated.
-                            val core = listOf("marketCap", "pe", "roce", "roe").count { item.has(it) && !item.isNull(it) }
-                            if (core < 2) null else item
-                        } catch (_: Exception) { null }
-                    } }
-                    val peers = JSONArray()
-                    try {
-                        tasks.forEach { task ->
-                            try {
-                                val item = task.get(7, TimeUnit.SECONDS)
-                                if (item != null) peers.put(item)
-                            } catch (_: Exception) { }
-                        }
-                    } finally {
-                        tasks.forEach { it.cancel(true) }
-                        executor.shutdownNow()
-                    }
-                    JSONObject().put("ok", true).put("data", JSONObject().put("symbol", s).put("industry", stockSector(s)).put("peers", peers)
-                        .put("candidateCount", names.size).put("validatedCount", peers.length())
-                        .put("method", "Curated same-industry candidates; returned rows require live price history and at least two available fundamental fields. This validates data presence, not an exchange-certified industry classification.")
-                        .put("partial", peers.length() < names.size).put("statusText", "${peers.length()}/${names.size} peer candidates passed live data-completeness checks. Missing metrics are left blank; candidates are not a fully validated industry universe.")).toString()
-                }
+                "/api/peers" -> JSONObject().put("ok", true).put("data",
+                    JSONObject().put("symbol", s).put("industry", stockSector(s)).put("peers", JSONArray())
+                        .put("candidateCount", 0).put("validatedCount", 0).put("partial", true)
+                        .put("method", "Peer prices and technical metrics require verified historical candles.")
+                        .put("statusText", "Peer comparison is unavailable until an authorized NSE historical-data feed is configured. No third-party price history is used.")).toString()
                 "/api/news" -> {
-                    val news = try { yahooNews(raw) } catch (e: Exception) { JSONObject().put("symbol", s).put("news", JSONArray()).put("statusText", "Yahoo Finance news unavailable: ${e.message ?: "provider error"}").put("provider", "Unavailable") }
+                    val news = try { unavailableNews(raw) } catch (e: Exception) { JSONObject().put("symbol", s).put("news", JSONArray()).put("statusText", "Yahoo Finance news unavailable: ${e.message ?: "provider error"}").put("provider", "Unavailable") }
                     JSONObject().put("ok", true).put("data", news).toString()
                 }
                 "/api/company-events" -> JSONObject().put("ok", true).put("data",
