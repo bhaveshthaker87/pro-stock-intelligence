@@ -22,8 +22,8 @@ class ReleaseRegressionTests(unittest.TestCase):
     def test_ui_and_native_engine_versions_match(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn("V40.77 LIVE-REFRESH + CHART READABILITY", html)
-        self.assertIn('"engine", "V40.77 LIVE-REFRESH + CHART READABILITY"', source)
+        self.assertIn("V40.79 NSE-FEED REQUIRED + SCREENER FUNDAMENTALS", html)
+        self.assertIn('"engine", "V40.79 NSE-FEED REQUIRED + SCREENER FUNDAMENTALS"', source)
 
     def test_fundamental_parser_fails_closed_instead_of_guessing_nearby_number(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
@@ -36,14 +36,14 @@ class ReleaseRegressionTests(unittest.TestCase):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("V40.77 LIVE-REFRESH + CHART READABILITY", html)
-        self.assertIn('"engine", "V40.77 LIVE-REFRESH + CHART READABILITY"', source)
-        self.assertIn("versionCode 76; versionName '40.77'", gradle)
-        self.assertIn("DASHBOARD_VERSION='V40.77'", html)
-        self.assertIn("window.__PSI_BOOT_VERSION='V40.77'", html)
+        self.assertIn("V40.79 NSE-FEED REQUIRED + SCREENER FUNDAMENTALS", html)
+        self.assertIn('"engine", "V40.79 NSE-FEED REQUIRED + SCREENER FUNDAMENTALS"', source)
+        self.assertIn("versionCode 78; versionName '40.79'", gradle)
+        self.assertIn("DASHBOARD_VERSION='V40.79'", html)
+        self.assertIn("window.__PSI_BOOT_VERSION='V40.79'", html)
         self.assertNotIn("DASHBOARD_VERSION='V40.75'", html)
         self.assertNotIn("window.__PSI_BOOT_VERSION='V40.75'", html)
-        self.assertIn(".researchRibbon:after{content:'V40.77'", html)
+        self.assertIn(".researchRibbon:after{content:'V40.79'", html)
 
 
     def test_screener_session_cookie_checks_both_hosts_and_surfaces_parse_error(self):
