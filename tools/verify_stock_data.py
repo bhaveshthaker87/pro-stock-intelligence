@@ -70,6 +70,25 @@ def read_rows(path):
 
 
 def build_report(rows, min_stocks=30):
+    # Accept either read_rows() output or simple row dictionaries from tests/callers.
+    # Normalize metric labels and populate audit metadata without mutating caller rows.
+    normalized_rows = []
+    for index, original in enumerate(rows):
+        row = dict(original)
+        row["source"] = str(row.get("source", "")).strip()
+        row["symbol"] = str(row.get("symbol", "")).strip().upper().replace(".NS", "").replace(".BO", "")
+        row["metric"] = key(row.get("metric", ""))
+        row["value_num"] = row.get("value_num")
+        if row["value_num"] is None:
+            row["value_num"] = parse_number(row.get("value"))
+        if row["value_num"] is None:
+            raise ValueError(f"Invalid numeric value for {row['symbol']} / {row['metric']}")
+        row["unit"] = str(row.get("unit", "")).strip()
+        row["period"] = str(row.get("period", "")).strip()
+        row["as_of"] = str(row.get("as_of", "")).strip()
+        row["line"] = row.get("line", index + 2)
+        normalized_rows.append(row)
+    rows = normalized_rows
     grouped = defaultdict(list)
     symbols = sorted({r["symbol"] for r in rows})
     for row in rows:
