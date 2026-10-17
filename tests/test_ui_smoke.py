@@ -357,7 +357,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertNotIn("https://query1.finance.yahoo.com", source)
         self.assertNotIn("https://query2.finance.yahoo.com", source)
         self.assertNotIn("https://www.nseindia.com/api/quote-equity", source)
-        self.assertIn("authorized NSE real-time API/feed configured", source)
+        self.assertIn("Authorized NSE/vendor gateway is not configured.", source)
         self.assertIn("No third-party fallback is used", source)
 
     def test_screener_chart_endpoint_does_not_mislabel_yahoo_history(self):
