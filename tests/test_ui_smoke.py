@@ -449,7 +449,7 @@ class DashboardUISmokeTests(unittest.TestCase):
     def test_mobile_chart_controls_wrap_without_toolbar_overlap(self):
         html = HTML.read_text(encoding="utf-8")
         self.assertIn(".tvtoolbar.tvtoolbar-pro{height:auto!important", html)
-        self.assertIn(".tvtoolbar-pro .tvmaincontrols{flex:1 1 100%!important", html)
+        self.assertIn(".tvtoolbar-pro .tvmaincontrols,.tvtoolbar-pro .tvrightcontrols{flex:1 1 100%!important", html)
         self.assertIn(".tvpane.pricepane{height:390px!important", html)
 
 
