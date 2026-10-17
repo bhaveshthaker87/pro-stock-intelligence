@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import unittest
 
 ROOT = Path(__file__).parents[1]
@@ -233,6 +234,25 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("Quote refresh returned no valid price; previous display retained.", html)
         self.assertIn("if(hasUsablePrice(q.price))applyQuote(q,d.name||$('company').textContent,sym)", html)
 
+
+    def test_screener_top_ratios_parser_accepts_ul_container_and_reports_403(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        pattern = re.search(r'val ratioContainer = Regex\\("""(.*?)"""\\)', source)
+        self.assertIsNotNone(pattern, "Kotlin top-ratios container regex is missing")
+        regex = re.compile(pattern.group(1), re.IGNORECASE | re.DOTALL)
+        samples = [
+            '<ul id="top-ratios"><li><span class="name">Stock P/E</span><span class="number">24.5</span></li></ul>',
+            '<section id="top-ratios"><li><span class="name">Stock P/E</span><span class="number">24.5</span></li></section>',
+            '<div id="top-ratios"><li><span class="name">Stock P/E</span><span class="number">24.5</span></li></div>',
+        ]
+        for sample in samples:
+            with self.subTest(sample=sample[:20]):
+                match = regex.search(sample)
+                self.assertIsNotNone(match)
+                self.assertIn("Stock P/E", match.group(2))
+        self.assertIn('HTTP_403_FORBIDDEN', source)
+        self.assertIn('recommendedAction', source)
+        self.assertIn('This app will not bypass access controls', source)
 
     def test_authorized_indices_gateway_is_validated_and_ci_smoke_is_conditional(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
