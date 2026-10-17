@@ -16,7 +16,7 @@ except ImportError as exc:  # CI installs Playwright; keep the error explicit lo
     raise RuntimeError("Install Playwright and Chromium to run tests/test_ui_smoke.py") from exc
 
 HTML = Path(__file__).parents[1] / "app/src/main/assets/index.html"
-ENGINE = "V40.78 SCREENER SESSION + FUNDAMENTAL RECOVERY"
+ENGINE = "V40.78 NSE-FEED REQUIRED + SCREENER FUNDAMENTALS"
 
 
 def launch_chromium(playwright):
