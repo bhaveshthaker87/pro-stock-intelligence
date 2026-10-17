@@ -16,7 +16,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertNotIn("query1.finance.yahoo.com", source)
         self.assertNotIn("query2.finance.yahoo.com", source)
         self.assertIn("private fun equitySearch", source)
-        self.assertIn("Local fallback; broad search unavailable", source)
+        self.assertIn("Local symbol list only; broad search unavailable", source)
         self.assertIn("not a complete official NSE/BSE security master", source)
 
     def test_ui_and_native_engine_versions_match(self):
