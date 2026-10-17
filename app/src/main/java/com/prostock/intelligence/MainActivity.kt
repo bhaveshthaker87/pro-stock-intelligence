@@ -452,7 +452,7 @@ private class NativeProvider {
             }
             return null
         }
-        numberAny(listOf("Industry PE", "Industry P/E", "Industry P/E Ratio"))?.let { f.put("industryPe", it) }
+        numberAny(listOf("Industry PE", "Industry P/E", "Industry P/E Ratio"))?.let { f.put("industryPE", it) }
         numberAny(listOf("PEG Ratio", "PEG"))?.let { f.put("peg", it) }
         numberAny(listOf("Face Value"))?.let { f.put("faceValue", it) }
         numberAny(listOf("Piotroski score", "Piotroski Score"))?.let { f.put("piotroski", it) }
