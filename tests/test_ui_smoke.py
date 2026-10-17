@@ -109,6 +109,33 @@ class DashboardUISmokeTests(unittest.TestCase):
             self.assertIn("1,310", page.locator("#price").inner_text())
             signal_count = page.evaluate("(window.chartRows||[]).filter(r=>r.nwSignal==='BUY'||r.nwSignal==='SELL').length")
             self.assertLess(signal_count, max(10, len(self.rows)//3), f"NW signals look over-triggered: {signal_count}")
+            # Check actual chart series against independently recomputed SMA/RSI and candle invariants.
+            chart_check = page.evaluate("""() => {
+              const rows = window.chartRows || [];
+              if (rows.length < 200) return {error:'insufficient history', count:rows.length};
+              const closes = rows.map(r=>Number(r.close));
+              const sma = (i,n)=>closes.slice(i-n+1,i+1).reduce((a,b)=>a+b,0)/n;
+              const rsi14 = (i)=>{
+                if(i<14)return null;
+                let gain=0,loss=0;
+                for(let k=1;k<=14;k++){const d=closes[k]-closes[k-1];gain+=Math.max(d,0);loss+=Math.max(-d,0);}
+                gain/=14;loss/=14;
+                for(let k=15;k<=i;k++){const d=closes[k]-closes[k-1];gain=(gain*13+Math.max(d,0))/14;loss=(loss*13+Math.max(-d,0))/14;}
+                return gain===0&&loss===0?50:loss===0?100:gain===0?0:100-100/(1+gain/loss);
+              };
+              const i=rows.length-1, last=rows[i];
+              return {count:rows.length, volume:rows.every(r=>Number.isFinite(Number(r.volume))&&Number(r.volume)>=0),
+                candles:rows.every(r=>r.high>=Math.max(r.open,r.close)&&r.low<=Math.min(r.open,r.close)&&r.high>=r.low),
+                sma50Error:Math.abs(Number(last.dma50)-sma(i,50)), sma200Error:Math.abs(Number(last.dma200)-sma(i,200)),
+                rsiError:Math.abs(Number(last.rsi14)-rsi14(i)), rsiRange:last.rsi14>=0&&last.rsi14<=100};
+            }""")
+            self.assertNotIn("error", chart_check, chart_check)
+            self.assertTrue(chart_check["volume"], chart_check)
+            self.assertTrue(chart_check["candles"], chart_check)
+            self.assertLess(chart_check["sma50Error"], 1e-6, chart_check)
+            self.assertLess(chart_check["sma200Error"], 1e-6, chart_check)
+            self.assertLess(chart_check["rsiError"], 1e-6, chart_check)
+            self.assertTrue(chart_check["rsiRange"], chart_check)
             self.assertEqual(page.locator(".tab").count(), 6)
             for tab in page.locator(".tab").all():
                 tab.click()
