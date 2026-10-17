@@ -12,6 +12,7 @@ on:
       - expert-pro-hardening-v40-66
       - v40-78-nse-screener-only
       - fix/v40-79-diamond-data-chart
+      - fix/v40-80-provider-gateway-validation
   pull_request:
     branches:
       - main
