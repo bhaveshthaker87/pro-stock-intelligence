@@ -3,6 +3,10 @@ name: Build PRO STOCK INTELLIGENCE APK
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
   push:
