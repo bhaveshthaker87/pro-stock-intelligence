@@ -43,12 +43,12 @@ def parse_number(value):
 def read_rows(path):
     with Path(path).open(newline="", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
-        fields = {(x or "").strip().lower() for x in (reader.fieldnames or [])}
+        fields = {key(x) for x in (reader.fieldnames or [])}
         missing = REQUIRED - fields
         if missing:
             raise ValueError("CSV missing required columns: " + ", ".join(sorted(missing)))
         # Preserve original headers while accepting case/space variants.
-        header_map = {(x or "").strip().lower(): x for x in reader.fieldnames}
+        header_map = {key(x): x for x in reader.fieldnames}
         rows = []
         for line, raw in enumerate(reader, 2):
             row = {name: (raw.get(header_map[key(name)]) or "").strip() for name in REQUIRED}
