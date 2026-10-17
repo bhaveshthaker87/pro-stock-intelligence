@@ -715,7 +715,7 @@ private class NativeProvider {
                 .put("configured", gatewayConfigured())
                 .put("baseUrlConfigured", gatewayConfigured())
                 .put("credentialsInApk", false)
-                .put("requiredRoutes", JSONArray().put("/v1/quote").put("/v1/history").put("/v1/events").put("/v1/dividends"))
+                .put("requiredRoutes", JSONArray().put("/v1/quote").put("/v1/history").put("/v1/indices").put("/v1/events").put("/v1/dividends"))
                 .put("status", if (gatewayConfigured()) "URL_CONFIGURED_LIVE_HEALTH_CHECK_PENDING" else "NOT_CONFIGURED")
                 .put("message", if (gatewayConfigured()) "HTTPS gateway URL configured. Actual quote/history/event payloads are validated when requested." else "Configure Gradle property providerGatewayBaseUrl and deploy a licensed provider adapter. Vendor credentials must remain server-side."))
             .put("overall", if (gatewayConfigured() && screener.optBoolean("requestValidated", false)) "GATEWAY_CONFIGURED_AND_SCREENER_VALIDATED" else "PARTIAL_PROVIDER_COVERAGE_NOT_ALL_SOURCES_LIVE")
