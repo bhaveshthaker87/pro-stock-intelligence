@@ -127,22 +127,29 @@ jobs:
           curl --fail --silent --show-error --max-time 20 "$PROVIDER_GATEWAY_BASE_URL/v1/history?symbol=INFY&range=1y" -o /tmp/psi-provider/history.json
           curl --fail --silent --show-error --max-time 15 "$PROVIDER_GATEWAY_BASE_URL/v1/events?eventType=ALL" -o /tmp/psi-provider/events.json
           curl --fail --silent --show-error --max-time 15 "$PROVIDER_GATEWAY_BASE_URL/v1/dividends" -o /tmp/psi-provider/dividends.json
-          python3 tools/validate_provider_payloads.py quote /tmp/psi-provider/quote.json
-          python3 tools/validate_provider_payloads.py history /tmp/psi-provider/history.json
-          python3 tools/validate_provider_payloads.py events /tmp/psi-provider/events.json
+          curl --fail --silent --show-error --max-time 15 "$PROVIDER_GATEWAY_BASE_URL/v1/indices" -o /tmp/psi-provider/indices.json
           python3 - <<'PY'
           import json
           from pathlib import Path
-          p = json.loads(Path("/tmp/psi-provider/dividends.json").read_text(encoding="utf-8"))
-          if isinstance(p.get("data"), dict): p = p["data"]
-          if not isinstance(p.get("source"), str) or not p["source"].strip():
-              raise SystemExit("Dividend payload missing source")
-          if not isinstance(p.get("asOf"), str) or not p["asOf"].strip():
-              raise SystemExit("Dividend payload missing asOf timestamp")
-          if not isinstance(p.get("rows"), list):
-              raise SystemExit("Dividend payload rows must be an array")
-          print("Dividend payload contract valid; rows returned:", len(p["rows"]))
+          root = Path("/tmp/psi-provider")
+          for name in ("quote", "history", "events", "dividends", "indices"):
+              p = json.loads((root / f"{name}.json").read_text(encoding="utf-8"))
+              if isinstance(p.get("data"), dict): p = p["data"]
+              (root / f"{name}.json").write_text(json.dumps(p), encoding="utf-8")
+          p = json.loads((root / "indices.json").read_text(encoding="utf-8"))
+          if not isinstance(p.get("source"), str) or not p["source"].strip(): raise SystemExit("Index payload missing source")
+          if not isinstance(p.get("asOf"), str) or not p["asOf"].strip(): raise SystemExit("Index payload missing asOf timestamp")
+          if p.get("marketDataStatus") not in {"REALTIME", "DELAYED", "EOD"}: raise SystemExit("Index payload missing valid marketDataStatus")
+          if not isinstance(p.get("rows"), list): raise SystemExit("Index payload rows must be an array")
+          p = json.loads((root / "dividends.json").read_text(encoding="utf-8"))
+          if not isinstance(p.get("source"), str) or not p["source"].strip(): raise SystemExit("Dividend payload missing source")
+          if not isinstance(p.get("asOf"), str) or not p["asOf"].strip(): raise SystemExit("Dividend payload missing asOf timestamp")
+          if not isinstance(p.get("rows"), list): raise SystemExit("Dividend payload rows must be an array")
+          print("Index/dividend payload contracts valid.")
           PY
+          python3 tools/validate_provider_payloads.py quote /tmp/psi-provider/quote.json
+          python3 tools/validate_provider_payloads.py history /tmp/psi-provider/history.json
+          python3 tools/validate_provider_payloads.py events /tmp/psi-provider/events.json
 
       # Publish the APK immediately after a successful build; emulator validation is intentionally separate so an unstable virtual device cannot block delivery.
       - name: Build debug APK
