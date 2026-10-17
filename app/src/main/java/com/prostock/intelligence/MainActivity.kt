@@ -711,7 +711,14 @@ private class NativeProvider {
             .put("checkedAtEpochMs", checkedAt)
             .put("Screener.in", screener)
             .put("Moneycontrol", moneycontrol)
-            .put("overall", if (screener.optBoolean("requestValidated", false)) "SCREENER_LIVE_VALIDATED_MONEYCONTROL_NOT_AUTOMATED" else "PARTIAL_PROVIDER_COVERAGE_NOT_ALL_SOURCES_LIVE")
+            .put("AuthorizedProviderGateway", JSONObject()
+                .put("configured", gatewayConfigured())
+                .put("baseUrlConfigured", gatewayConfigured())
+                .put("credentialsInApk", false)
+                .put("requiredRoutes", JSONArray().put("/v1/quote").put("/v1/history").put("/v1/events").put("/v1/dividends"))
+                .put("status", if (gatewayConfigured()) "URL_CONFIGURED_LIVE_HEALTH_CHECK_PENDING" else "NOT_CONFIGURED")
+                .put("message", if (gatewayConfigured()) "HTTPS gateway URL configured. Actual quote/history/event payloads are validated when requested." else "Configure Gradle property providerGatewayBaseUrl and deploy a licensed provider adapter. Vendor credentials must remain server-side."))
+            .put("overall", if (gatewayConfigured() && screener.optBoolean("requestValidated", false)) "GATEWAY_CONFIGURED_AND_SCREENER_VALIDATED" else "PARTIAL_PROVIDER_COVERAGE_NOT_ALL_SOURCES_LIVE")
     }
 
     private fun coreCoverage(f: JSONObject): JSONObject {
@@ -978,7 +985,7 @@ private class NativeProvider {
         val s = canonical(raw)
         return try {
             when (p) {
-                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.79 NSE-FEED REQUIRED + SCREENER FUNDAMENTALS").put("data", JSONObject().put("ok", true).put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
+                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.80 AUTHORIZED GATEWAY + SCREENER FUNDAMENTALS").put("data", JSONObject().put("ok", true).put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
                 "/api/providers/status" -> JSONObject().put("ok", true).put("data", providerStatus(raw)).toString()
                 "/api/screener/status" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
                 "/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
