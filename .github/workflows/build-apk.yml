@@ -11,10 +11,12 @@ on:
       - expert-remediation-v40-67
       - expert-pro-hardening-v40-66
       - v40-78-nse-screener-only
+      - fix/v40-79-diamond-data-chart
   pull_request:
     branches:
       - main
       - v40-77-chart-refresh-readability
+      - v40-78-nse-screener-only
 
 jobs:
   build:
