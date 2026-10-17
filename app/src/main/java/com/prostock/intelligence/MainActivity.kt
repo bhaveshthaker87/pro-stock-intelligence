@@ -548,15 +548,12 @@ private class NativeProvider {
                 out.put("rows", hist.optJSONArray("rows") ?: JSONArray())
                 out.put("historyProvider", hist.optString("provider", "Yahoo Finance"))
                 out.put("historyStatus", "THIRD_PARTY_HISTORICAL_BARS_NOT_NSE_VERIFIED")
-                if (!out.has("price") && hist.has("price")) {
-                    out.put("price", hist.get("price")).put("provider", "Yahoo Finance fallback (not NSE/Moneycontrol)")
-                    if (hist.has("previousClose")) out.put("previousClose", hist.get("previousClose"))
-                    if (hist.has("dayChangePct")) out.put("dayChangePct", hist.get("dayChangePct"))
-                    if (hist.has("high52")) out.put("high52", hist.get("high52"))
-                    if (hist.has("low52")) out.put("low52", hist.get("low52"))
-                    out.put("quoteStatus", "THIRD_PARTY_FALLBACK_NOT_EXCHANGE_VERIFIED")
-                    out.put("marketDataDisclaimer", "NSE quote unavailable. Yahoo Finance fallback may be delayed; do not treat as an NSE/Moneycontrol live quote.")
-                    out.put("priceTimestamp", hist.optLong("priceTimestamp", 0L))
+                // Never promote Yahoo historical data into the live quote. The app must show
+                // quote unavailable when the NSE quote endpoint fails; historical candles may
+                // remain separately attributed until an authorized history feed is configured.
+                if (!out.has("price")) {
+                    out.put("quoteStatus", "UNAVAILABLE_NO_VERIFIED_LIVE_QUOTE")
+                    out.put("marketDataDisclaimer", "No verified NSE live quote is available. Historical data is not a substitute for a live price.")
                 }
                 if (!nseError.isNullOrBlank()) out.put("nseProviderWarning", nseError)
                 if (!out.has("price")) out.put("providerError", nseError ?: "No usable quote")
