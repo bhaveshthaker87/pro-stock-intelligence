@@ -255,7 +255,13 @@ private class NativeProvider {
             val code = c.responseCode
             val stream = if (code in 200..299) c.inputStream else c.errorStream
             val body = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() } ?: ""
-            if (code !in 200..299) throw IOException("HTTP $code from $host${if (body.isNotBlank()) ": ${body.take(120)}" else ""}")
+            if (code == 403 && (host == "screener.in" || host.endsWith(".screener.in"))) {
+                throw IOException("Screener returned HTTP 403 Forbidden. The session may not be authorized for this automated request. Sign in again once; if 403 persists, use permitted exports/features or request written data/API access. This app will not bypass the restriction.")
+            }
+            if (code == 401 && (host == "screener.in" || host.endsWith(".screener.in"))) {
+                throw IOException("Screener returned HTTP 401. Tap Screener Login, sign in again, return to the app and retry.")
+            }
+            if (code !in 200..299) throw IOException("HTTP $code from $host")
             return body
         } finally { c.disconnect() }
     }
@@ -1004,26 +1010,55 @@ private class NativeProvider {
                     val news = try { unavailableNews(raw) } catch (e: Exception) { JSONObject().put("symbol", s).put("news", JSONArray()).put("statusText", "Authorized news source unavailable: ${e.message ?: "provider error"}").put("provider", "Unavailable") }
                     JSONObject().put("ok", true).put("data", news).toString()
                 }
-                "/api/company-events" -> JSONObject().put("ok", true).put("data",
-                    JSONObject().put("symbol", s).put("name", stockName(s)).put("rows", JSONArray())
-                        .put("provider", "Unavailable")
-                        .put("statusText", "Corporate events are unavailable until an authorized NSE/company-filings source is configured. No third-party event fallback is used.")
-                        .put("liveData", false)).toString()
-                "/api/dividend-stocks" -> {
-                    val d = runScreenerQuery("Market Capitalization > 1000 AND Dividend yield > 1 AND Return on capital employed > 10")
-                    val rows = d.optJSONArray("rows") ?: JSONArray()
-                    JSONObject().put("ok", true).put("data", JSONObject().put("rows", rows).put("statusText", "Screener session response parsed; authentication validity and field freshness are not independently certified. First result page only.").put("provider", d.optString("provider", "Screener.in")).put("partial", true)).toString()
+                "/api/company-events" -> {
+                    if (gatewayConfigured()) {
+                        val d = gatewayEvents("/v1/events", s, q["type"] ?: "ALL")
+                        JSONObject().put("ok", true).put("data", d.put("symbol", s).put("name", stockName(s))).toString()
+                    } else JSONObject().put("ok", true).put("data",
+                        JSONObject().put("symbol", s).put("name", stockName(s)).put("rows", JSONArray())
+                            .put("provider", "Unavailable")
+                            .put("statusText", "Corporate events unavailable: configure an authorized HTTPS provider gateway. No events are fabricated.")
+                            .put("liveData", false)).toString()
                 }
-                "/api/upcoming-events" -> JSONObject().put("ok", true).put("data", JSONObject().put("rows", JSONArray())
-                    .put("statusText", "Live calendar data is not embedded because NSE's page is dynamically served and this standalone app has no authorized, stable calendar feed. Open the official NSE event calendar to verify current dates; no events are fabricated.")
-                    .put("provider", "NSE official calendar link").put("officialUrl", "https://www.nseindia.com/companies-listing/corporate-filings-event-calendar")
-                    .put("resultsUrl", "https://www.nseindia.com/companies-listing/corporate-filings-financial-results").put("liveData", false)).toString()
-                "/api/upcoming-results" -> JSONObject().put("ok", true).put("data", JSONObject().put("rows", JSONArray())
-                    .put("sourcesChecked", JSONArray().put("NSE official event calendar URL configured; live extraction not enabled"))
-                    .put("providerErrors", JSONArray().put("Standalone client cannot guarantee stable, authorized NSE calendar extraction"))
-                    .put("statusText", "No dates are inferred. Use the official NSE event calendar for announced board-meeting/result dates and the financial-results filings page for submitted results.")
-                    .put("officialUrl", "https://www.nseindia.com/companies-listing/corporate-filings-event-calendar")
-                    .put("resultsUrl", "https://www.nseindia.com/companies-listing/corporate-filings-financial-results").put("liveData", false)).toString()
+                "/api/dividend-stocks" -> {
+                    if (gatewayConfigured()) {
+                        val d = gatewayGet("/v1/dividends")
+                        val rows = d.optJSONArray("rows") ?: throw IOException("Dividend gateway payload missing rows")
+                        val source = d.optString("source").trim()
+                        val asOf = parseGatewayTime(d.optString("asOf"))
+                        if (source.isBlank() || System.currentTimeMillis() - asOf > 72 * 60 * 60 * 1000L || asOf > System.currentTimeMillis() + 60_000L)
+                            throw IOException("Dividend feed source/timestamp is missing, stale or in the future")
+                        JSONObject().put("ok", true).put("data", JSONObject().put("rows", rows).put("provider", source)
+                            .put("asOf", d.optString("asOf")).put("liveData", true)
+                            .put("statusText", "Provider dividend candidates • source: $source • as of ${d.optString("asOf")}. Verify official filings before investing.")
+                            .put("partial", d.optBoolean("partial", false))).toString()
+                    } else {
+                        val d = runScreenerQuery("Market Capitalization > 1000 AND Dividend yield > 1 AND Return on capital employed > 10")
+                        val rows = d.optJSONArray("rows") ?: JSONArray()
+                        JSONObject().put("ok", true).put("data", JSONObject().put("rows", rows).put("statusText", "Screener query results only; not a verified live dividend feed. Authentication and freshness are not independently certified.").put("provider", d.optString("provider", "Screener.in")).put("partial", true).put("liveData", false)).toString()
+                    }
+                }
+                "/api/upcoming-events" -> {
+                    if (gatewayConfigured()) JSONObject().put("ok", true).put("data", gatewayEvents("/v1/events", "", "ALL")
+                        .put("officialUrl", "https://www.nseindia.com/companies-listing/corporate-filings-event-calendar")
+                        .put("resultsUrl", "https://www.nseindia.com/companies-listing/corporate-filings-financial-results")).toString()
+                    else JSONObject().put("ok", true).put("data", JSONObject().put("rows", JSONArray())
+                        .put("statusText", "Live calendar unavailable: configure an authorized HTTPS provider gateway. This is not confirmation that no events are scheduled.")
+                        .put("provider", "Unavailable").put("officialUrl", "https://www.nseindia.com/companies-listing/corporate-filings-event-calendar")
+                        .put("resultsUrl", "https://www.nseindia.com/companies-listing/corporate-filings-financial-results").put("liveData", false)).toString()
+                }
+                "/api/upcoming-results" -> {
+                    if (gatewayConfigured()) JSONObject().put("ok", true).put("data", gatewayEvents("/v1/events", "", "RESULTS")
+                        .put("sourcesChecked", JSONArray().put("Configured authorized provider gateway"))
+                        .put("officialUrl", "https://www.nseindia.com/companies-listing/corporate-filings-event-calendar")
+                        .put("resultsUrl", "https://www.nseindia.com/companies-listing/corporate-filings-financial-results")).toString()
+                    else JSONObject().put("ok", true).put("data", JSONObject().put("rows", JSONArray())
+                        .put("sourcesChecked", JSONArray().put("Provider gateway not configured"))
+                        .put("providerErrors", JSONArray().put("Authorized live corporate-actions/results gateway not configured"))
+                        .put("statusText", "Live results calendar is not connected. This is not confirmation that no result dates are scheduled.")
+                        .put("officialUrl", "https://www.nseindia.com/companies-listing/corporate-filings-event-calendar")
+                        .put("resultsUrl", "https://www.nseindia.com/companies-listing/corporate-filings-financial-results").put("liveData", false)).toString()
+                }
                 "/api/cache-clear" -> JSONObject().put("ok", true).put("data", JSONObject().put("cleared", false).put("cacheConfigured", false).put("message", "No persistent provider cache is configured; fresh provider requests will be attempted.")).toString()
                 else -> JSONObject().put("ok", false).put("error", "Mobile API endpoint not implemented: $p").toString()
             }
