@@ -216,7 +216,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertNotIn("dataConfidence:'LIVE QUOTE'", html)
         self.assertNotIn("Verified exchange + Screener HTTP", html)
         self.assertIn("QUOTE RETURNED • FRESHNESS UNVERIFIED", html)
-        self.assertIn("responseReceivedAt", source)
+        self.assertIn("UNVERIFIED_NO_PROVIDER_QUOTE_TIMESTAMP", source)
         self.assertNotIn('.put("priceTimestamp", System.currentTimeMillis() / 1000L)', source)
 
     def test_api_response_headers_are_hardened_and_not_public_wildcard(self):
@@ -272,7 +272,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         for label in required:
             self.assertIn(label, market_fn)
             self.assertIn(label, html)
-        self.assertIn("HISTORICAL_ONLY_NOT_A_CURRENT_QUOTE", source)
+        self.assertIn("AUTHORIZED_NSE_FEED_NOT_CONFIGURED", source)
         self.assertIn("HISTORICAL BAR • NOT LIVE", html)
         self.assertIn("QUOTE RETURNED • FRESHNESS UNVERIFIED", html)
         self.assertIn("quoteTimestamp", market_fn)
@@ -334,8 +334,8 @@ class DashboardUISmokeTests(unittest.TestCase):
     def test_source_claims_disclose_unintegrated_moneycontrol_and_history(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("NOT INTEGRATED — NO VERIFIED ACCESS/FEED CONFIGURED", source)
-        self.assertIn("THIRD_PARTY_HISTORICAL_BARS_NOT_NSE_VERIFIED", source)
-        self.assertIn("NSE_WEBSITE_RESPONSE_NOT_LICENSED_REALTIME_FEED", source)
+        self.assertIn("AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED", source)
+        self.assertIn("authorized NSE real-time API/feed configured", source)
 
 
     def test_chart_refresh_and_source_links_are_present(self):
