@@ -806,115 +806,16 @@ private class NativeProvider {
             .put("statusText", "$criteria; $completed/${stocks.size} tracked symbols checked. Daily-bar data can be delayed or partial during market hours; this is not a whole-market scan.")
     }
 
+    /** News is intentionally unavailable until an allowed NSE/Screener news source is implemented. */
     private fun yahooNews(raw: String): JSONObject {
         val symbol = canonical(raw)
-        val q = URLEncoder.encode(symbol, "UTF-8")
-        val root = JSONObject(get("https://query1.finance.yahoo.com/v1/finance/search?q=$q&quotesCount=0&newsCount=12"))
-        val items = root.optJSONArray("news") ?: JSONArray()
-        val out = JSONArray()
-        for (i in 0 until items.length()) {
-            val n = items.optJSONObject(i) ?: continue
-            val title = n.optString("title", "").trim()
-            if (title.isBlank()) continue
-            val item = JSONObject().put("title", title).put("publisher", n.optString("publisher", "Yahoo Finance"))
-                .put("link", n.optString("link", "")).put("time", n.optLong("providerPublishTime", 0L))
-                .put("provider", "Yahoo Finance")
-            out.put(item)
-        }
-        return JSONObject().put("symbol", symbol).put("news", out).put("provider", "Yahoo Finance")
-            .put("statusText", if (out.length() > 0) "Latest available company news" else "No news returned by Yahoo Finance")
+        return JSONObject().put("symbol", symbol).put("news", JSONArray())
+            .put("provider", "Unavailable")
+            .put("statusText", "News is unavailable: Yahoo Finance is disabled and no authorized NSE/Screener news endpoint is configured.")
     }
 
-    /**
-     * Reads the public NSE index snapshot once for all Indian indices. This endpoint may block
-     * automated clients and is not a licensed guaranteed-real-time feed; Yahoo is only fallback.
-     */
-    private fun nseIndexSnapshot(): Map<String, JSONObject> {
-        var cookie = ""
-        val home = URL("https://www.nseindia.com/").openConnection() as HttpURLConnection
-        try {
-            home.connectTimeout = 2000
-            home.readTimeout = 2500
-            home.instanceFollowRedirects = true
-            home.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36")
-            home.setRequestProperty("Accept", "text/html,application/xhtml+xml,*/*")
-            home.setRequestProperty("Accept-Language", "en-IN,en;q=0.9")
-            home.responseCode
-            cookie = home.headerFields.entries
-                .filter { it.key?.equals("Set-Cookie", true) == true }
-                .flatMap { it.value ?: emptyList() }
-                .map { it.substringBefore(";") }.distinct().joinToString("; ")
-        } finally { home.disconnect() }
-
-        val c = URL("https://www.nseindia.com/api/allIndices").openConnection() as HttpURLConnection
-        try {
-            c.connectTimeout = 2500
-            c.readTimeout = 3500
-            c.instanceFollowRedirects = true
-            c.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36")
-            c.setRequestProperty("Accept", "application/json,text/plain,*/*")
-            c.setRequestProperty("Referer", "https://www.nseindia.com/market-data/live-market-indices")
-            c.setRequestProperty("Accept-Language", "en-IN,en;q=0.9")
-            if (cookie.isNotBlank()) c.setRequestProperty("Cookie", cookie)
-            val code = c.responseCode
-            val stream = if (code in 200..299) c.inputStream else c.errorStream
-            val body = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() } ?: ""
-            if (code !in 200..299) throw IOException("NSE index snapshot HTTP $code")
-            val data = JSONObject(body).optJSONArray("data") ?: throw IOException("NSE index snapshot has no data array")
-            val result = linkedMapOf<String, JSONObject>()
-            val aliases = mapOf(
-                "NIFTY 50" to listOf("NIFTY 50"),
-                "NIFTY BANK" to listOf("NIFTY BANK"),
-                "NIFTY MIDCAP 100" to listOf("NIFTY MIDCAP 100", "NIFTY MIDCAP 100 INDEX"),
-                "NIFTY SMALLCAP 100" to listOf("NIFTY SMALLCAP 100", "NIFTY SMALLCAP 100 INDEX"),
-                "NIFTY IT" to listOf("NIFTY IT"),
-                "NIFTY AUTO" to listOf("NIFTY AUTO"),
-                "NIFTY FMCG" to listOf("NIFTY FMCG"),
-                "NIFTY PHARMA" to listOf("NIFTY PHARMA"),
-                "NIFTY METAL" to listOf("NIFTY METAL"),
-                "NIFTY PSU BANK" to listOf("NIFTY PSU BANK"),
-                "NIFTY PRIVATE BANK" to listOf("NIFTY PRIVATE BANK"),
-                "NIFTY ENERGY" to listOf("NIFTY ENERGY"),
-                "NIFTY INFRA" to listOf("NIFTY INFRA"),
-                "NIFTY FIN SERVICE" to listOf("NIFTY FINANCIAL SERVICES", "NIFTY FIN SERVICE")
-            )
-            val wanted = aliases.flatMap { (label, names) -> names.map { normalizeIndexName(it) to label } }.toMap()
-            for (i in 0 until data.length()) {
-                val item = data.optJSONObject(i) ?: continue
-                val rawName = item.optString("index", item.optString("indexName", ""))
-                val label = wanted[normalizeIndexName(rawName)] ?: continue
-                val value = item.optDouble("last", item.optDouble("lastPrice", Double.NaN))
-                if (!finite(value) || value <= 0) continue
-                val previous = item.optDouble("previousClose", item.optDouble("previous", Double.NaN))
-                val change = item.optDouble("percentChange", Double.NaN)
-                val timeText = item.optString("timeVal", item.optString("timestamp", ""))
-                val timestamp = try {
-                    val parser = java.text.SimpleDateFormat("dd-MMM-yyyy HH:mm:ss", Locale.ENGLISH)
-                    parser.timeZone = java.util.TimeZone.getTimeZone("Asia/Kolkata")
-                    parser.parse(timeText)?.time?.div(1000L) ?: 0L
-                } catch (_: Exception) { 0L }
-                val obj = JSONObject()
-                    .put("value", value)
-                    .put("status", "QUOTE_RETURNED_FRESHNESS_UNVERIFIED")
-                    .put("priceSource", "NSE_PUBLIC_INDEX_SNAPSHOT")
-                    .put("provider", "NSE public website")
-                    .put("currency", "INR")
-                    .put("sourceType", "PUBLIC_ENDPOINT_NOT_LICENSED_REALTIME")
-                    .put("isExchangeCertifiedRealtime", false)
-                    .put("quoteTimeText", timeText)
-                    .put("marketDataDisclaimer", "NSE public website snapshot; availability and freshness are not guaranteed. Verify with your broker/exchange.")
-                if (finite(previous) && previous > 0) obj.put("previousClose", previous)
-                if (finite(change)) obj.put("changePct", change)
-                else if (finite(previous) && previous > 0) obj.put("changePct", (value / previous - 1.0) * 100.0)
-                if (timestamp > 0) obj.put("quoteTimestamp", timestamp)
-                result[label] = obj
-            }
-            return result
-        } finally { c.disconnect() }
-    }
-
-    private fun normalizeIndexName(value: String): String =
-        value.uppercase(Locale.ROOT).replace(Regex("[^A-Z0-9]"), "")
+    /** No automated scraping of NSE public website endpoints without an authorized feed contract. */
+    private fun nseIndexSnapshot(): Map<String, JSONObject> = emptyMap()
 
     private fun marketIndices(): JSONObject {
         val specs = linkedMapOf(
@@ -1000,29 +901,8 @@ private class NativeProvider {
      * This is discovery only, not an exchange-authoritative security master or a licensed feed.
      * Preserve .NS/.BO suffixes so quote lookup uses the selected listing when available.
      */
-    private fun equitySearch(term: String, limit: Int = 12): List<JSONObject> {
-        val q = term.trim()
-        if (q.length < 1) return emptyList()
-        val url = "https://query1.finance.yahoo.com/v1/finance/search?q=${URLEncoder.encode(q, "UTF-8")}&quotesCount=${limit.coerceIn(1, 20)}&newsCount=0"
-        val root = JSONObject(get(url))
-        val quotes = root.optJSONArray("quotes") ?: JSONArray()
-        val out = mutableListOf<JSONObject>()
-        val seen = mutableSetOf<String>()
-        for (i in 0 until quotes.length()) {
-            val item = quotes.optJSONObject(i) ?: continue
-            val ticker = item.optString("symbol", "").uppercase(Locale.ROOT)
-            val type = item.optString("quoteType", "")
-            if (type.isNotBlank() && type != "EQUITY") continue
-            if (!ticker.endsWith(".NS") && !ticker.endsWith(".BO")) continue
-            if (!seen.add(ticker)) continue
-            val base = ticker.removeSuffix(".NS").removeSuffix(".BO")
-            val exchange = if (ticker.endsWith(".BO")) "BSE" else "NSE"
-            out.add(JSONObject().put("symbol", ticker).put("name", item.optString("shortname", item.optString("longname", base)))
-                .put("exchange", exchange).put("sector", "Equity").put("provider", "Yahoo Finance search"))
-            if (out.size >= limit.coerceIn(1, 20)) break
-        }
-        return out
-    }
+    /** Search is limited to the locally maintained NSE equity suggestions until an authorized security master is configured. */
+    private fun equitySearch(term: String, limit: Int = 12): List<JSONObject> = emptyList()
 
     fun handle(path: String): String {
         val p = path.substringBefore("?")
