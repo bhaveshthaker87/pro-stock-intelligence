@@ -57,6 +57,29 @@ body{background:linear-gradient(180deg,#eef5fa,#f8fbfd);color:var(--text)}
 .brandFooter small{display:block;margin-top:4px;color:#bcd1e5;font-size:10px;letter-spacing:1.4px}
 @media(max-width:760px){.brand{min-width:0!important;flex:1 1 auto}.brandLogo{width:40px;height:40px;flex-basis:40px}.brandText>div{font-size:16px!important}.brandText small{font-size:8px!important}.brandFooter{padding:12px}.brandFooter img{width:48px;height:48px}}
 
+
+/* Diamond mobile chart pass: prevent toolbar/legend collisions and give candles a usable plot area. */
+@media(max-width:600px){
+  .tvwork{border-radius:16px!important;overflow:hidden!important}
+  .tvtoolbar.tvtoolbar-pro{display:flex!important;align-items:flex-start!important;flex-wrap:wrap!important;gap:5px!important;padding:8px!important}
+  .tvsymbol{flex:1 1 100%!important;min-width:0!important;gap:6px!important}
+  .tvmaincontrols,.tvrightcontrols{flex:1 1 100%!important;display:flex!important;flex-wrap:wrap!important;gap:4px!important}
+  .tvmini{font-size:10px!important;padding:6px 7px!important;min-height:29px!important}
+  .tvhead{display:block!important;padding:9px 10px!important}
+  .tvtitle{font-size:13px!important;line-height:1.35!important;white-space:normal!important}
+  .tvsubtitle{font-size:10px!important;line-height:1.4!important;white-space:normal!important}
+  .tvlegend{display:none!important}
+  .tvpane.pricepane{height:390px!important;min-height:350px!important}
+  .tvpane.rsipane{height:150px!important;min-height:130px!important}
+  .tvranges{display:flex!important;gap:3px!important;overflow-x:auto!important;white-space:nowrap!important;padding:7px 5px!important}
+  .tvranges button{flex:0 0 auto!important;font-size:10px!important;padding:7px 8px!important}
+  #chartStatus{max-width:100%!important;overflow-wrap:anywhere!important}
+}
+@media(min-width:601px) and (max-width:900px){
+  .tvlegend{display:flex!important;flex-wrap:wrap!important;gap:5px!important}
+  .tvtoolbar.tvtoolbar-pro{flex-wrap:wrap!important}
+}
+
 </style>
 <style id="v40-7-query-polish">
 .querySection{border-radius:14px;padding:14px;background:linear-gradient(180deg,#fff,#f8fbff)}
@@ -801,6 +824,8 @@ function scoreData(f){
  // P/E must remain a TTM valuation metric; never derive it from one quarter's EPS.
  if(f&&f.pe==null&&numOk(f.marketCap)&&numOk(f.ttmProfit)&&Number(f.ttmProfit)>0)f.pe=Number(f.marketCap)/Number(f.ttmProfit);
  if(f&&f.peg==null&&numOk(f.pe)&&numOk(f.profit3y)&&Number(f.profit3y)>0)f.peg=Number(f.pe)/Number(f.profit3y);
+ // Book value and CMP allow a transparent P/B calculation when Screener does not expose a separate P/B ratio.
+ if(f&&f.pb==null&&numOk(f.price)&&numOk(f.bookValue)&&Number(f.bookValue)>0)f.pb=Number(f.price)/Number(f.bookValue);
  const q=[
   criterion('Market Cap',f.marketCap,'> ₹10,000 Cr',f.marketCap!=null&&f.marketCap>10000),
   criterion('Net Profit',f.netProfit,'> ₹100 Cr',f.netProfit!=null&&f.netProfit>100),
@@ -824,6 +849,9 @@ function scoreData(f){
   criterion('P/B',f.pb,'Reference',f.pb!=null,undefined,false),
   criterion('P/B vs Industry',f.pb!=null&&f.industryPB!=null?f.pb/f.industryPB:null,'< 1.00x',f.pb!=null&&f.industryPB!=null&&f.pb<f.industryPB),
   criterion('PEG Ratio',f.peg,'< 2.00x',f.peg!=null&&f.peg<2),
+  criterion('Book Value',f.bookValue,'Reference',f.bookValue!=null,undefined,false),
+  criterion('EPS',f.eps,'Reference',f.eps!=null,undefined,false),
+  criterion('Dividend Yield',f.dividendYield,'Reference',f.dividendYield!=null,undefined,false),
  ];
  const t=[
   criterion('Current Price',f.price,'₹50–₹3,000',f.price!=null&&f.price>50&&f.price<3000),
@@ -1408,8 +1436,8 @@ async function loadMarketIntelligence(){
   setBusy('topDividendList','Loading verified dividend leaders…');setBusy('upcomingEventsList','Loading NSE corporate actions…');setBusy('upcomingResultsList','Loading upcoming results…');
   const jobs=[
     api('/api/dividend-stocks',16000).then(d=>{$('topDividendList').innerHTML=intelRowsTable((d.rows||[]).map(x=>({...x,company:x.Company||x.company,symbol:x.symbol||x.Symbol||''})),[['company','Company'],['CMP Rs.','CMP'],['Div Yld %','Div Yld'],['Mar Cap Rs.Cr.','MCap'],['ROCE %','ROCE']],8);bindIntelStockLinks();$('topDividendStatus').textContent=d.statusText||'Provider response received; verify source and timestamp'}).catch(e=>{$('topDividendList').innerHTML='<div class="intelEmpty">⚠ Dividend feed unavailable. <button class="qbtn" id="divRetryInline">↻ Retry</button></div>';$('topDividendStatus').textContent='Provider timeout/unavailable';$('divRetryInline')?.addEventListener('click',loadMarketIntelligence)}),
-    api('/api/upcoming-events',16000).then(d=>{intelEventRows=d.rows||[];renderUpcomingEvents();$('upcomingEventsStatus').textContent=d.statusText||'Provider response received; verify source and timestamp';if(d.officialUrl)intelOfficialEventsUrl=d.officialUrl;renderUpcomingEvents()}).catch(e=>{$('upcomingEventsList').innerHTML='<div class="intelEmpty">⚠ Corporate-action calendar unavailable. <button class="qbtn" id="eventRetryInline">↻ Retry</button></div>';$('upcomingEventsStatus').textContent='Provider timeout/unavailable';$('eventRetryInline')?.addEventListener('click',loadMarketIntelligence)}),
-    api('/api/upcoming-results',16000).then(d=>{const rows=d.rows||[];$('upcomingResultsList').innerHTML=intelRowsTable(rows,[['date','Date'],['company','Company'],['event','Result / Event']],8);bindIntelStockLinks();$('upcomingResultsStatus').textContent=d.statusText||'Provider calendar response; verify source and timestamp';if(d.officialUrl)$('upcomingResultsList').insertAdjacentHTML('beforeend','<div class="intelStatus"><a href="'+intelEsc(d.officialUrl)+'" target="_blank" rel="noopener">Open official NSE event calendar ↗</a> &nbsp; <a href="'+intelEsc(d.resultsUrl||d.officialUrl)+'" target="_blank" rel="noopener">Financial results filings ↗</a></div>');if(!rows.length){const diag=(d.sourcesChecked||[]).length?`Checked: ${d.sourcesChecked.slice(0,4).join(' • ')}.`:'No market calendar source responded.';const errs=(d.providerErrors||[]).length?` Provider diagnostics: ${d.providerErrors.slice(0,2).join(' | ')}`:' No provider error was returned.';$('upcomingResultsList').insertAdjacentHTML('beforeend','<div class="intelStatus">'+intelEsc(diag+errs)+'</div>');}}).catch(e=>{$('upcomingResultsList').innerHTML='<div class="intelEmpty">⚠ Results calendar unavailable. <button class="qbtn" id="resultsRetryInline">↻ Retry</button></div>';$('upcomingResultsStatus').textContent='Provider timeout/unavailable';$('resultsRetryInline')?.addEventListener('click',loadMarketIntelligence)})
+    api('/api/upcoming-events',16000).then(d=>{intelEventRows=d.rows||[];if(d.liveData===false){$('upcomingEventsList').innerHTML='<div class="intelEmpty">Live corporate-action feed is not connected. This is not confirmation that there are no upcoming events.</div>';}else{renderUpcomingEvents();}$('upcomingEventsStatus').textContent=d.statusText||'Provider response received; verify source and timestamp';if(d.officialUrl)intelOfficialEventsUrl=d.officialUrl;if(d.liveData!==false)renderUpcomingEvents()}).catch(e=>{$('upcomingEventsList').innerHTML='<div class="intelEmpty">⚠ Corporate-action calendar unavailable. <button class="qbtn" id="eventRetryInline">↻ Retry</button></div>';$('upcomingEventsStatus').textContent='Provider timeout/unavailable';$('eventRetryInline')?.addEventListener('click',loadMarketIntelligence)}),
+    api('/api/upcoming-results',16000).then(d=>{const rows=d.rows||[];$('upcomingResultsList').innerHTML=d.liveData===false?'<div class="intelEmpty">Live results calendar is not connected. This is not confirmation that no companies have announced dates.</div>':intelRowsTable(rows,[['date','Date'],['company','Company'],['event','Result / Event']],8);bindIntelStockLinks();$('upcomingResultsStatus').textContent=d.statusText||'Provider calendar response; verify source and timestamp';if(d.officialUrl)$('upcomingResultsList').insertAdjacentHTML('beforeend','<div class="intelStatus"><a href="'+intelEsc(d.officialUrl)+'" target="_blank" rel="noopener">Open official NSE event calendar ↗</a> &nbsp; <a href="'+intelEsc(d.resultsUrl||d.officialUrl)+'" target="_blank" rel="noopener">Financial results filings ↗</a></div>');if(!rows.length){const diag=(d.sourcesChecked||[]).length?`Checked: ${d.sourcesChecked.slice(0,4).join(' • ')}.`:'No market calendar source responded.';const errs=(d.providerErrors||[]).length?` Provider diagnostics: ${d.providerErrors.slice(0,2).join(' | ')}`:' No provider error was returned.';$('upcomingResultsList').insertAdjacentHTML('beforeend','<div class="intelStatus">'+intelEsc(diag+errs)+'</div>');}}).catch(e=>{$('upcomingResultsList').innerHTML='<div class="intelEmpty">⚠ Results calendar unavailable. <button class="qbtn" id="resultsRetryInline">↻ Retry</button></div>';$('upcomingResultsStatus').textContent='Provider timeout/unavailable';$('resultsRetryInline')?.addEventListener('click',loadMarketIntelligence)})
   ];
   await Promise.allSettled(jobs);
   if(global)global.textContent='Live intelligence check completed • '+new Date().toLocaleTimeString('en-IN',{hour12:false});
