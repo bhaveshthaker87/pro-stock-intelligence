@@ -301,7 +301,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         html = (Path(__file__).parents[1] / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         self.assertNotIn("dataConfidence:'AUTHENTICATED'", html)
         self.assertIn("NATIVE ENGINE", html)
-        self.assertIn("confirm dates with the exchange", source)
+        self.assertIn("Corporate events are unavailable until an authorized NSE/company-filings source is configured.", source)
 
 
     def test_provider_gateway_contract_and_validator_are_present(self):
@@ -353,7 +353,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertNotIn("https://query2.finance.yahoo.com", source)
         self.assertNotIn("https://www.nseindia.com/api/quote-equity", source)
         self.assertIn("authorized NSE real-time API/feed configured", source)
-        self.assertIn("Yahoo Finance fallback is disabled", source)
+        self.assertIn("No third-party fallback is used", source)
 
     def test_screener_chart_endpoint_does_not_mislabel_yahoo_history(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
