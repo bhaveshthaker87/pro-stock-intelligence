@@ -207,7 +207,7 @@ class DashboardUISmokeTests(unittest.TestCase):
     def test_quote_data_disclaimer_is_explicit(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("marketDataDisclaimer", source)
-        self.assertIn("verify with the exchange before trading", source)
+        self.assertIn("No authorized NSE real-time feed is configured", source)
 
 
     def test_provider_wording_does_not_claim_unverified_quotes_are_live(self):
@@ -296,7 +296,7 @@ class DashboardUISmokeTests(unittest.TestCase):
 
     def test_mixed_provider_session_is_not_mislabeled_fully_authenticated(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn("SESSION-BASED / MIXED SOURCES — VERIFY PROVIDERS AND TIMESTAMPS", source)
+        self.assertIn("SCREENER FUNDAMENTALS FETCHED; NSE QUOTE UNAVAILABLE UNTIL AUTHORIZED FEED IS CONFIGURED", source)
         self.assertNotIn('put("dataConfidence", "AUTHENTICATED")', source)
         html = (Path(__file__).parents[1] / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         self.assertNotIn("dataConfidence:'AUTHENTICATED'", html)
