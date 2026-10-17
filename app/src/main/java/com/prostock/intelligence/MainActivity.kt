@@ -215,7 +215,15 @@ private class NativeProvider {
             val code = c.responseCode
             val stream = if (code in 200..299) c.inputStream else c.errorStream
             val body = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() } ?: ""
-            if (code !in 200..299) throw IOException("HTTP $code from $host${if (body.isNotBlank()) ": ${body.take(120)}" else ""}")
+            if (code !in 200..299) {
+                if ((host == "screener.in" || host.endsWith(".screener.in")) && code == 403) {
+                    throw IOException("Screener returned HTTP 403 Forbidden. The website is refusing this automated request or the session is not authorized for it. Signing in again may help if the session expired; if 403 persists, use Screener's permitted export/features or request written API/data access from Screener. The app cannot safely bypass this restriction.")
+                }
+                if ((host == "screener.in" || host.endsWith(".screener.in")) && code == 401) {
+                    throw IOException("Screener returned HTTP 401 Unauthorized. Your app session may have expired. Tap Screener Login, sign in, return to the app, and retry.")
+                }
+                throw IOException("HTTP $code from $host")
+            }
             return body
         } finally { c.disconnect() }
     }
