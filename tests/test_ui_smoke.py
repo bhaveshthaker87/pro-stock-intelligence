@@ -251,12 +251,12 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn("V40.78", source)
 
 
-    def test_canonical_preserves_yahoo_index_and_futures_tickers(self):
+    def test_canonical_preserves_index_and_futures_tickers_without_external_market_provider(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         canonical = source[source.index("private fun canonical"):source.index("private fun stockName")]
         self.assertIn('upper.matches(Regex("^\\\\^[A-Z0-9]+$"))', canonical)
         self.assertIn('upper.matches(Regex("^[A-Z]{1,5}=F$"))', canonical)
-        # These symbols must reach Yahoo unchanged; canonical() must not strip ^ or =.
+        # Canonicalization must preserve index/futures syntax without enabling an external provider.
         for ticker in ["^NSEI", "^BSESN", "^NSEBANK", "GC=F", "SI=F", "BZ=F"]:
             self.assertTrue(ticker.startswith("^") or ticker.endswith("=F"))
 
@@ -345,6 +345,15 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn('id="tvMoneycontrolLinkBtn"', html)
         self.assertIn("NOT certified exchange-live", html)
         self.assertIn("chart-expanded", html)
+
+
+    def test_v4078_disables_yahoo_and_unlicensed_nse_scraping(self):
+        source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertNotIn("https://query1.finance.yahoo.com", source)
+        self.assertNotIn("https://query2.finance.yahoo.com", source)
+        self.assertNotIn("https://www.nseindia.com/api/quote-equity", source)
+        self.assertIn("authorized NSE real-time API/feed configured", source)
+        self.assertIn("Yahoo Finance fallback is disabled", source)
 
     def test_screener_chart_endpoint_does_not_mislabel_yahoo_history(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
