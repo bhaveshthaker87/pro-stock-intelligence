@@ -495,8 +495,11 @@ class DashboardUISmokeTests(unittest.TestCase):
 
     def test_screener_403_is_reported_without_bypass_or_response_body(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn("Screener returned HTTP 403 Forbidden", source)
-        self.assertIn("will not bypass the restriction", source)
+        self.assertIn("Screener HTTP 403 Forbidden", source)
+        self.assertIn("will not bypass access controls", source)
+        self.assertIn("screener403Observed = true", source)
+        self.assertIn('"HTTP_403_FORBIDDEN"', source)
+        self.assertIn("recommendedAction", source)
         self.assertIn('if (code !in 200..299) throw IOException("HTTP $code from $host")', source)
 
     def test_live_events_require_gateway_source_and_timestamp(self):
