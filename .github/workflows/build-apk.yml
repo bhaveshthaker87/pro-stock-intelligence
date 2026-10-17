@@ -155,7 +155,19 @@ jobs:
             # does not support Bash's pipefail option.
             set -eu
             adb wait-for-device
-            adb shell getprop sys.boot_completed | grep -q 1
+            # Emulator boot can take longer than adb wait-for-device; poll boot completion instead of failing on the first empty property read.
+            boot_ready=0
+            for attempt in $(seq 1 90); do
+              boot_state="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r' || true)"
+              if [ "$boot_state" = "1" ]; then boot_ready=1; break; fi
+              sleep 2
+            done
+            if [ "$boot_ready" != "1" ]; then
+              echo "Emulator did not finish booting within 180 seconds."
+              adb devices -l || true
+              adb shell getprop sys.boot_completed || true
+              exit 1
+            fi
             # Test the actual app, not just the emulator home screen.
             adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb shell am force-stop com.prostock.intelligence
