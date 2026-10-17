@@ -443,6 +443,28 @@ private class NativeProvider {
         number("ROE", true)?.let { f.put("roe", it) }
         number("Debt / Equity")?.let { f.put("debtEquity", it) }
         number("EPS in Rs")?.let { f.put("eps", it) }
+        // Screener's visible ratio labels vary by company/page revision. Read the
+        // same page's exact visible labels and support common label variants.
+        fun numberAny(labels: List<String>, percent: Boolean = false): Double? {
+            for (label in labels) {
+                val value = number(label, percent)
+                if (value != null && value.isFinite()) return value
+            }
+            return null
+        }
+        numberAny(listOf("Industry PE", "Industry P/E", "Industry P/E Ratio"))?.let { f.put("industryPe", it) }
+        numberAny(listOf("PEG Ratio", "PEG"))?.let { f.put("peg", it) }
+        numberAny(listOf("Face Value"))?.let { f.put("faceValue", it) }
+        numberAny(listOf("Piotroski score", "Piotroski Score"))?.let { f.put("piotroski", it) }
+        numberAny(listOf("OPM", "OPM %"), true)?.let { if (!f.has("opm")) f.put("opm", it) }
+        numberAny(listOf("EPS", "EPS in Rs"))?.let { if (!f.has("eps")) f.put("eps", it) }
+        numberAny(listOf("DMA 200", "200 DMA"))?.let { f.put("dma200", it) }
+        numberAny(listOf("DMA 50", "50 DMA"))?.let { f.put("dma50", it) }
+        numberAny(listOf("Sales growth 3Years", "Sales growth 3Years", "Sales growth 3Years %"), true)?.let { f.put("sales3y", it) }
+        numberAny(listOf("Profit Var 3Yrs", "Profit Var 3Years", "Profit growth 3Years"), true)?.let { f.put("profit3y", it) }
+        numberAny(listOf("Promoter holding", "Promoter Holding"), true)?.let { if (!f.has("promoter")) f.put("promoter", it) }
+        numberAny(listOf("Public holding", "Public Holding"), true)?.let { if (!f.has("public")) f.put("public", it) }
+        numberAny(listOf("Pledged percentage", "Pledged Percentage"), true)?.let { if (!f.has("pledged")) f.put("pledged", it) }
         val pnlRows = sectionTableRows(html, "profit-loss")
         val qRows = sectionTableRows(html, "quarters")
         val ownershipRows = sectionTableRows(html, "shareholding")
@@ -460,6 +482,7 @@ private class NativeProvider {
         setLatestFromTable(pnlRows, "Net Profit", "netProfit")
         setLatestFromTable(pnlRows, "Operating Profit", "operatingProfit")
         setLatestFromTable(pnlRows, "OPM %", "opm")
+        setLatestFromTable(pnlRows, "EPS in Rs", "eps")
         setLatestFromTable(pnlRows, "Interest", "interestExpense")
         // Calculate 3-year CAGR only when both the oldest and latest table values are positive and present.
         fun setCagr(rows: List<List<String>>, label: String, key: String) {
