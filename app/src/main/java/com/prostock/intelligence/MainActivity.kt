@@ -256,7 +256,13 @@ private class NativeProvider {
             val stream = if (code in 200..299) c.inputStream else c.errorStream
             val body = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() } ?: ""
             if (code == 403 && (host == "screener.in" || host.endsWith(".screener.in"))) {
-                throw IOException("Screener returned HTTP 403 Forbidden. The session may not be authorized for this automated request. Sign in again once; if 403 persists, use permitted exports/features or request written data/API access. This app will not bypass the restriction.")
+                val responseKind = when {
+                    Regex("(?is)<title[^>]*>.*?(login|sign in).*?</title>|name=[\\"']password[\\"']").containsMatchIn(body) -> "login page returned"
+                    Regex("(?is)cloudflare|captcha|access denied|request blocked|security check").containsMatchIn(body) -> "security/access-control page returned"
+                    body.isBlank() -> "empty denial response"
+                    else -> "server denied the request"
+                }
+                throw IOException("Screener HTTP 403 Forbidden ($responseKind). The server rejected this request despite any stored session cookie. This app will not bypass access controls. Use Screener's permitted CSV export or request authorized API/data access.")
             }
             if (code == 401 && (host == "screener.in" || host.endsWith(".screener.in"))) {
                 throw IOException("Screener returned HTTP 401. Tap Screener Login, sign in again, return to the app and retry.")
@@ -460,11 +466,15 @@ private class NativeProvider {
         val pageUrl = "https://www.screener.in/company/${Uri.encode(s)}/"
         val html = get(pageUrl)
         val pageTitle = Regex("(?is)<h1\\b[^>]*>(.*?)</h1>").find(html)?.groupValues?.get(1)?.let { cleanText(it) }
-        val hasRatioSection = Regex("(?is)<(?:section|div)\\b[^>]*id=[\"']top-ratios[\"']").containsMatchIn(html)
-        // Restrict ratio matching to the dedicated section to avoid duplicate labels
-        // elsewhere in the page being treated as ambiguous.
-        val ratiosSectionHtml = Regex("(?is)<section\\b[^>]*id=[\"']top-ratios[\"'][^>]*>(.*?)</section>")
-            .find(html)?.groupValues?.get(1) ?: html
+        // Screener's company page uses <ul id="top-ratios"> in some layouts.
+        // Older code accepted only section/div, causing all valuation ratios to be dropped
+        // even when the company page was fetched successfully.
+        val ratioContainer = Regex("(?is)<(section|div|ul|ol)\\b[^>]*id=[\\"']top-ratios[\\"'][^>]*>(.*?)</\\\\1>")
+            .find(html)
+        val hasRatioSection = ratioContainer != null
+        // Parse only the matched container; do not fall back to the entire document,
+        // where repeated labels can create ambiguous duplicate values.
+        val ratiosSectionHtml = ratioContainer?.groupValues?.get(2) ?: ""
         val looksLikeLogin = Regex("(?is)<title[^>]*>.*?(?:login|sign in).*?</title>").containsMatchIn(html) ||
             html.contains("name=\"password\"", ignoreCase = true)
         if (looksLikeLogin) throw IOException("Screener returned a login page instead of company data; sign in again and retry.")
@@ -692,10 +702,12 @@ private class NativeProvider {
             } catch (e: Exception) {
                 screener
                     .put("requestValidated", false)
-                    .put("status", "LIVE_VALIDATION_FAILED")
+                    .put("status", if ((e.message ?: "").contains("HTTP 403", ignoreCase = true)) "HTTP_403_FORBIDDEN" else "LIVE_VALIDATION_FAILED")
+                    .put("httpStatus", if ((e.message ?: "").contains("HTTP 403", ignoreCase = true)) 403 else JSONObject.NULL)
                     .put("validationDurationMs", System.currentTimeMillis() - probeStarted)
                     .put("errorType", e.javaClass.simpleName)
-                    .put("message", "Live Screener request did not validate. Re-login if needed, check connectivity, and retry. No live fundamentals should be claimed from this probe.")
+                    .put("message", e.message ?: "Live Screener request did not validate. No live fundamentals should be claimed from this probe.")
+                    .put("recommendedAction", if ((e.message ?: "").contains("HTTP 403", ignoreCase = true)) "Use permitted Screener CSV export in Data Sources / CSV, or configure an officially authorized API/data provider. Do not retry automated scraping." else "Verify the signed-in account, company symbol and network, then retry once.")
             }
         }
         val moneycontrol = JSONObject()
