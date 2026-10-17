@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from verify_stock_data import build_report, read_rows
+from tools.verify_stock_data import build_report, read_rows
 
 
 class StockVerificationReportTests(unittest.TestCase):
