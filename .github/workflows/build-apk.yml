@@ -167,7 +167,7 @@ jobs:
         if: always() && hashFiles('app/build/outputs/psi-emulator.png') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-79-emulator-screenshot
+          name: PRO-STOCK-INTELLIGENCE-V40-80-emulator-screenshot
           path: app/build/outputs/psi-emulator.png
           if-no-files-found: error
 
@@ -176,6 +176,6 @@ jobs:
         if: always() && hashFiles('app/build/reports/lint-results-debug.html') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-79-lint-report
+          name: PRO-STOCK-INTELLIGENCE-V40-80-lint-report
           path: app/build/reports/lint-results-debug.html
           if-no-files-found: warn
