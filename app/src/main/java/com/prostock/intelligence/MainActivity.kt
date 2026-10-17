@@ -429,6 +429,41 @@ private class NativeProvider {
         number("ROE", true)?.let { f.put("roe", it) }
         number("Debt / Equity")?.let { f.put("debtEquity", it) }
         number("EPS in Rs")?.let { f.put("eps", it) }
+
+        // Parse all explicitly labelled metrics in Screener's top-ratios list.
+        // This avoids depending on one exact label spelling across page revisions.
+        val ratioItems = Regex("(?is)<li\\b[^>]*>(.*?)</li>").findAll(ratiosSectionHtml).map { it.groupValues[1] }.toList()
+        fun normalizeMetricLabel(value: String): String =
+            value.lowercase(Locale.ROOT).replace(Regex("[^a-z0-9]+"), " ").trim()
+        val aliases = mapOf(
+            "industry pe" to "industryPE", "industry p e" to "industryPE", "industry p e ratio" to "industryPE",
+            "peg ratio" to "peg", "peg" to "peg",
+            "face value" to "faceValue", "piotroski score" to "piotroski",
+            "dma 50" to "dma50", "50 dma" to "dma50", "dma 200" to "dma200", "200 dma" to "dma200",
+            "promoter holding" to "promoter", "promoters" to "promoter",
+            "public holding" to "public", "public" to "public",
+            "pledged percentage" to "pledged", "pledged percent" to "pledged",
+            "industry pb" to "industryPB", "industry p b" to "industryPB",
+            "price to book value" to "pb", "stock p b" to "pb", "p b" to "pb",
+            "sales growth 3years" to "sales3y", "profit var 3yrs" to "profit3y",
+            "profit growth 3years" to "profit3y", "opm" to "opm"
+        )
+        val parsedAliases = mutableMapOf<String, MutableList<Double>>()
+        ratioItems.forEach { item ->
+            val label = Regex("(?is)<span\\b[^>]*class=[\\\"'][^\\\"']*\\bname\\b[^\\\"']*[\\\"'][^>]*>(.*?)</span>")
+                .find(item)?.groupValues?.getOrNull(1)?.let { cleanText(it) } ?: return@forEach
+            val key = aliases[normalizeMetricLabel(label)] ?: return@forEach
+            val valueHtml = Regex("(?is)<span\\b[^>]*class=[\\\"'][^\\\"']*\\bnumber\\b[^\\\"']*[\\\"'][^>]*>(.*?)</span>")
+                .find(item)?.groupValues?.getOrNull(1) ?: return@forEach
+            val value = asNumber(cleanText(valueHtml)) ?: return@forEach
+            parsedAliases.getOrPut(key) { mutableListOf() }.add(value)
+        }
+        parsedAliases.forEach { (key, values) ->
+            val distinct = values.distinct()
+            // Conflicting duplicate labels are ambiguous; never select one arbitrarily.
+            if (distinct.size == 1 && !f.has(key)) f.put(key, distinct.single())
+        }
+
         val pnlRows = sectionTableRows(html, "profit-loss")
         val qRows = sectionTableRows(html, "quarters")
         val ownershipRows = sectionTableRows(html, "shareholding")
@@ -503,7 +538,7 @@ private class NativeProvider {
             }
         }
         val fetchedAt = System.currentTimeMillis()
-        val fieldKeys = listOf("price", "marketCap", "pe", "bookValue", "dividendYield", "roce", "roe", "debtEquity", "eps", "netProfit", "operatingProfit", "opm", "sales3y", "profit3y", "eps3y", "currentRatio", "interestCoverage", "quarterly", "shareholding")
+        val fieldKeys = listOf("price", "marketCap", "pe", "industryPE", "peg", "pb", "industryPB", "faceValue", "piotroski", "dma50", "dma200", "promoter", "public", "pledged", "bookValue", "dividendYield", "roce", "roe", "debtEquity", "eps", "netProfit", "operatingProfit", "opm", "sales3y", "profit3y", "eps3y", "currentRatio", "interestCoverage", "quarterly", "shareholding")
         val available = fieldKeys.count { f.has(it) && !f.isNull(it) }
         val qualityFlags = JSONArray()
         if (available < 6) qualityFlags.put("LOW_FUNDAMENTAL_COVERAGE")
