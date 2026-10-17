@@ -908,25 +908,71 @@ private class NativeProvider {
             "NIFTY ENERGY" to "^CNXENERGY", "NIFTY INFRA" to "^CNXINFRA", "NIFTY FIN SERVICE" to "^CNXFINANCE",
             "GOLD FUTURES (GLOBAL)" to "GC=F", "SILVER FUTURES (GLOBAL)" to "SI=F", "BRENT CRUDE (GLOBAL)" to "BZ=F"
         )
-        val out = JSONObject()
-        specs.forEach { (label, _) ->
-            out.put(label, JSONObject().put("value", JSONObject.NULL).put("changePct", JSONObject.NULL)
-                .put("status", "UNAVAILABLE").put("priceSource", "NONE").put("provider", "No quote returned")
-                .put("sourceType", "NO_DATA").put("isExchangeCertifiedRealtime", false)
-                .put("marketDataDisclaimer", "No usable quote returned. Do not use a blank or historical value as a live price."))
+        fun unavailable(status: String, message: String): JSONObject {
+            val out = JSONObject()
+            specs.forEach { (label, _) ->
+                out.put(label, JSONObject().put("value", JSONObject.NULL).put("changePct", JSONObject.NULL)
+                    .put("status", status).put("priceSource", "NONE").put("provider", "No verified quote")
+                    .put("sourceType", "NO_DATA").put("quoteTimestamp", JSONObject.NULL)
+                    .put("isExchangeCertifiedRealtime", false).put("marketDataDisclaimer", message))
+            }
+            return out
         }
-
-        // Fail closed: no historical or third-party fallback is allowed to masquerade as a current index quote.
-        // Keep explicit null values so the UI can show that an authorized feed is not configured.
-        specs.keys.forEach { label ->
-            out.optJSONObject(label)
-                ?.put("status", "AUTHORIZED_NSE_FEED_NOT_CONFIGURED")
-                ?.put("sourceType", "NO_AUTHORIZED_FEED")
-                ?.put("quoteTimestamp", JSONObject.NULL)
-                ?.put("isExchangeCertifiedRealtime", false)
-                ?.put("marketDataDisclaimer", "No authorized NSE real-time feed is configured. No live index value is available.")
+        if (!gatewayConfigured()) return unavailable(
+            "AUTHORIZED_NSE_FEED_NOT_CONFIGURED",
+            "No authorized HTTPS provider gateway is configured. Live index values are unavailable; no third-party fallback is used."
+        )
+        return try {
+            val data = gatewayGet("/v1/indices")
+            val source = data.optString("source").trim()
+            val status = data.optString("marketDataStatus").uppercase(Locale.ROOT)
+            val asOfText = data.optString("asOf")
+            if (source.isBlank()) throw IOException("Index feed source is missing")
+            if (status !in setOf("REALTIME", "DELAYED", "EOD")) throw IOException("Index feed marketDataStatus must be REALTIME, DELAYED or EOD")
+            val asOf = parseGatewayTime(asOfText)
+            val age = System.currentTimeMillis() - asOf
+            if (age < -60_000L) throw IOException("Index feed timestamp is in the future")
+            val maxAge = when (status) {
+                "REALTIME" -> 5 * 60 * 1000L
+                "DELAYED" -> {
+                    if (data.optInt("delayMinutes", 0) <= 0) throw IOException("Delayed index feed must disclose delayMinutes")
+                    24 * 60 * 60 * 1000L
+                }
+                else -> 72 * 60 * 60 * 1000L
+            }
+            if (age > maxAge) throw IOException("Index feed is stale for declared $status status")
+            val rows = data.optJSONArray("rows") ?: throw IOException("Index feed payload missing rows")
+            val byName = mutableMapOf<String, JSONObject>()
+            for (i in 0 until rows.length()) {
+                val row = rows.optJSONObject(i) ?: continue
+                val name = row.optString("name").trim().uppercase(Locale.ROOT)
+                val value = row.optDouble("value", Double.NaN)
+                val changePct = row.optDouble("changePct", Double.NaN)
+                if (name.isBlank() || !value.isFinite() || value <= 0.0 || !changePct.isFinite()) continue
+                byName[name] = row
+            }
+            val out = JSONObject()
+            specs.forEach { (label, _) ->
+                val row = byName[label.uppercase(Locale.ROOT)]
+                if (row == null) {
+                    out.put(label, JSONObject().put("value", JSONObject.NULL).put("changePct", JSONObject.NULL)
+                        .put("status", "INDEX_NOT_RETURNED_BY_AUTHORIZED_PROVIDER").put("priceSource", "NONE")
+                        .put("provider", source).put("sourceType", "NO_DATA").put("quoteTimestamp", asOf / 1000L)
+                        .put("isExchangeCertifiedRealtime", false)
+                        .put("marketDataDisclaimer", "The authorized provider did not return this index. No value is inferred or substituted."))
+                } else {
+                    out.put(label, JSONObject().put("value", row.optDouble("value"))
+                        .put("changePct", row.optDouble("changePct")).put("status", status)
+                        .put("priceSource", source).put("provider", source).put("sourceType", status)
+                        .put("quoteTimestamp", asOf / 1000L).put("quoteAsOf", asOfText)
+                        .put("isExchangeCertifiedRealtime", false)
+                        .put("marketDataDisclaimer", "Provider-declared $status index quote • $source • as of $asOfText. Exchange licensing/SLA must be independently verified."))
+                }
+            }
+            out
+        } catch (e: Exception) {
+            unavailable("PROVIDER_GATEWAY_VALIDATION_FAILED", "Authorized index gateway validation failed: ${e.message ?: "unknown error"}. No fallback is used.")
         }
-        return out
     }
 
     /**
