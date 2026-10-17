@@ -204,7 +204,9 @@ class ReleaseRegressionTests(unittest.TestCase):
 
     def test_screener_enrichment_preserves_explicit_bse_listing(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn("val f = screener(raw); val y = yahoo(raw, \"5d\")", source)
+        self.assertIn("val f = screener(raw)", source)
+        self.assertIn("AUTHORIZED_NSE_FEED_NOT_CONFIGURED", source)
+        self.assertIn("Screener provides fundamentals here; it is not used as a quote or candle provider.", source)
         self.assertIn("Preserve the user's explicit .BO listing for quote resolution.", source)
 
 
