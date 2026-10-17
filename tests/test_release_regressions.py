@@ -63,7 +63,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn('manager.getCookie("https://www.screener.in")', source)
         self.assertIn('manager.getCookie("https://screener.in")', source)
         self.assertIn("private fun screenerCookieHeader()", source)
-        self.assertIn("Protected company data is not confirmed", source)
+        self.assertIn("Screener HTTP 403 Forbidden", source)
         self.assertIn('f.optString("providerError")', source)
 
     def test_ui_surfaces_screener_enrichment_failure(self):
