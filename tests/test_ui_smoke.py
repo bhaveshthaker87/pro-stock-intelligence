@@ -301,7 +301,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         html = (Path(__file__).parents[1] / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         self.assertNotIn("dataConfidence:'AUTHENTICATED'", html)
         self.assertIn("NATIVE ENGINE", html)
-        self.assertIn("Corporate events are unavailable until an authorized NSE/company-filings source is configured.", source)
+        self.assertIn("Corporate events unavailable: configure an authorized HTTPS provider gateway.", source)
 
 
     def test_provider_gateway_contract_and_validator_are_present(self):
@@ -337,7 +337,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn("AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED", source)
         self.assertIn("screenerReferencePrice", source)
         self.assertIn("FUNDAMENTALS ONLY — SCREENER PRICE IS REFERENCE ONLY", source)
-        self.assertIn("authorized NSE real-time API/feed configured", source)
+        self.assertIn("Authorized NSE/vendor gateway is not configured.", source)
         html = HTML.read_text(encoding="utf-8")
         self.assertIn("Screener Reference Price (not live)", html)
         self.assertIn("Screener reference price only • live NSE quote unavailable", html)
@@ -419,7 +419,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn('class="brand"', html)
         self.assertIn('android:icon="@drawable/ic_launcher"', manifest)
         self.assertTrue(launcher.exists())
-        self.assertIn("versionName '40.79'", (root / "app/build.gradle").read_text(encoding="utf-8"))
+        self.assertIn("versionName '40.80'", (root / "app/build.gradle").read_text(encoding="utf-8"))
 
 
     def test_v4079_parses_additional_screener_valuation_fields(self):
