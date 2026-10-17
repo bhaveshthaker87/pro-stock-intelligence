@@ -181,7 +181,8 @@ jobs:
               sleep 2
             done
             test "$dashboard_ready" = 1 || { adb logcat -d -s PSI_WEB:E AndroidRuntime:E chromium:E; echo "Dashboard did not render; screenshot remained splash/blank or visually incomplete."; exit 1; }
-            python3 -c 'from pathlib import Path; p=Path("app/build/outputs/psi-emulator.png"); data=p.read_bytes(); assert data.startswith(bytes.fromhex("89504e470d0a1a0a")), "Emulator screenshot is not a valid PNG"; print("Validated rendered dashboard screenshot: {} ({} bytes)".format(p, len(data)))'
+            test -s app/build/outputs/psi-emulator.png
+            python3 -c 'from pathlib import Path; p=Path("app/build/outputs/psi-emulator.png"); data=p.read_bytes(); assert data.startswith(bytes.fromhex("89504e470d0a1a0a")), "Emulator screenshot is not a valid PNG"; print("Valid emulator screenshot — rendered dashboard: {} ({} bytes)".format(p, len(data)))'
 
       - name: Upload emulator screenshot
         if: always() && hashFiles('app/build/outputs/psi-emulator.png') != ''
