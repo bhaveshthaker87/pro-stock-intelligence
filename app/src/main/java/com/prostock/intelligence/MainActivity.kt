@@ -692,8 +692,13 @@ private class NativeProvider {
             val iter = f.keys()
             while (iter.hasNext()) {
                 val k = iter.next()
-                // Never promote Screener fundamentals to an exchange quote.
-                if (k != "providerError" && !(k == "price" && quote.has("price"))) market.put(k, f.get(k))
+                // Never promote Screener's displayed/last-close price into an exchange-live quote.
+                // Preserve it separately as a reference value so the UI cannot label it as CMP/live.
+                if (k == "price") {
+                    if (!quote.has("price") && !f.isNull(k)) market.put("screenerReferencePrice", f.get(k))
+                } else if (k != "providerError") {
+                    market.put(k, f.get(k))
+                }
             }
         }
         val rows = quote.optJSONArray("rows") ?: JSONArray()
@@ -704,7 +709,7 @@ private class NativeProvider {
         val data = JSONObject().put("symbol", s).put("exchange", selectedExchange).put("name", f.optString("name", stockName(s)))
             .put("quote", quote).put("market", market).put("fundamentals", f).put("history", history)
             .put("ohlcv", rows).put("technicalSeries", rows)
-            .put("dataConfidence", when { quote.has("price") && hasFundamentals -> "PARTIAL — VERIFY SOURCE/TIMESTAMP"; quote.has("price") -> "QUOTE AVAILABLE — NOT GUARANTEED REAL-TIME"; hasFundamentals -> "FUNDAMENTALS ONLY"; else -> "UNAVAILABLE" })
+            .put("dataConfidence", when { quote.has("price") && hasFundamentals -> "PARTIAL — VERIFY SOURCE/TIMESTAMP"; quote.has("price") -> "QUOTE AVAILABLE — NOT GUARANTEED REAL-TIME"; hasFundamentals -> "FUNDAMENTALS ONLY — SCREENER PRICE IS REFERENCE ONLY"; else -> "UNAVAILABLE" })
             .put("dataSources", JSONObject().put("Quote", if (quote.has("providerError")) "UNAVAILABLE" else quote.optString("provider", "Unknown"))
                 .put("History", quote.optString("historyProvider", "Unavailable"))
                 .put("Moneycontrol", "NOT INTEGRATED — NO VERIFIED ACCESS/FEED CONFIGURED")
