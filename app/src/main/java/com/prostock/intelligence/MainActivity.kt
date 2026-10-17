@@ -163,6 +163,7 @@ class MainActivity : Activity() {
 }
 
 private class NativeProvider {
+    @Volatile private var screener403Observed: Boolean = false
     private data class Stock(val symbol: String, val name: String, val sector: String)
     private val stocks = listOf(
         Stock("INFY", "Infosys Ltd", "IT Services"), Stock("TCS", "Tata Consultancy Services Ltd", "IT Services"),
@@ -255,7 +256,11 @@ private class NativeProvider {
             val code = c.responseCode
             val stream = if (code in 200..299) c.inputStream else c.errorStream
             val body = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() } ?: ""
+            if (code in 200..299 && (host == "screener.in" || host.endsWith(".screener.in"))) {
+                screener403Observed = false
+            }
             if (code == 403 && (host == "screener.in" || host.endsWith(".screener.in"))) {
+                screener403Observed = true
                 val responseKind = when {
                     Regex("""(?is)<title[^>]*>.*?(login|sign in).*?</title>|name=["']password["']""").containsMatchIn(body) -> "login page returned"
                     Regex("(?is)cloudflare|captcha|access denied|request blocked|security check").containsMatchIn(body) -> "security/access-control page returned"
@@ -658,10 +663,18 @@ private class NativeProvider {
         }
     }
     private fun screenerStatus(): JSONObject {
-        val active = screenerLoggedIn()
-        return JSONObject().put("connected", active).put("loggedIn", active).put("validated", false)
+        val cookieDetected = screenerLoggedIn()
+        val blocked = screener403Observed
+        val active = cookieDetected && !blocked
+        val message = when {
+            blocked -> "A Screener session cookie exists, but the server returned HTTP 403 for data retrieval. You may sign in again once; if 403 persists, stop retrying and use Data Sources / CSV with a permitted export or request authorized API access."
+            active -> "Screener session cookie detected. Data access is not validated until a company-page request succeeds."
+            else -> "Tap to sign in to Screener inside this app. After login, return with the Android Back button."
+        }
+        return JSONObject().put("connected", active).put("loggedIn", active).put("cookieDetected", cookieDetected)
+            .put("blockedBy403", blocked).put("validated", false)
             .put("loginUrl", if (active) JSONObject.NULL else "https://www.screener.in/login/")
-            .put("message", if (active) "Screener session cookie detected. Protected company data is not confirmed until a protected request succeeds." else "Tap to sign in to Screener inside this app. After login, return with the Android Back button.")
+            .put("message", message)
     }
 
     /**
