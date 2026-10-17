@@ -201,7 +201,9 @@ class ReleaseRegressionTests(unittest.TestCase):
 
     def test_screener_ratio_parser_scopes_labels_and_accepts_debt_alias(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn("val ratiosSectionHtml = Regex", source)
+        self.assertIn("val ratioContainer = Regex", source)
+        self.assertIn("val ratiosSectionHtml = ratioContainer?.groupValues?.get(2) ?: \"\"", source)
+        self.assertIn("section|div|ul|ol", source)
         self.assertIn("findAll(ratiosSectionHtml)", source)
         self.assertIn('"debt to equity"', source)
         self.assertIn('"eps in rs" -> setOf("eps in rs", "eps")', source)
