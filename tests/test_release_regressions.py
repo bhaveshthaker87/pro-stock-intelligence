@@ -13,9 +13,10 @@ class ReleaseRegressionTests(unittest.TestCase):
     def test_autocomplete_has_broad_provider_search_and_disclaimer(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("private fun equitySearch", source)
-        self.assertIn("query1.finance.yahoo.com/v1/finance/search", source)
-        self.assertIn('endsWith(".NS")', source)
-        self.assertIn('endsWith(".BO")', source)
+        self.assertNotIn("query1.finance.yahoo.com", source)
+        self.assertNotIn("query2.finance.yahoo.com", source)
+        self.assertIn("private fun equitySearch", source)
+        self.assertIn("Local fallback; broad search unavailable", source)
         self.assertIn("not a complete official NSE/BSE security master", source)
 
     def test_ui_and_native_engine_versions_match(self):
