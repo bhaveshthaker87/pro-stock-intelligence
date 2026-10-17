@@ -298,7 +298,7 @@ private class NativeProvider {
      * is explicitly labelled with provider + timestamp and is never described as guaranteed live.
      */
     /**
-     * V40.78 policy: do not scrape NSE's public website endpoint.
+     * V40.79 policy: do not scrape NSE's public website endpoint.
      * The public website is not a documented, authorized real-time API contract.
      * Enable quotes only after an authorized NSE/vendor feed is configured.
      */
@@ -309,7 +309,7 @@ private class NativeProvider {
     }
 
     /**
-     * V40.78 policy: Yahoo Finance is not an allowed provider.
+     * V40.79 policy: Yahoo Finance is not an allowed provider.
      * Historical candles must come from an authorized NSE data product.
      */
     private fun yahoo(raw: String, range: String = "1y"): JSONObject {
@@ -867,7 +867,7 @@ private class NativeProvider {
         val s = canonical(raw)
         return try {
             when (p) {
-                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.78 NSE-FEED REQUIRED + SCREENER FUNDAMENTALS").put("data", JSONObject().put("ok", true).put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
+                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.79 NSE-FEED REQUIRED + SCREENER FUNDAMENTALS").put("data", JSONObject().put("ok", true).put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
                 "/api/providers/status" -> JSONObject().put("ok", true).put("data", providerStatus(raw)).toString()
                 "/api/screener/status" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
                 "/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
