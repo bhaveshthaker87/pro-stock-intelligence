@@ -27,6 +27,17 @@ class StockVerificationReportTests(unittest.TestCase):
                 ]
         return rows
 
+    def test_read_rows_normalizes_as_of_header_variants(self):
+        temp = tempfile.NamedTemporaryFile(mode="w", newline="", encoding="utf-8", suffix=".csv", delete=False)
+        with temp:
+            writer = csv.DictWriter(temp, fieldnames=["Source", "Symbol", "Metric", "Value", "Unit", "Period", "AS OF"])
+            writer.writeheader()
+            writer.writerow({"Source": "AuthorizedFeed", "Symbol": "TEST", "Metric": "PE", "Value": "20", "Unit": "x", "Period": "TTM", "AS OF": "2026-10-16"})
+        self.addCleanup(lambda: Path(temp.name).unlink(missing_ok=True))
+        rows = read_rows(temp.name)
+        self.assertEqual(rows[0]["as_of"], "2026-10-16")
+        self.assertEqual(rows[0]["symbol"], "TEST")
+
     def test_30_stocks_two_sources_and_core_metrics_can_pass(self):
         rows = read_rows(self.make_csv(self.rows_for()))
         report, passed = build_report(rows)
