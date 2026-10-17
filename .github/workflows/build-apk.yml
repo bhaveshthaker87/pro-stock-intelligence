@@ -109,12 +109,49 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tests -v
 
+      # Live validation runs only when an HTTPS gateway URL is explicitly configured.
+      # Vendor credentials belong on the gateway server and must never be GitHub build args or APK resources.
+      - name: Validate configured authorized provider gateway
+        shell: bash
+        env:
+          PROVIDER_GATEWAY_BASE_URL: ${{ vars.PROVIDER_GATEWAY_BASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PROVIDER_GATEWAY_BASE_URL:-}" ]; then
+            echo "::notice::Live provider E2E test skipped: repository variable PROVIDER_GATEWAY_BASE_URL is not configured. No live-feed pass is claimed."
+            exit 0
+          fi
+          case "$PROVIDER_GATEWAY_BASE_URL" in https://*) ;; *) echo "Gateway URL must use HTTPS."; exit 1;; esac
+          mkdir -p /tmp/psi-provider
+          curl --fail --silent --show-error --max-time 15 "$PROVIDER_GATEWAY_BASE_URL/v1/quote?symbol=INFY" -o /tmp/psi-provider/quote.json
+          curl --fail --silent --show-error --max-time 20 "$PROVIDER_GATEWAY_BASE_URL/v1/history?symbol=INFY&range=1y" -o /tmp/psi-provider/history.json
+          curl --fail --silent --show-error --max-time 15 "$PROVIDER_GATEWAY_BASE_URL/v1/events?eventType=ALL" -o /tmp/psi-provider/events.json
+          curl --fail --silent --show-error --max-time 15 "$PROVIDER_GATEWAY_BASE_URL/v1/dividends" -o /tmp/psi-provider/dividends.json
+          python3 tools/validate_provider_payloads.py quote /tmp/psi-provider/quote.json
+          python3 tools/validate_provider_payloads.py history /tmp/psi-provider/history.json
+          python3 tools/validate_provider_payloads.py events /tmp/psi-provider/events.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = json.loads(Path("/tmp/psi-provider/dividends.json").read_text(encoding="utf-8"))
+          if isinstance(p.get("data"), dict): p = p["data"]
+          if not isinstance(p.get("source"), str) or not p["source"].strip():
+              raise SystemExit("Dividend payload missing source")
+          if not isinstance(p.get("asOf"), str) or not p["asOf"].strip():
+              raise SystemExit("Dividend payload missing asOf timestamp")
+          if not isinstance(p.get("rows"), list):
+              raise SystemExit("Dividend payload rows must be an array")
+          print("Dividend payload contract valid; rows returned:", len(p["rows"]))
+          PY
+
       # Publish the APK immediately after a successful build; emulator validation is intentionally separate so an unstable virtual device cannot block delivery.
       - name: Build debug APK
         shell: bash
+        env:
+          PROVIDER_GATEWAY_BASE_URL: ${{ vars.PROVIDER_GATEWAY_BASE_URL }}
         run: |
           set -euo pipefail
-          gradle :app:assembleDebug --no-daemon --stacktrace
+          gradle :app:assembleDebug --no-daemon --stacktrace -PproviderGatewayBaseUrl="${PROVIDER_GATEWAY_BASE_URL:-}"
 
       - name: Generate APK SHA-256 checksum
         if: always() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''
