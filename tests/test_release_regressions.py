@@ -8,10 +8,12 @@ class ReleaseRegressionTests(unittest.TestCase):
         workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
         self.assertIn("service check package", workflow)
         self.assertIn("service check activity", workflow)
-        self.assertIn("seq 1 4", workflow)
+        self.assertIn("while [ \"$attempt\" -lt 4 ]; do", workflow)
         self.assertIn("APK installation failed after 4 attempts", workflow)
         self.assertIn("adb logcat -d -t 1200", workflow)
         self.assertIn("adb shell am start -W -n com.prostock.intelligence/.MainActivity", workflow)
+        self.assertNotIn("for attempt in $(seq", workflow)
+        self.assertNotIn("seq 1 180", workflow)
 
     def test_emulator_screenshot_does_not_write_to_sdcard(self):
         workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
