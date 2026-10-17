@@ -624,40 +624,21 @@ private class NativeProvider {
         // Run independent providers concurrently. Yahoo failures must never prevent
         // Screener fundamentals from returning, which was a root cause of blank cards.
         val executor = Executors.newFixedThreadPool(2)
+        // Quote and candle data fail closed until an authorized NSE feed is configured.
         val quoteFuture = executor.submit<JSONObject> {
-            var nse: JSONObject? = null
-            var nseError: String? = null
-            val bseListingSelected = raw.trim().uppercase(Locale.ROOT).endsWith(".BO")
             try {
-                if (bseListingSelected) nseError = "BSE listing selected; use the .BO third-party quote path; NSE quote endpoint is not exchange-specific"
-                else nse = nseQuote(raw)
-            } catch (e: Exception) { nseError = e.message ?: "NSE public quote unavailable" }
-            try {
-                val hist = yahoo(raw, "1y")
-                val out = nse ?: JSONObject()
-                // Historical candles currently come from Yahoo; keep that provenance separate and never label it NSE.
-                out.put("rows", hist.optJSONArray("rows") ?: JSONArray())
-                out.put("historyProvider", hist.optString("provider", "Yahoo Finance"))
-                out.put("historyStatus", "AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED")
-                if (!out.has("price") && hist.has("price")) {
-                    out.put("price", hist.get("price")).put("provider", "Yahoo Finance fallback (not NSE/Moneycontrol)")
-                    if (hist.has("previousClose")) out.put("previousClose", hist.get("previousClose"))
-                    if (hist.has("dayChangePct")) out.put("dayChangePct", hist.get("dayChangePct"))
-                    if (hist.has("high52")) out.put("high52", hist.get("high52"))
-                    if (hist.has("low52")) out.put("low52", hist.get("low52"))
-                    out.put("quoteStatus", "THIRD_PARTY_FALLBACK_NOT_EXCHANGE_VERIFIED")
-                    out.put("marketDataDisclaimer", "NSE quote unavailable. Yahoo Finance fallback may be delayed; do not treat as an NSE/Moneycontrol live quote.")
-                    out.put("priceTimestamp", hist.optLong("priceTimestamp", 0L))
-                }
-                if (!nseError.isNullOrBlank()) out.put("nseProviderWarning", nseError)
-                if (!out.has("price")) out.put("providerError", nseError ?: "No usable quote")
-                out
+                nseQuote(raw).put("rows", JSONArray())
+                    .put("historyProvider", "Unavailable")
+                    .put("historyStatus", "AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED")
             } catch (e: Exception) {
-                val out = nse ?: JSONObject().put("symbol", s).put("provider", "Unavailable")
-                out.put("rows", JSONArray())
-                if (!out.has("price")) out.put("providerError", "NSE: ${nseError ?: "unavailable"}; historical fallback: ${e.message ?: "unavailable"}")
-                if (!nseError.isNullOrBlank()) out.put("nseProviderWarning", nseError)
-                out
+                JSONObject().put("symbol", s)
+                    .put("provider", "Unavailable")
+                    .put("status", "AUTHORIZED_NSE_FEED_NOT_CONFIGURED")
+                    .put("rows", JSONArray())
+                    .put("historyProvider", "Unavailable")
+                    .put("historyStatus", "AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED")
+                    .put("providerError", e.message ?: "Authorized NSE quote feed is not configured")
+                    .put("marketDataDisclaimer", "No authorized NSE real-time or historical feed is configured. No third-party fallback is used.")
             }
         }
         val fundamentalFuture = executor.submit<JSONObject> {
@@ -674,7 +655,7 @@ private class NativeProvider {
                 fallback
             }
         }
-        val quote = result(quoteFuture, JSONObject().put("symbol", s).put("rows", JSONArray()).put("provider", "Unavailable").put("providerError", "NSE/third-party quote lookup timed out"))
+        val quote = result(quoteFuture, JSONObject().put("symbol", s).put("rows", JSONArray()).put("provider", "Unavailable").put("status", "AUTHORIZED_NSE_FEED_NOT_CONFIGURED").put("providerError", "Authorized NSE quote feed is not configured"))
         annotateQuoteQuality(quote)
         val f = result(fundamentalFuture, JSONObject().put("symbol", s).put("name", stockName(s)).put("providerError", "Screener.in request timed out"))
         executor.shutdownNow()
@@ -686,12 +667,12 @@ private class NativeProvider {
             val iter = f.keys()
             while (iter.hasNext()) {
                 val k = iter.next()
-                // Prefer exchange quote when available; Screener price is only a disclosed fallback.
+                // Never promote Screener fundamentals to an exchange quote.
                 if (k != "providerError" && !(k == "price" && quote.has("price"))) market.put(k, f.get(k))
             }
         }
         val rows = quote.optJSONArray("rows") ?: JSONArray()
-        val history = JSONObject().put("rows", rows).put("provider", quote.optString("provider", "Yahoo Finance"))
+        val history = JSONObject().put("rows", rows).put("provider", quote.optString("historyProvider", "Unavailable")).put("historyStatus", quote.optString("historyStatus", "AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED"))
         val hasFundamentals = arrayOf("marketCap", "pe", "roce", "roe", "debtEquity", "eps", "bookValue").any { f.has(it) && !f.isNull(it) }
         val selectedExchange = when { raw.trim().uppercase(Locale.ROOT).endsWith(".BO") -> "BSE"; raw.trim().uppercase(Locale.ROOT).endsWith(".NS") -> "NSE"; else -> "NSE primary; BSE availability varies" }
         market.put("exchange", selectedExchange)
@@ -885,26 +866,18 @@ private class NativeProvider {
                         .put("coverageDisclaimer", "Autocomplete is broad best-effort discovery, not a complete official NSE/BSE security master. Quotes can be delayed or unavailable.").toString()
                 }
                 "/api/quote", "/api/fast" -> {
-                    val history = try { yahoo(raw, "5d") } catch (_: Exception) { JSONObject().put("rows", JSONArray()).put("provider", "Unavailable") }
-                    val quote = try {
-                        if (raw.trim().uppercase(Locale.ROOT).endsWith(".BO")) throw IOException("BSE listing selected; using .BO third-party quote lookup")
-                        nseQuote(raw)
-                    } catch (nseError: Exception) {
-                        val fallback = JSONObject().put("symbol", s).put("providerError", "Exchange quote fallback: ${nseError.message ?: "NSE public quote unavailable"}")
-                        if (history.has("price")) {
-                            fallback.put("price", history.get("price")).put("provider", "Yahoo Finance fallback (not exchange-certified real-time)")
-                            listOf("previousClose", "dayChangePct", "high52", "low52", "priceTimestamp", "quoteTimestamp").forEach { k -> if (history.has(k)) fallback.put(k, history.get(k)) }
-                            fallback.put("marketDataDisclaimer", "Third-party quote may be delayed, incomplete or unavailable; it is not a licensed NSE/BSE real-time feed.")
-                        }
-                        fallback
+                    val quote = try { nseQuote(raw) } catch (e: Exception) {
+                        JSONObject().put("symbol", s).put("status", "AUTHORIZED_NSE_FEED_NOT_CONFIGURED")
+                            .put("provider", "Unavailable").put("price", JSONObject.NULL)
+                            .put("quoteTimestamp", JSONObject.NULL)
+                            .put("marketDataDisclaimer", "No authorized NSE real-time feed is configured. No third-party fallback is used.")
+                            .put("providerError", e.message ?: "Authorized NSE quote feed unavailable")
                     }
-                    quote.put("rows", history.optJSONArray("rows") ?: JSONArray())
-                    annotateQuoteQuality(quote)
-                    quote.put("exchange", if (raw.trim().uppercase(Locale.ROOT).endsWith(".BO")) "BSE" else if (raw.trim().uppercase(Locale.ROOT).endsWith(".NS")) "NSE" else "NSE primary; BSE availability varies")
-                    quote.put("historyProvider", history.optString("provider", "Unavailable"))
-                    quote.put("historyStatus", "AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED")
+                    quote.put("rows", JSONArray()).put("historyProvider", "Unavailable")
+                        .put("historyStatus", "AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED")
                     val data = JSONObject().put("symbol", s).put("name", stockName(s)).put("quote", quote)
-                        .put("provider", quote.optString("provider", "Unavailable")).put("rows", quote.optJSONArray("rows") ?: JSONArray())
+                        .put("provider", quote.optString("provider", "Unavailable"))
+                        .put("rows", JSONArray())
                     JSONObject().put("ok", true).put("data", data).toString()
                 }
                 "/api/history" -> JSONObject().put("ok", true).put("data", historyData(s, q["range"] ?: "1y")).toString()
@@ -1016,11 +989,11 @@ private class NativeProvider {
                     val news = try { yahooNews(raw) } catch (e: Exception) { JSONObject().put("symbol", s).put("news", JSONArray()).put("statusText", "Yahoo Finance news unavailable: ${e.message ?: "provider error"}").put("provider", "Unavailable") }
                     JSONObject().put("ok", true).put("data", news).toString()
                 }
-                "/api/company-events" -> {
-                    val y = try { yahoo(raw, "5y") } catch (e: Exception) { JSONObject().put("symbol", s).put("rows", JSONArray()).put("statusText", "Corporate event provider unavailable: ${e.message ?: "provider error"}").put("provider", "Unavailable") }
-                    val events = y.optJSONArray("events") ?: JSONArray()
-                    JSONObject().put("ok", true).put("data", JSONObject().put("symbol", s).put("name", stockName(s)).put("rows", events).put("statusText", if (events.length() > 0) "Third-party Yahoo Finance dividend/split events returned; confirm dates with the exchange" else "No dividend or split events were returned by Yahoo Finance; this does not establish that no events exist. Confirm against official exchange/company filings.").put("provider", y.optString("provider", "Yahoo Finance"))).toString()
-                }
+                "/api/company-events" -> JSONObject().put("ok", true).put("data",
+                    JSONObject().put("symbol", s).put("name", stockName(s)).put("rows", JSONArray())
+                        .put("provider", "Unavailable")
+                        .put("statusText", "Corporate events are unavailable until an authorized NSE/company-filings source is configured. No third-party event fallback is used.")
+                        .put("liveData", false)).toString()
                 "/api/dividend-stocks" -> {
                     val d = runScreenerQuery("Market Capitalization > 1000 AND Dividend yield > 1 AND Return on capital employed > 10")
                     val rows = d.optJSONArray("rows") ?: JSONArray()
