@@ -302,10 +302,81 @@ private class NativeProvider {
      * The public website is not a documented, authorized real-time API contract.
      * Enable quotes only after an authorized NSE/vendor feed is configured.
      */
+    private fun gatewayBaseUrl(): String = BuildConfig.PROVIDER_GATEWAY_BASE_URL.trim().trimEnd('/')
+
+    private fun gatewayConfigured(): Boolean = gatewayBaseUrl().startsWith("https://", ignoreCase = true)
+
+    /**
+     * Client for the documented, normalized server-side provider gateway.
+     * Vendor secrets stay on that server; no API keys/cookies are embedded in this APK.
+     */
+    private fun gatewayGet(path: String, params: Map<String, String> = emptyMap()): JSONObject {
+        val base = gatewayBaseUrl()
+        if (!base.startsWith("https://", ignoreCase = true)) {
+            throw IOException("Authorized provider gateway is not configured. Set Gradle property providerGatewayBaseUrl to your HTTPS gateway URL; keep vendor credentials on the server.")
+        }
+        val urlText = base + path + if (params.isEmpty()) "" else params.entries.joinToString("&", "?") {
+            URLEncoder.encode(it.key, "UTF-8") + "=" + URLEncoder.encode(it.value, "UTF-8")
+        }
+        val url = URL(urlText)
+        if (!url.host.isNotBlank() || url.userInfo != null) throw IOException("Invalid provider gateway URL")
+        val c = url.openConnection() as HttpURLConnection
+        c.connectTimeout = 5000
+        c.readTimeout = 8000
+        c.requestMethod = "GET"
+        c.setRequestProperty("Accept", "application/json")
+        c.setRequestProperty("Cache-Control", "no-cache")
+        try {
+            val code = c.responseCode
+            if (code !in 200..299) throw IOException("Provider gateway returned HTTP $code. Check gateway health, authentication and vendor subscription.")
+            val body = c.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            if (body.length > 2_000_000) throw IOException("Provider gateway response exceeded the 2 MB safety limit")
+            val parsed = JSONObject(body)
+            if (parsed.optBoolean("ok", true) == false) throw IOException(parsed.optString("error", "Provider gateway reported unavailable data"))
+            return parsed.optJSONObject("data") ?: parsed
+        } finally { c.disconnect() }
+    }
+
+    private fun parseGatewayTime(value: String): Long {
+        return try { java.time.OffsetDateTime.parse(value).toInstant().toEpochMilli() }
+        catch (_: Exception) { throw IOException("Provider gateway timestamp must be ISO-8601 with timezone offset") }
+    }
+
+    private fun validatedGatewayQuote(raw: String): JSONObject {
+        val symbol = canonical(raw)
+        val data = gatewayGet("/v1/quote", mapOf("symbol" to symbol))
+        if (canonical(data.optString("symbol")) != symbol) throw IOException("Provider gateway returned a different symbol; quote rejected")
+        val source = data.optString("source").trim()
+        val status = data.optString("marketDataStatus").uppercase(Locale.ROOT)
+        val price = data.optDouble("price", Double.NaN)
+        if (source.isBlank() || !price.isFinite() || price <= 0.0) throw IOException("Provider quote missing source or positive price")
+        if (status !in setOf("REALTIME", "DELAYED", "EOD")) throw IOException("Provider quote missing valid REALTIME/DELAYED/EOD status")
+        val asOf = parseGatewayTime(data.optString("asOf"))
+        val ageMs = System.currentTimeMillis() - asOf
+        if (ageMs < -60_000L) throw IOException("Provider quote timestamp is in the future; quote rejected")
+        val maxAge = when (status) {
+            "REALTIME" -> 5 * 60 * 1000L
+            "DELAYED" -> {
+                if (data.optInt("delayMinutes", 0) <= 0) throw IOException("Delayed quote must disclose delayMinutes")
+                24 * 60 * 60 * 1000L
+            }
+            else -> 72 * 60 * 60 * 1000L
+        }
+        if (ageMs > maxAge) throw IOException("Provider quote is stale for its declared $status status; quote rejected")
+        return JSONObject()
+            .put("symbol", symbol).put("price", price).put("currency", data.optString("currency", "INR"))
+            .put("provider", source).put("source", source).put("status", status)
+            .put("marketDataStatus", status).put("quoteTimestamp", asOf / 1000L)
+            .put("quoteAsOf", data.optString("asOf")).put("rows", JSONArray())
+            .put("isExchangeCertifiedRealtime", status == "REALTIME")
+            .put("marketDataDisclaimer", if (status == "REALTIME") "Provider-declared real-time quote; licensing and SLA must be verified at gateway." else "Quote is $status, not real-time. Use its disclosed timestamp and status.")
+    }
+
     private fun nseQuote(raw: String): JSONObject {
         val symbol = canonical(raw)
         if (symbol.isBlank()) throw IOException("Enter a valid NSE equity symbol")
-        throw IOException("NSE live quotes are blocked: this installation has no authorized NSE real-time API/feed configured. Public website scraping is disabled; no price was fabricated.")
+        if (!gatewayConfigured()) throw IOException("Authorized NSE/vendor gateway is not configured. Live price is unavailable; no website scraping or third-party fallback is used.")
+        return validatedGatewayQuote(symbol)
     }
 
     private fun sectionTableRows(html: String, sectionId: String): List<List<String>> {
@@ -725,13 +796,38 @@ private class NativeProvider {
 
     private fun historyData(raw: String, range: String): JSONObject {
         val symbol = canonical(raw)
+        if (gatewayConfigured()) {
+            val data = gatewayGet("/v1/history", mapOf("symbol" to symbol, "range" to range))
+            if (canonical(data.optString("symbol")) != symbol) throw IOException("History provider returned a different symbol; candles rejected")
+            val source = data.optString("source").trim()
+            val asOf = parseGatewayTime(data.optString("asOf"))
+            val interval = data.optString("interval")
+            if (source.isBlank() || interval !in setOf("1m", "5m", "15m", "1d", "1wk", "1mo")) throw IOException("History payload missing source or valid interval")
+            val inputRows = data.optJSONArray("rows") ?: throw IOException("History payload missing OHLCV rows")
+            val rows = JSONArray()
+            var previousTime = Long.MIN_VALUE
+            for (i in 0 until inputRows.length()) {
+                val row = inputRows.optJSONObject(i) ?: continue
+                val time = parseGatewayTime(row.optString("time"))
+                val o = row.optDouble("open", Double.NaN); val h = row.optDouble("high", Double.NaN)
+                val l = row.optDouble("low", Double.NaN); val c = row.optDouble("close", Double.NaN)
+                val v = row.optDouble("volume", Double.NaN)
+                if (time <= previousTime || !o.isFinite() || !h.isFinite() || !l.isFinite() || !c.isFinite() ||
+                    o <= 0 || h <= 0 || l <= 0 || c <= 0 || h < maxOf(o, c, l) || l > minOf(o, c, h) || !v.isFinite() || v < 0) continue
+                rows.put(JSONObject().put("time", time).put("date", time).put("open", o).put("high", h).put("low", l).put("close", c).put("volume", v))
+                previousTime = time
+            }
+            if (rows.length() == 0) throw IOException("Provider history had no valid chronological OHLCV candles")
+            return JSONObject().put("symbol", symbol).put("rows", rows).put("provider", source)
+                .put("historyProvider", source).put("historyStatus", "VALIDATED_GATEWAY_PAYLOAD")
+                .put("chartMode", "OHLCV").put("statusText", "Provider OHLCV • as of " + data.optString("asOf"))
+                .put("rangeRequested", range).put("interval", interval).put("quoteTimestamp", asOf / 1000L)
+        }
         return JSONObject().put("symbol", symbol).put("rows", JSONArray())
-            .put("provider", "Unavailable")
-            .put("historyStatus", "AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED")
+            .put("provider", "Unavailable").put("historyStatus", "AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED")
             .put("chartMode", "OHLCV")
-            .put("statusText", "Historical candles are unavailable until an authorized NSE historical-data feed is configured. No third-party fallback is used.")
-            .put("rangeRequested", range)
-            .put("quoteTimestamp", JSONObject.NULL)
+            .put("statusText", "Historical candles are unavailable until an authorized provider gateway is configured. No third-party fallback is used.")
+            .put("rangeRequested", range).put("quoteTimestamp", JSONObject.NULL)
     }
 
     private fun htmlEntities(s: String): String = s.replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<")
