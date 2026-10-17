@@ -10,9 +10,11 @@ on:
       - main
       - expert-remediation-v40-67
       - expert-pro-hardening-v40-66
+      - v40-78-nse-screener-only
   pull_request:
     branches:
       - main
+      - v40-77-chart-refresh-readability
 
 jobs:
   build:
@@ -119,7 +121,7 @@ jobs:
         if: always() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-77-debug
+          name: PRO-STOCK-INTELLIGENCE-V40-79-debug
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/app-debug.apk.sha256
@@ -162,7 +164,7 @@ jobs:
         if: always() && hashFiles('app/build/outputs/psi-emulator.png') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-77-emulator-screenshot
+          name: PRO-STOCK-INTELLIGENCE-V40-79-emulator-screenshot
           path: app/build/outputs/psi-emulator.png
           if-no-files-found: error
 
@@ -171,6 +173,6 @@ jobs:
         if: always() && hashFiles('app/build/reports/lint-results-debug.html') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-77-lint-report
+          name: PRO-STOCK-INTELLIGENCE-V40-79-lint-report
           path: app/build/reports/lint-results-debug.html
           if-no-files-found: warn

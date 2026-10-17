@@ -16,7 +16,7 @@ except ImportError as exc:  # CI installs Playwright; keep the error explicit lo
     raise RuntimeError("Install Playwright and Chromium to run tests/test_ui_smoke.py") from exc
 
 HTML = Path(__file__).parents[1] / "app/src/main/assets/index.html"
-ENGINE = "V40.77 SCREENER SESSION + FUNDAMENTAL RECOVERY"
+ENGINE = "V40.79 NSE-FEED REQUIRED + SCREENER FUNDAMENTALS"
 
 
 def launch_chromium(playwright):
@@ -102,7 +102,7 @@ class DashboardUISmokeTests(unittest.TestCase):
             html = html[:pos] + "<script>" + mock_js + "</script>" + html[pos:]
             page.set_content(html, wait_until="domcontentloaded", timeout=30000)
             page.wait_for_timeout(250)
-            self.assertIn("V40.77", page.locator(".taglive").first.inner_text())
+            self.assertIn("V40.79", page.locator(".taglive").first.inner_text())
             page.locator("#search").fill("INFY")
             page.locator("#analyze").click()
             page.wait_for_function("document.getElementById('company').textContent.includes('Infosys')", timeout=8000)
@@ -207,7 +207,7 @@ class DashboardUISmokeTests(unittest.TestCase):
     def test_quote_data_disclaimer_is_explicit(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("marketDataDisclaimer", source)
-        self.assertIn("verify with the exchange before trading", source)
+        self.assertIn("No authorized NSE real-time feed is configured", source)
 
 
     def test_provider_wording_does_not_claim_unverified_quotes_are_live(self):
@@ -216,7 +216,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertNotIn("dataConfidence:'LIVE QUOTE'", html)
         self.assertNotIn("Verified exchange + Screener HTTP", html)
         self.assertIn("QUOTE RETURNED • FRESHNESS UNVERIFIED", html)
-        self.assertIn("responseReceivedAt", source)
+        self.assertIn("UNVERIFIED_NO_PROVIDER_QUOTE_TIMESTAMP", source)
         self.assertNotIn('.put("priceTimestamp", System.currentTimeMillis() / 1000L)', source)
 
     def test_api_response_headers_are_hardened_and_not_public_wildcard(self):
@@ -227,13 +227,13 @@ class DashboardUISmokeTests(unittest.TestCase):
 
     def test_version_code_and_name_are_aligned(self):
         gradle = (Path(__file__).parents[1] / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 76", gradle)
-        self.assertIn("versionName '40.77'", gradle)
+        self.assertIn("versionCode 78", gradle)
+        self.assertIn("versionName '40.79'", gradle)
 
     def test_workflow_artifact_names_match_release_version(self):
         workflow = (Path(__file__).parents[1] / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
-        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-77-lint-report", workflow)
-        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-77-debug", workflow)
+        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-79-lint-report", workflow)
+        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-79-debug", workflow)
         self.assertNotIn("V40-57", workflow)
         self.assertIn("pull_request:", workflow)
         self.assertIn("sha256sum app/build/outputs/apk/debug/app-debug.apk", workflow)
@@ -247,16 +247,16 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIsNotNone(client)
         self.assertIsNotNone(server)
         self.assertEqual(client.group(1), server.group(1), "UI must not report a false server-version mismatch")
-        self.assertIn("V40.77", html)
-        self.assertIn("V40.77", source)
+        self.assertIn("V40.79", html)
+        self.assertIn("V40.79", source)
 
 
-    def test_canonical_preserves_yahoo_index_and_futures_tickers(self):
+    def test_canonical_preserves_index_and_futures_tickers_without_external_market_provider(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         canonical = source[source.index("private fun canonical"):source.index("private fun stockName")]
         self.assertIn('upper.matches(Regex("^\\\\^[A-Z0-9]+$"))', canonical)
         self.assertIn('upper.matches(Regex("^[A-Z]{1,5}=F$"))', canonical)
-        # These symbols must reach Yahoo unchanged; canonical() must not strip ^ or =.
+        # Canonicalization must preserve index/futures syntax without enabling an external provider.
         for ticker in ["^NSEI", "^BSESN", "^NSEBANK", "GC=F", "SI=F", "BZ=F"]:
             self.assertTrue(ticker.startswith("^") or ticker.endswith("=F"))
 
@@ -272,7 +272,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         for label in required:
             self.assertIn(label, market_fn)
             self.assertIn(label, html)
-        self.assertIn("HISTORICAL_ONLY_NOT_A_CURRENT_QUOTE", source)
+        self.assertIn("AUTHORIZED_NSE_FEED_NOT_CONFIGURED", source)
         self.assertIn("HISTORICAL BAR • NOT LIVE", html)
         self.assertIn("QUOTE RETURNED • FRESHNESS UNVERIFIED", html)
         self.assertIn("quoteTimestamp", market_fn)
@@ -296,12 +296,12 @@ class DashboardUISmokeTests(unittest.TestCase):
 
     def test_mixed_provider_session_is_not_mislabeled_fully_authenticated(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn("SESSION-BASED / MIXED SOURCES — VERIFY PROVIDERS AND TIMESTAMPS", source)
+        self.assertIn("SCREENER FUNDAMENTALS FETCHED; NSE QUOTE UNAVAILABLE UNTIL AUTHORIZED FEED IS CONFIGURED", source)
         self.assertNotIn('put("dataConfidence", "AUTHENTICATED")', source)
         html = (Path(__file__).parents[1] / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         self.assertNotIn("dataConfidence:'AUTHENTICATED'", html)
         self.assertIn("NATIVE ENGINE", html)
-        self.assertIn("confirm dates with the exchange", source)
+        self.assertIn("Corporate events are unavailable until an authorized NSE/company-filings source is configured.", source)
 
 
     def test_provider_gateway_contract_and_validator_are_present(self):
@@ -334,8 +334,8 @@ class DashboardUISmokeTests(unittest.TestCase):
     def test_source_claims_disclose_unintegrated_moneycontrol_and_history(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("NOT INTEGRATED — NO VERIFIED ACCESS/FEED CONFIGURED", source)
-        self.assertIn("THIRD_PARTY_HISTORICAL_BARS_NOT_NSE_VERIFIED", source)
-        self.assertIn("NSE_WEBSITE_RESPONSE_NOT_LICENSED_REALTIME_FEED", source)
+        self.assertIn("AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED", source)
+        self.assertIn("authorized NSE real-time API/feed configured", source)
 
 
     def test_chart_refresh_and_source_links_are_present(self):
@@ -345,6 +345,15 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn('id="tvMoneycontrolLinkBtn"', html)
         self.assertIn("NOT certified exchange-live", html)
         self.assertIn("chart-expanded", html)
+
+
+    def test_v4078_disables_yahoo_and_unlicensed_nse_scraping(self):
+        source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertNotIn("https://query1.finance.yahoo.com", source)
+        self.assertNotIn("https://query2.finance.yahoo.com", source)
+        self.assertNotIn("https://www.nseindia.com/api/quote-equity", source)
+        self.assertIn("authorized NSE real-time API/feed configured", source)
+        self.assertIn("No third-party fallback is used", source)
 
     def test_screener_chart_endpoint_does_not_mislabel_yahoo_history(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
@@ -405,7 +414,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn('class="brand"', html)
         self.assertIn('android:icon="@drawable/ic_launcher"', manifest)
         self.assertTrue(launcher.exists())
-        self.assertIn("versionName '40.77'", (root / "app/build.gradle").read_text(encoding="utf-8"))
+        self.assertIn("versionName '40.79'", (root / "app/build.gradle").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

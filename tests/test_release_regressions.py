@@ -13,16 +13,17 @@ class ReleaseRegressionTests(unittest.TestCase):
     def test_autocomplete_has_broad_provider_search_and_disclaimer(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("private fun equitySearch", source)
-        self.assertIn("query1.finance.yahoo.com/v1/finance/search", source)
-        self.assertIn('endsWith(".NS")', source)
-        self.assertIn('endsWith(".BO")', source)
+        self.assertNotIn("query1.finance.yahoo.com", source)
+        self.assertNotIn("query2.finance.yahoo.com", source)
+        self.assertIn("private fun equitySearch", source)
+        self.assertIn("Local symbol list only; broad search unavailable", source)
         self.assertIn("not a complete official NSE/BSE security master", source)
 
     def test_ui_and_native_engine_versions_match(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn("V40.77 LIVE-REFRESH + CHART READABILITY", html)
-        self.assertIn('"engine", "V40.77 LIVE-REFRESH + CHART READABILITY"', source)
+        self.assertIn("V40.79 NSE-FEED REQUIRED + SCREENER FUNDAMENTALS", html)
+        self.assertIn('"engine", "V40.79 NSE-FEED REQUIRED + SCREENER FUNDAMENTALS"', source)
 
     def test_fundamental_parser_fails_closed_instead_of_guessing_nearby_number(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
@@ -35,14 +36,14 @@ class ReleaseRegressionTests(unittest.TestCase):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("V40.77 LIVE-REFRESH + CHART READABILITY", html)
-        self.assertIn('"engine", "V40.77 LIVE-REFRESH + CHART READABILITY"', source)
-        self.assertIn("versionCode 76; versionName '40.77'", gradle)
-        self.assertIn("DASHBOARD_VERSION='V40.77'", html)
-        self.assertIn("window.__PSI_BOOT_VERSION='V40.77'", html)
+        self.assertIn("V40.79 NSE-FEED REQUIRED + SCREENER FUNDAMENTALS", html)
+        self.assertIn('"engine", "V40.79 NSE-FEED REQUIRED + SCREENER FUNDAMENTALS"', source)
+        self.assertIn("versionCode 78; versionName '40.79'", gradle)
+        self.assertIn("DASHBOARD_VERSION='V40.79'", html)
+        self.assertIn("window.__PSI_BOOT_VERSION='V40.79'", html)
         self.assertNotIn("DASHBOARD_VERSION='V40.75'", html)
         self.assertNotIn("window.__PSI_BOOT_VERSION='V40.75'", html)
-        self.assertIn(".researchRibbon:after{content:'V40.77'", html)
+        self.assertIn(".researchRibbon:after{content:'V40.79'", html)
 
 
     def test_screener_session_cookie_checks_both_hosts_and_surfaces_parse_error(self):
@@ -203,8 +204,10 @@ class ReleaseRegressionTests(unittest.TestCase):
 
     def test_screener_enrichment_preserves_explicit_bse_listing(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn("val f = screener(raw); val y = yahoo(raw, \"5d\")", source)
-        self.assertIn("Preserve the user's explicit .BO listing for quote resolution.", source)
+        self.assertIn("val f = screener(raw)", source)
+        self.assertIn("AUTHORIZED_NSE_FEED_NOT_CONFIGURED", source)
+        self.assertIn("Screener provides fundamentals here; it is not used as a quote or candle provider.", source)
+        self.assertIn('raw.trim().uppercase(Locale.ROOT).endsWith(".BO") -> "BSE"', source)
 
 
     def test_missing_numeric_values_are_not_coerced_to_zero(self):
