@@ -158,7 +158,7 @@ jobs:
             adb shell am start -n com.prostock.intelligence/.MainActivity
             # Wait for the WebView dashboard, not merely the native Android splash screen.
             mkdir -p app/build/outputs
-            python3 -m pip install --quiet pillow
+            python3 -m pip install --quiet pillow numpy
             dashboard_ready=0
             for attempt in $(seq 1 30); do
               adb shell dumpsys activity activities | grep -q 'com.prostock.intelligence/.MainActivity' || { sleep 2; continue; }
