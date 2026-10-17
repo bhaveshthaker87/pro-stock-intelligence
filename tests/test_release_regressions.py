@@ -233,5 +233,19 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("Quote refresh returned no valid price; previous display retained.", html)
         self.assertIn("if(hasUsablePrice(q.price))applyQuote(q,d.name||$('company').textContent,sym)", html)
 
+
+    def test_authorized_indices_gateway_is_validated_and_ci_smoke_is_conditional(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
+        docs = (ROOT / "PROVIDER_GATEWAY.md").read_text(encoding="utf-8")
+        self.assertIn('gatewayGet("/v1/indices")', source)
+        self.assertIn("Index feed timestamp is in the future", source)
+        self.assertIn("Index feed is stale for declared", source)
+        self.assertIn("/v1/indices", workflow)
+        self.assertIn("PROVIDER_GATEWAY_BASE_URL", workflow)
+        self.assertIn("No live-feed pass is claimed", workflow)
+        self.assertIn("Index names must match the dashboard labels", docs)
+
+
 if __name__ == "__main__":
     unittest.main()
