@@ -463,7 +463,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn('"/v1/events"', source)
         self.assertIn('"/v1/dividends"', source)
         self.assertIn("Provider quote is stale", source)
-        self.assertIn("Provider returned a different symbol", source)
+        self.assertIn("Provider gateway returned a different symbol", source)
         self.assertIn("credentialsInApk", source)
 
     def test_screener_403_is_reported_without_bypass_or_response_body(self):
