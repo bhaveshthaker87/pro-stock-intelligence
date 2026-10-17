@@ -43,7 +43,7 @@ class StockVerificationReportTests(unittest.TestCase):
         report, passed = build_report(rows)
         self.assertTrue(passed)
         self.assertIn("Fully verified stocks: **30/30**", report)
-        self.assertIn("P/E: PASS", report)
+        self.assertIn("PE: PASS", report)
         self.assertIn("EPS: PASS", report)
 
     def test_missing_second_source_fails_closed(self):
