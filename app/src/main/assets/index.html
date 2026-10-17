@@ -824,6 +824,8 @@ function scoreData(f){
  // P/E must remain a TTM valuation metric; never derive it from one quarter's EPS.
  if(f&&f.pe==null&&numOk(f.marketCap)&&numOk(f.ttmProfit)&&Number(f.ttmProfit)>0)f.pe=Number(f.marketCap)/Number(f.ttmProfit);
  if(f&&f.peg==null&&numOk(f.pe)&&numOk(f.profit3y)&&Number(f.profit3y)>0)f.peg=Number(f.pe)/Number(f.profit3y);
+ // Book value and CMP allow a transparent P/B calculation when Screener does not expose a separate P/B ratio.
+ if(f&&f.pb==null&&numOk(f.price)&&numOk(f.bookValue)&&Number(f.bookValue)>0)f.pb=Number(f.price)/Number(f.bookValue);
  const q=[
   criterion('Market Cap',f.marketCap,'> ₹10,000 Cr',f.marketCap!=null&&f.marketCap>10000),
   criterion('Net Profit',f.netProfit,'> ₹100 Cr',f.netProfit!=null&&f.netProfit>100),
@@ -847,6 +849,9 @@ function scoreData(f){
   criterion('P/B',f.pb,'Reference',f.pb!=null,undefined,false),
   criterion('P/B vs Industry',f.pb!=null&&f.industryPB!=null?f.pb/f.industryPB:null,'< 1.00x',f.pb!=null&&f.industryPB!=null&&f.pb<f.industryPB),
   criterion('PEG Ratio',f.peg,'< 2.00x',f.peg!=null&&f.peg<2),
+  criterion('Book Value',f.bookValue,'Reference',f.bookValue!=null,undefined,false),
+  criterion('EPS',f.eps,'Reference',f.eps!=null,undefined,false),
+  criterion('Dividend Yield',f.dividendYield,'Reference',f.dividendYield!=null,undefined,false),
  ];
  const t=[
   criterion('Current Price',f.price,'₹50–₹3,000',f.price!=null&&f.price>50&&f.price<3000),
