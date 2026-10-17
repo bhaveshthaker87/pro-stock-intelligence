@@ -417,5 +417,36 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn("versionName '40.79'", (root / "app/build.gradle").read_text(encoding="utf-8"))
 
 
+    def test_v4079_parses_additional_screener_valuation_fields(self):
+        source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        for field in ['"industry pe" to "industryPE"', '"peg ratio" to "peg"', '"face value" to "faceValue"',
+                      '"piotroski score" to "piotroski"', '"dma 50" to "dma50"', '"dma 200" to "dma200"',
+                      '"promoter holding" to "promoter"', '"public holding" to "public"', '"pledged percentage" to "pledged"']:
+            with self.subTest(field=field):
+                self.assertIn(field, source)
+        html = HTML.read_text(encoding="utf-8")
+        for metric in ["Industry P/E", "PEG Ratio", "Book Value", "EPS", "Dividend Yield", "Face Value"]:
+            with self.subTest(metric=metric):
+                self.assertIn("criterion('" + metric + "'", html)
+
+    def test_peg_is_not_falsely_derived_from_profit_growth(self):
+        html = HTML.read_text(encoding="utf-8")
+        self.assertIn("Number(f.eps3y)>0", html)
+        self.assertNotIn("Number(f.profit3y)>0)f.peg=Number(f.pe)/Number(f.profit3y)", html)
+
+    def test_unavailable_calendar_is_not_rendered_as_verified_empty(self):
+        html = HTML.read_text(encoding="utf-8")
+        self.assertIn("intelEventsLiveAvailable=d.liveData===true", html)
+        self.assertIn("This is not confirmation that no events are scheduled", html)
+        self.assertIn("Live results calendar is not connected", html)
+        self.assertIn("No dividend candidates were returned", html)
+
+    def test_mobile_chart_controls_wrap_without_toolbar_overlap(self):
+        html = HTML.read_text(encoding="utf-8")
+        self.assertIn(".tvtoolbar.tvtoolbar-pro{height:auto!important", html)
+        self.assertIn(".tvtoolbar-pro .tvmaincontrols{flex:1 1 100%!important", html)
+        self.assertIn(".tvpane.pricepane{height:390px!important", html)
+
+
 if __name__ == "__main__":
     unittest.main()
