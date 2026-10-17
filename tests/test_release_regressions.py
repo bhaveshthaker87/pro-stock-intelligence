@@ -237,7 +237,7 @@ class ReleaseRegressionTests(unittest.TestCase):
 
     def test_screener_top_ratios_parser_accepts_ul_container_and_reports_403(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        pattern = re.search(r'val ratioContainer = Regex\\("""(.*?)"""\\)', source)
+        pattern = re.search(r'val ratioContainer = Regex\("""(.*?)"""\)', source)
         self.assertIsNotNone(pattern, "Kotlin top-ratios container regex is missing")
         regex = re.compile(pattern.group(1), re.IGNORECASE | re.DOTALL)
         samples = [
