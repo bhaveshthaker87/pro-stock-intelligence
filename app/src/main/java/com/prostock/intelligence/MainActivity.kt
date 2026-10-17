@@ -257,7 +257,7 @@ private class NativeProvider {
             val body = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() } ?: ""
             if (code == 403 && (host == "screener.in" || host.endsWith(".screener.in"))) {
                 val responseKind = when {
-                    Regex("(?is)<title[^>]*>.*?(login|sign in).*?</title>|name=[\\"']password[\\"']").containsMatchIn(body) -> "login page returned"
+                    Regex("""(?is)<title[^>]*>.*?(login|sign in).*?</title>|name=["']password["']""").containsMatchIn(body) -> "login page returned"
                     Regex("(?is)cloudflare|captcha|access denied|request blocked|security check").containsMatchIn(body) -> "security/access-control page returned"
                     body.isBlank() -> "empty denial response"
                     else -> "server denied the request"
