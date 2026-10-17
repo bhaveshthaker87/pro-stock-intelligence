@@ -814,6 +814,9 @@ private class NativeProvider {
             if (canonical(data.optString("symbol")) != symbol) throw IOException("History provider returned a different symbol; candles rejected")
             val source = data.optString("source").trim()
             val asOf = parseGatewayTime(data.optString("asOf"))
+            val historyAgeMs = System.currentTimeMillis() - asOf
+            if (historyAgeMs < -60_000L || historyAgeMs > 10L * 24 * 60 * 60 * 1000)
+                throw IOException("Historical provider timestamp is in the future or too old to verify")
             val interval = data.optString("interval")
             if (source.isBlank() || interval !in setOf("1m", "5m", "15m", "1d", "1wk", "1mo")) throw IOException("History payload missing source or valid interval")
             val inputRows = data.optJSONArray("rows") ?: throw IOException("History payload missing OHLCV rows")
