@@ -638,7 +638,7 @@ private class NativeProvider {
                 // Historical candles currently come from Yahoo; keep that provenance separate and never label it NSE.
                 out.put("rows", hist.optJSONArray("rows") ?: JSONArray())
                 out.put("historyProvider", hist.optString("provider", "Yahoo Finance"))
-                out.put("historyStatus", "THIRD_PARTY_HISTORICAL_BARS_NOT_NSE_VERIFIED")
+                out.put("historyStatus", "AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED")
                 if (!out.has("price") && hist.has("price")) {
                     out.put("price", hist.get("price")).put("provider", "Yahoo Finance fallback (not NSE/Moneycontrol)")
                     if (hist.has("previousClose")) out.put("previousClose", hist.get("previousClose"))
@@ -902,7 +902,7 @@ private class NativeProvider {
                     annotateQuoteQuality(quote)
                     quote.put("exchange", if (raw.trim().uppercase(Locale.ROOT).endsWith(".BO")) "BSE" else if (raw.trim().uppercase(Locale.ROOT).endsWith(".NS")) "NSE" else "NSE primary; BSE availability varies")
                     quote.put("historyProvider", history.optString("provider", "Unavailable"))
-                    quote.put("historyStatus", "THIRD_PARTY_HISTORICAL_BARS_NOT_NSE_VERIFIED")
+                    quote.put("historyStatus", "AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED")
                     val data = JSONObject().put("symbol", s).put("name", stockName(s)).put("quote", quote)
                         .put("provider", quote.optString("provider", "Unavailable")).put("rows", quote.optJSONArray("rows") ?: JSONArray())
                     JSONObject().put("ok", true).put("data", data).toString()
