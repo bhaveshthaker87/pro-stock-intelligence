@@ -927,6 +927,50 @@ private class NativeProvider {
     /** Search is limited to the locally maintained NSE equity suggestions until an authorized security master is configured. */
     private fun equitySearch(term: String, limit: Int = 12): List<JSONObject> = emptyList()
 
+    private fun gatewayEvents(path: String, symbol: String, eventType: String): JSONObject {
+        val params = linkedMapOf("eventType" to eventType.uppercase(Locale.ROOT))
+        if (symbol.isNotBlank()) params["symbol"] = canonical(symbol)
+        val data = gatewayGet(path, params)
+        val source = data.optString("source").trim()
+        val asOfText = data.optString("asOf")
+        val asOf = parseGatewayTime(asOfText)
+        if (source.isBlank()) throw IOException("Event feed source is missing")
+        val age = System.currentTimeMillis() - asOf
+        if (age < -60_000L || age > 72 * 60 * 60 * 1000L) throw IOException("Event feed timestamp is stale or in the future")
+        val input = data.optJSONArray("rows") ?: throw IOException("Event feed payload missing rows")
+        val rows = JSONArray()
+        for (i in 0 until input.length()) {
+            val row = input.optJSONObject(i) ?: continue
+            val kind = row.optString("eventType").uppercase(Locale.ROOT)
+            val title = row.optString("title").trim()
+            val eventDate = row.optString("eventDate")
+            val announced = row.optString("announcedAt")
+            val sym = canonical(row.optString("symbol"))
+            if (kind !in setOf("RESULTS", "DIVIDEND", "SPLIT", "BONUS", "RIGHTS", "BOARD_MEETING", "OTHER")) continue
+            if (title.isBlank() || !Regex("^\\d{4}-\\d{2}-\\d{2}").containsMatchIn(eventDate) || sym.isBlank()) continue
+            try { parseGatewayTime(announced) } catch (_: Exception) { continue }
+            if (symbol.isNotBlank() && sym != canonical(symbol)) continue
+            if (eventType != "ALL" && kind != eventType.uppercase(Locale.ROOT)) continue
+            rows.put(JSONObject()
+                .put("symbol", sym)
+                .put("company", row.optString("company", stockName(sym)))
+                .put("name", row.optString("company", stockName(sym)))
+                .put("date", eventDate)
+                .put("eventDate", eventDate)
+                .put("event", title)
+                .put("title", title)
+                .put("type", kind)
+                .put("eventType", kind)
+                .put("announcedAt", announced)
+                .put("recordDate", row.optString("recordDate", ""))
+                .put("dividend", row.optString("dividend", ""))
+                .put("ratio", row.optString("ratio", "")))
+        }
+        return JSONObject().put("rows", rows).put("provider", source).put("source", source)
+            .put("asOf", asOfText).put("liveData", true)
+            .put("statusText", "Verified provider response • $source • as of $asOfText. Empty results mean no rows were returned, not that no events exist.")
+    }
+
     fun handle(path: String): String {
         val p = path.substringBefore("?")
         val q = parseQuery(path)
