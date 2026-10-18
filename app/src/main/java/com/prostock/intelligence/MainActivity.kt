@@ -665,19 +665,44 @@ private class NativeProvider {
     private fun screenerStatus(): JSONObject {
         val cookieDetected = screenerLoggedIn()
         val blocked = screener403Observed
-        val active = cookieDetected && !blocked
         val message = when {
-            blocked -> "A Screener session cookie exists, but the server returned HTTP 403 for data retrieval. You may sign in again once; if 403 persists, stop retrying and use Data Sources / CSV with a permitted export or request authorized API access."
-            active -> "Screener session cookie detected. Data access is not validated until a company-page request succeeds."
-            else -> "Tap to sign in to Screener inside this app. After login, return with the Android Back button."
+            blocked -> "Screener denied the data request (HTTP 403). Do not keep retrying. Use a permitted CSV export or request authorized integration access."
+            cookieDetected -> "Session cookie detected, but access is not verified yet. Tap Test Connection to validate a permitted company-page request."
+            else -> "Tap Connect Screener to open the official login page. Sign in there, return to the app, then tap Test Connection."
         }
-        return JSONObject().put("connected", active).put("loggedIn", active).put("cookieDetected", cookieDetected)
+        // A cookie is not proof of login. Only a successful validated company-page request
+        // may set connected/loggedIn/validated to true.
+        return JSONObject().put("connected", false).put("loggedIn", false).put("cookieDetected", cookieDetected)
             .put("blockedBy403", blocked).put("validated", false).put("requestValidated", false)
             .put("status", if (blocked) "HTTP_403_FORBIDDEN" else if (cookieDetected) "SESSION_UNVERIFIED" else "LOGIN_REQUIRED")
             .put("httpStatus", if (blocked) 403 else JSONObject.NULL)
-            .put("recommendedAction", if (blocked) "Use a permitted Screener CSV export or request authorized API access. Do not retry automated scraping." else "Sign in, then validate access with a permitted request or import an authorized CSV.")
-            .put("loginUrl", if (active) JSONObject.NULL else "https://www.screener.in/login/")
+            .put("recommendedAction", if (blocked) "Use a permitted Screener CSV export or request authorized API access. Do not retry automated scraping." else "Sign in through the official page, then tap Test Connection.")
+            .put("loginUrl", "https://www.screener.in/login/")
             .put("message", message)
+    }
+
+    private fun screenerConnectionTest(): JSONObject {
+        return try {
+            // Use the same company-page path and parser as normal fundamentals retrieval.
+            val sample = screener("INFY")
+            val status = screenerStatus()
+            status.put("connected", true).put("loggedIn", true).put("validated", true)
+                .put("requestValidated", true).put("httpStatus", 200)
+                .put("status", "CONNECTED_VERIFIED")
+                .put("message", "Screener company page validated successfully. Fundamental fields can still be missing; review field coverage per stock.")
+                .put("sampleSymbol", "INFY")
+                .put("sampleFieldCount", sample.keys().asSequence().count { it !in setOf("name", "symbol", "sector", "provider", "sourceUrl", "fetchedAtEpochMs", "fundamentalStatus", "availableFundamentalFields", "expectedFundamentalFields", "qualityFlags") })
+            status
+        } catch (e: Exception) {
+            val status = screenerStatus()
+            val blocked = screener403Observed || e.message.orEmpty().contains("403")
+            status.put("connected", false).put("loggedIn", false).put("validated", false)
+                .put("requestValidated", false).put("blockedBy403", blocked)
+                .put("status", if (blocked) "HTTP_403_FORBIDDEN" else if (!screenerLoggedIn()) "LOGIN_REQUIRED" else "CONNECTION_FAILED")
+                .put("httpStatus", if (blocked) 403 else JSONObject.NULL)
+                .put("message", if (blocked) "Screener returned HTTP 403. Sign in once through the official site; if it persists, use a permitted CSV export or request authorized access. The app will not bypass the block." else e.message ?: "Screener connection test failed.")
+                .put("recommendedAction", if (blocked) "Use permitted CSV import or authorized access; do not retry repeatedly." else "Open official Screener login, sign in, return, then test once.")
+        }
     }
 
     /**
@@ -1065,7 +1090,7 @@ private class NativeProvider {
                 "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.80 AUTHORIZED GATEWAY + SCREENER FUNDAMENTALS").put("data", JSONObject().put("ok", true).put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
                 "/api/providers/status" -> JSONObject().put("ok", true).put("data", providerStatus(raw)).toString()
                 "/api/screener/status" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
-                "/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
+                "/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerConnectionTest()).toString()
                 "/api/screener/disconnect" -> JSONObject().put("ok", true).put("data", JSONObject().put("connected", false).put("loggedIn", false).put("message", "Sign out from Screener inside the web page to end the session.")).toString()
                 "/api/search-suggestions" -> {
                     val originalTerm = (q["q"] ?: "").trim()
