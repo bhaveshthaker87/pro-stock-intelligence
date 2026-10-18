@@ -46,4 +46,44 @@ class ProviderPayloadTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"timezone"):
             m.validate_events(e)
 
+
+    def test_indices_require_fresh_status_and_valid_numeric_rows(self):
+        payload={"source":"Licensed test vendor","asOf":"2026-10-11T09:25:00+05:30","marketDataStatus":"REALTIME",
+                 "rows":[{"name":"NIFTY 50","value":25000.5,"changePct":0.42}]}
+        result=m.validate_indices(payload, now=NOW)
+        self.assertEqual(result["indicesReturned"],1)
+        self.assertEqual(result["status"],"REALTIME")
+
+    def test_indices_reject_stale_data_and_invalid_values(self):
+        stale={"source":"Vendor","asOf":"2026-10-10T09:25:00+05:30","marketDataStatus":"REALTIME",
+               "rows":[{"name":"NIFTY 50","value":25000.5,"changePct":0.42}]}
+        with self.assertRaisesRegex(ValueError,"stale"):
+            m.validate_indices(stale, now=NOW)
+        invalid={"source":"Vendor","asOf":"2026-10-11T09:25:00+05:30","marketDataStatus":"REALTIME",
+                 "rows":[{"name":"NIFTY 50","value":0,"changePct":float("nan")}]}
+        with self.assertRaisesRegex(ValueError,"positive"):
+            m.validate_indices(invalid, now=NOW)
+
+    def test_indices_reject_duplicate_names_and_empty_rows(self):
+        base={"source":"Vendor","asOf":"2026-10-11T09:25:00+05:30","marketDataStatus":"REALTIME"}
+        with self.assertRaisesRegex(ValueError,"duplicate"):
+            m.validate_indices({**base,"rows":[{"name":"NIFTY 50","value":25000,"changePct":0},
+                                                {"name":"nifty 50","value":25001,"changePct":0}]}, now=NOW)
+        with self.assertRaisesRegex(ValueError,"at least one"):
+            m.validate_indices({**base,"rows":[]}, now=NOW)
+
+    def test_dividends_validate_timestamp_and_row_units(self):
+        payload={"source":"Licensed test vendor","asOf":"2026-10-11T09:25:00+05:30",
+                 "rows":[{"company":"Infosys Ltd","symbol":"INFY","CMP Rs.":1500.5,
+                          "Div Yld %":2.1,"Mar Cap Rs.Cr.":620000,"ROCE %":35.2}]}
+        self.assertEqual(m.validate_dividends(payload, now=NOW)["rowsReturned"],1)
+        bad={**payload,"rows":[{**payload["rows"][0],"CMP Rs.":"1500.5"}]}
+        with self.assertRaisesRegex(ValueError,"finite numeric"):
+            m.validate_dividends(bad, now=NOW)
+
+    def test_empty_dividend_rows_do_not_prove_no_dividends(self):
+        payload={"source":"Vendor","asOf":"2026-10-11T09:25:00+05:30","rows":[]}
+        result=m.validate_dividends(payload, now=NOW)
+        self.assertFalse(result["absenceVerified"])
+
 if __name__=='__main__': unittest.main()
