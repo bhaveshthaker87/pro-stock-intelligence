@@ -534,8 +534,8 @@ private class NativeProvider {
             "pledged percentage" to "pledged", "pledged percent" to "pledged",
             "industry pb" to "industryPB", "industry p b" to "industryPB",
             "price to book value" to "pb", "stock p b" to "pb", "p b" to "pb",
-            "sales growth 3years" to "sales3y", "profit var 3yrs" to "profit3y",
-            "profit growth 3years" to "profit3y", "opm" to "opm"
+            "sales growth 3years" to "sales3y", "profit var 3yrs" to "profitVariance3y",
+            "profit growth 3years" to "profit3y", "opm" to "opm", "rsi" to "rsi14"
         )
         val parsedAliases = mutableMapOf<String, MutableList<Double>>()
         ratioItems.forEach { item ->
@@ -551,6 +551,24 @@ private class NativeProvider {
             val distinct = values.distinct()
             // Conflicting duplicate labels are ambiguous; never select one arbitrarily.
             if (distinct.size == 1 && !f.has(key)) f.put(key, distinct.single())
+        }
+        // Screener renders the 52-week range as one labelled value, e.g. "₹ 3,350 / 1,976".
+        // Parse both numbers from that same row; do not infer them from other fields.
+        val highLowRows = ratioItems.filter { item ->
+            val label = Regex("(?is)<span\\b[^>]*class=[\\\"'][^\\\"']*\\bname\\b[^\\\"']*[\\\"'][^>]*>(.*?)</span>")
+                .find(item)?.groupValues?.getOrNull(1)?.let { cleanText(it) } ?: return@filter false
+            normalizeMetricLabel(label) in setOf("high low", "52 week high low", "52 week range")
+        }
+        if (highLowRows.size == 1) {
+            val valueHtml = Regex("(?is)<span\\b[^>]*class=[\\\"'][^\\\"']*\\bnumber\\b[^\\\"']*[\\\"'][^>]*>(.*?)</span>")
+                .find(highLowRows.single())?.groupValues?.getOrNull(1)
+            val values = valueHtml?.let { cleanText(it) }?.let { text ->
+                Regex("(?<![A-Za-z])(?:₹\\s*)?([0-9][0-9,]*(?:\\.[0-9]+)?)").findAll(text)
+                    .mapNotNull { asNumber(it.groupValues[1]) }.toList()
+            }.orEmpty()
+            if (values.size == 2 && values[0] > 0 && values[1] > 0 && values[0] >= values[1]) {
+                f.put("high52", values[0]).put("low52", values[1])
+            }
         }
 
         val pnlRows = sectionTableRows(html, "profit-loss")
@@ -627,7 +645,7 @@ private class NativeProvider {
             }
         }
         val fetchedAt = System.currentTimeMillis()
-        val fieldKeys = listOf("price", "marketCap", "pe", "industryPE", "peg", "pb", "industryPB", "faceValue", "piotroski", "dma50", "dma200", "promoter", "public", "pledged", "bookValue", "dividendYield", "roce", "roe", "debtEquity", "eps", "netProfit", "operatingProfit", "opm", "sales3y", "profit3y", "eps3y", "currentRatio", "interestCoverage", "quarterly", "shareholding")
+        val fieldKeys = listOf("price", "marketCap", "pe", "industryPE", "peg", "pb", "industryPB", "faceValue", "piotroski", "dma50", "dma200", "promoter", "public", "pledged", "bookValue", "dividendYield", "roce", "roe", "debtEquity", "eps", "netProfit", "operatingProfit", "opm", "sales3y", "profit3y", "profitVariance3y", "eps3y", "currentRatio", "interestCoverage", "rsi14", "high52", "low52", "quarterly", "shareholding")
         val available = fieldKeys.count { f.has(it) && !f.isNull(it) }
         val qualityFlags = JSONArray()
         if (available < 6) qualityFlags.put("LOW_FUNDAMENTAL_COVERAGE")
