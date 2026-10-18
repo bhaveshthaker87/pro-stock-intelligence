@@ -97,14 +97,77 @@ def validate_events(payload):
         except ValueError as exc: raise ValueError(f"rows[{i}].eventDate must begin with YYYY-MM-DD") from exc
     return {"kind":"events", "symbol":payload["symbol"].upper(), "eventsReturned":len(rows), "absenceVerified":False}
 
+def validate_freshness(payload, now=None, status_key="marketDataStatus"):
+    status=payload.get(status_key)
+    if status not in STATUSES: raise ValueError(f"{status_key} must be REALTIME, DELAYED or EOD")
+    asof=parse_time(payload.get("asOf"), "asOf")
+    now=now or datetime.now(timezone.utc)
+    age=(now-asof).total_seconds()
+    if age < -300: raise ValueError("asOf is more than 5 minutes in the future")
+    if age > FRESHNESS_SECONDS[status]:
+        raise ValueError(f"data is stale for declared {status} status ({int(age)} seconds old)")
+    if status == "DELAYED" and (not isinstance(payload.get("delayMinutes"), int) or isinstance(payload.get("delayMinutes"), bool) or payload["delayMinutes"] <= 0):
+        raise ValueError("DELAYED data requires a positive integer delayMinutes")
+    return status, int(max(0, age))
+
+def finite_number(value, field, positive=False):
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        raise ValueError(f"{field} must be finite numeric")
+    if positive and value <= 0: raise ValueError(f"{field} must be positive")
+    return value
+
+def validate_indices(payload, now=None):
+    for k in ("source", "asOf"):
+        if not isinstance(payload.get(k), str) or not payload[k].strip():
+            raise ValueError(f"{k} is required and must be a non-empty string")
+    status, age=validate_freshness(payload, now=now)
+    rows=payload.get("rows")
+    if not isinstance(rows, list) or not rows: raise ValueError("indices.rows must contain at least one index")
+    seen=set()
+    for i,row in enumerate(rows):
+        if not isinstance(row, dict): raise ValueError(f"indices.rows[{i}] must be an object")
+        name=row.get("name")
+        if not isinstance(name, str) or not name.strip(): raise ValueError(f"indices.rows[{i}].name is required")
+        key=name.strip().casefold()
+        if key in seen: raise ValueError(f"indices contains duplicate index name: {name}")
+        seen.add(key)
+        finite_number(row.get("value"), f"indices.rows[{i}].value", positive=True)
+        finite_number(row.get("changePct"), f"indices.rows[{i}].changePct")
+    return {"kind":"indices", "status":status, "ageSeconds":age, "indicesReturned":len(rows)}
+
+def validate_dividends(payload, now=None):
+    for k in ("source", "asOf"):
+        if not isinstance(payload.get(k), str) or not payload[k].strip():
+            raise ValueError(f"{k} is required and must be a non-empty string")
+    asof=parse_time(payload["asOf"], "asOf")
+    now=now or datetime.now(timezone.utc)
+    age=(now-asof).total_seconds()
+    if age < -300: raise ValueError("asOf is more than 5 minutes in the future")
+    if age > FRESHNESS_SECONDS["EOD"]:
+        raise ValueError(f"dividend data is stale ({int(age)} seconds old)")
+    rows=payload.get("rows")
+    if not isinstance(rows, list): raise ValueError("dividends.rows must be an array")
+    numeric_fields=("CMP Rs.", "Div Yld %", "Mar Cap Rs.Cr.", "ROCE %")
+    for i,row in enumerate(rows):
+        if not isinstance(row, dict): raise ValueError(f"dividends.rows[{i}] must be an object")
+        for k in ("company", "symbol"):
+            if not isinstance(row.get(k), str) or not row[k].strip():
+                raise ValueError(f"dividends.rows[{i}].{k} is required")
+        for field in numeric_fields:
+            if field in row and row[field] is not None:
+                value=finite_number(row[field], f"dividends.rows[{i}].{field}")
+                if field in ("CMP Rs.", "Mar Cap Rs.Cr.") and value < 0:
+                    raise ValueError(f"dividends.rows[{i}].{field} cannot be negative")
+    return {"kind":"dividends", "ageSeconds":int(max(0,age)), "rowsReturned":len(rows), "absenceVerified":False}
+
 def main():
     ap=argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("kind",choices=["quote","history","events"])
+    ap.add_argument("kind",choices=["quote","history","events","indices","dividends"])
     ap.add_argument("json_file")
     args=ap.parse_args()
     try:
         p=load(args.json_file)
-        result={"quote":validate_quote,"history":validate_history,"events":validate_events}[args.kind](p)
+        result={"quote":validate_quote,"history":validate_history,"events":validate_events,"indices":validate_indices,"dividends":validate_dividends}[args.kind](p)
         print(json.dumps({"ok":True,"validation":result},sort_keys=True))
         return 0
     except Exception as exc:
