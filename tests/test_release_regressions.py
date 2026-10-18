@@ -7,20 +7,21 @@ ROOT = Path(__file__).parents[1]
 class ReleaseRegressionTests(unittest.TestCase):
     def test_emulator_smoke_waits_for_android_services_and_retries_transient_install(self):
         workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
-        self.assertIn("service check package", workflow)
-        self.assertIn("service check activity", workflow)
-        self.assertIn("while [ \"$attempt\" -lt 4 ]; do", workflow)
-        self.assertIn("APK installation failed after 4 attempts", workflow)
-        self.assertIn("adb logcat -d -t 1200", workflow)
-        self.assertIn("adb shell am start -W -n com.prostock.intelligence/.MainActivity", workflow)
-        self.assertNotIn("for attempt in $(seq", workflow)
-        self.assertNotIn("seq 1 180", workflow)
+        script = (ROOT / ".github/scripts/android-smoke-test.sh").read_text(encoding="utf-8")
+        self.assertIn("script: bash .github/scripts/android-smoke-test.sh", workflow)
+        self.assertIn("service check package", script)
+        self.assertIn("service check activity", script)
+        self.assertIn("for attempt in 1 2 3 4; do", script)
+        self.assertIn("APK installation failed after 4 attempts", script)
+        self.assertIn("adb logcat -d -t 1200", script)
+        self.assertIn("adb shell am start -W -n com.prostock.intelligence/.MainActivity", script)
+        self.assertNotIn("while [ \"$attempt\" -lt 4 ]; do", workflow)
 
     def test_emulator_screenshot_does_not_write_to_sdcard(self):
-        workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
-        self.assertIn("adb exec-out screencap -p > app/build/outputs/psi-emulator.png", workflow)
-        self.assertNotIn("adb shell screencap -p /sdcard/psi-emulator.png", workflow)
-        self.assertIn("89504e470d0a1a0a", workflow)
+        script = (ROOT / ".github/scripts/android-smoke-test.sh").read_text(encoding="utf-8")
+        self.assertIn("adb exec-out screencap -p > app/build/outputs/psi-emulator.png", script)
+        self.assertNotIn("adb shell screencap -p /sdcard/psi-emulator.png", script)
+        self.assertIn("89504e470d0a1a0a", script)
 
     def test_autocomplete_has_broad_provider_search_and_disclaimer(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
