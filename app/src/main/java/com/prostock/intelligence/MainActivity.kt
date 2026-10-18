@@ -163,6 +163,7 @@ class MainActivity : Activity() {
 }
 
 private class NativeProvider {
+    @Volatile private var screener403Observed: Boolean = false
     private data class Stock(val symbol: String, val name: String, val sector: String)
     private val stocks = listOf(
         Stock("INFY", "Infosys Ltd", "IT Services"), Stock("TCS", "Tata Consultancy Services Ltd", "IT Services"),
@@ -184,8 +185,8 @@ private class NativeProvider {
         JSONObject().put("id", "master").put("name", "Large Cap Quality Stocks").put("description", "Large companies with quality and manageable debt").put("focus", "Market cap, ROCE, debt and valuation").put("query", "Market Capitalization > 10000 AND Current price > 50 AND Return on capital employed > 12 AND Debt to equity < 1"),
         JSONObject().put("id", "midcap").put("name", "Mid Cap Hidden Gems").put("description", "Mid-sized companies with profitability and growth").put("focus", "Market cap ₹5,000–30,000 Cr, ROCE > 15%").put("query", "Market Capitalization > 5000 AND Market Capitalization < 30000 AND Return on capital employed > 15 AND Return on equity > 15"),
         JSONObject().put("id", "smallcap").put("name", "Small Cap Quality").put("description", "Smaller profitable companies; higher risk").put("focus", "Market cap ₹1,000–5,000 Cr").put("query", "Market Capitalization > 1000 AND Market Capitalization < 5000 AND Return on capital employed > 15 AND Debt to equity < 1"),
-        JSONObject().put("id", "oversold").put("name", "RSI Oversold Scanner (RSI ≤ 30)").put("description", "Technical scan of tracked stocks using Wilder RSI(14) from Yahoo daily bars; latest bar may be partial during market hours").put("focus", "Wilder RSI(14) ≤ 30; tracked symbols only, daily bars may be delayed or partial").put("query", "Technical scan: RSI(14) <= 30; tracked universe only"),
-        JSONObject().put("id", "crash").put("name", "Daily Crash Scanner (drop ≥ 5%)").put("description", "Finds tracked stocks whose latest Yahoo daily bar is down at least 5% versus the prior daily bar; current-session bar may be partial").put("focus", "Latest daily-bar change ≤ -5%; tracked symbols only, not a whole-market scan").put("query", "Technical scan: daily change <= -5%; tracked universe only")
+        JSONObject().put("id", "oversold").put("name", "RSI Oversold Scanner (RSI ≤ 30)").put("description", "Technical scan of tracked stocks using Wilder RSI(14); requires authorized NSE historical bars").put("focus", "Wilder RSI(14) ≤ 30; tracked symbols only, unavailable until authorized NSE history is configured").put("query", "Technical scan: RSI(14) <= 30; tracked universe only"),
+        JSONObject().put("id", "crash").put("name", "Daily Crash Scanner (drop ≥ 5%)").put("description", "Finds tracked stocks down at least 5% versus the prior daily bar; requires authorized NSE historical bars").put("focus", "Latest daily-bar change ≤ -5%; tracked symbols only; unavailable until authorized NSE history is configured").put("query", "Technical scan: daily change <= -5%; tracked universe only")
     )
 
     fun jsonResponseFor(path: String): WebResourceResponse = WebResourceResponse(
@@ -203,7 +204,7 @@ private class NativeProvider {
 
     private fun canonical(raw: String): String {
         val upper = raw.trim().uppercase(Locale.ROOT)
-        // Preserve Yahoo's exchange-index and futures ticker syntax. Stripping punctuation here
+        // Preserve exchange-index and futures ticker syntax. Stripping punctuation here
         // used to turn ^NSEI into NSEI and GC=F into GCF, silently breaking every index/futures quote.
         if (upper.matches(Regex("^\\^[A-Z0-9]+$")) || upper.matches(Regex("^[A-Z]{1,5}=F$"))) return upper
         val noSuffix = upper.removeSuffix(".NS").removeSuffix(".BO").trim()
@@ -241,21 +242,34 @@ private class NativeProvider {
         val host = URL(url).host.lowercase(Locale.ROOT)
         if (host == "screener.in" || host.endsWith(".screener.in")) {
             c.setRequestProperty("Referer", "https://www.screener.in/")
-            // WebView may store host-only and parent-domain cookies differently.
-            val manager = CookieManager.getInstance()
-            val cookieParts = listOf(
-                manager.getCookie("https://www.screener.in"),
-                manager.getCookie("https://screener.in")
-            ).filterNotNull().flatMap { it.split(";") }
-                .map { it.trim() }.filter { it.contains("=") && !it.startsWith("=") }
-                .distinctBy { it.substringBefore("=") }
-            if (cookieParts.isNotEmpty()) c.setRequestProperty("Cookie", cookieParts.joinToString("; "))
+            // Use the cookie jar for the exact request host. Merging cookies from
+            // www and the bare domain can select a stale duplicate sessionid and cause 403.
+            // CookieManager already applies domain/path rules for this URL.
+            val cookie = CookieManager.getInstance().getCookie(url)
+            if (!cookie.isNullOrBlank()) c.setRequestProperty("Cookie", cookie)
         }
         try {
             val code = c.responseCode
             val stream = if (code in 200..299) c.inputStream else c.errorStream
             val body = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() } ?: ""
-            if (code !in 200..299) throw IOException("HTTP $code from $host${if (body.isNotBlank()) ": ${body.take(120)}" else ""}")
+            if (code in 200..299 && (host == "screener.in" || host.endsWith(".screener.in"))) {
+                screener403Observed = false
+            }
+            if (code == 403 && (host == "screener.in" || host.endsWith(".screener.in"))) {
+                screener403Observed = true
+                val finalHost = runCatching { c.url.host.lowercase(Locale.ROOT) }.getOrDefault(host)
+                val responseKind = when {
+                    Regex("""(?is)<title[^>]*>.*?(login|sign in).*?</title>|name=["']password["']""").containsMatchIn(body) -> "login page returned"
+                    Regex("(?is)cloudflare|captcha|access denied|request blocked|security check").containsMatchIn(body) -> "security/access-control page returned"
+                    body.isBlank() -> "empty denial response"
+                    else -> "server denied the request"
+                }
+                throw IOException("Screener HTTP 403 Forbidden ($responseKind; final host $finalHost). Session cookie was taken from the exact request URL to avoid stale duplicate cookies. This app will not bypass access controls. If this persists, the account/session or server access policy is rejecting this request; use the permitted CSV export or authorized data access.")
+            }
+            if (code == 401 && (host == "screener.in" || host.endsWith(".screener.in"))) {
+                throw IOException("Screener returned HTTP 401. Tap Screener Login, sign in again, return to the app and retry.")
+            }
+            if (code !in 200..299) throw IOException("HTTP $code from $host")
             return body
         } finally { c.disconnect() }
     }
@@ -302,10 +316,81 @@ private class NativeProvider {
      * The public website is not a documented, authorized real-time API contract.
      * Enable quotes only after an authorized NSE/vendor feed is configured.
      */
+    private fun gatewayBaseUrl(): String = BuildConfig.PROVIDER_GATEWAY_BASE_URL.trim().trimEnd('/')
+
+    private fun gatewayConfigured(): Boolean = gatewayBaseUrl().startsWith("https://", ignoreCase = true)
+
+    /**
+     * Client for the documented, normalized server-side provider gateway.
+     * Vendor secrets stay on that server; no API keys/cookies are embedded in this APK.
+     */
+    private fun gatewayGet(path: String, params: Map<String, String> = emptyMap()): JSONObject {
+        val base = gatewayBaseUrl()
+        if (!base.startsWith("https://", ignoreCase = true)) {
+            throw IOException("Authorized provider gateway is not configured. Set Gradle property providerGatewayBaseUrl to your HTTPS gateway URL; keep vendor credentials on the server.")
+        }
+        val urlText = base + path + if (params.isEmpty()) "" else params.entries.joinToString("&", "?") {
+            URLEncoder.encode(it.key, "UTF-8") + "=" + URLEncoder.encode(it.value, "UTF-8")
+        }
+        val url = URL(urlText)
+        if (url.host.isBlank() || urlText.substringAfter("://").substringBefore("/").contains("@")) throw IOException("Invalid provider gateway URL")
+        val c = url.openConnection() as HttpURLConnection
+        c.connectTimeout = 5000
+        c.readTimeout = 8000
+        c.requestMethod = "GET"
+        c.setRequestProperty("Accept", "application/json")
+        c.setRequestProperty("Cache-Control", "no-cache")
+        try {
+            val code = c.responseCode
+            if (code !in 200..299) throw IOException("Provider gateway returned HTTP $code. Check gateway health, authentication and vendor subscription.")
+            val body = c.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            if (body.length > 2_000_000) throw IOException("Provider gateway response exceeded the 2 MB safety limit")
+            val parsed = JSONObject(body)
+            if (parsed.optBoolean("ok", true) == false) throw IOException(parsed.optString("error", "Provider gateway reported unavailable data"))
+            return parsed.optJSONObject("data") ?: parsed
+        } finally { c.disconnect() }
+    }
+
+    private fun parseGatewayTime(value: String): Long {
+        return try { java.time.OffsetDateTime.parse(value).toInstant().toEpochMilli() }
+        catch (_: Exception) { throw IOException("Provider gateway timestamp must be ISO-8601 with timezone offset") }
+    }
+
+    private fun validatedGatewayQuote(raw: String): JSONObject {
+        val symbol = canonical(raw)
+        val data = gatewayGet("/v1/quote", mapOf("symbol" to symbol))
+        if (canonical(data.optString("symbol")) != symbol) throw IOException("Provider gateway returned a different symbol; quote rejected")
+        val source = data.optString("source").trim()
+        val status = data.optString("marketDataStatus").uppercase(Locale.ROOT)
+        val price = data.optDouble("price", Double.NaN)
+        if (source.isBlank() || !price.isFinite() || price <= 0.0) throw IOException("Provider quote missing source or positive price")
+        if (status !in setOf("REALTIME", "DELAYED", "EOD")) throw IOException("Provider quote missing valid REALTIME/DELAYED/EOD status")
+        val asOf = parseGatewayTime(data.optString("asOf"))
+        val ageMs = System.currentTimeMillis() - asOf
+        if (ageMs < -60_000L) throw IOException("Provider quote timestamp is in the future; quote rejected")
+        val maxAge = when (status) {
+            "REALTIME" -> 5 * 60 * 1000L
+            "DELAYED" -> {
+                if (data.optInt("delayMinutes", 0) <= 0) throw IOException("Delayed quote must disclose delayMinutes")
+                24 * 60 * 60 * 1000L
+            }
+            else -> 72 * 60 * 60 * 1000L
+        }
+        if (ageMs > maxAge) throw IOException("Provider quote is stale for its declared $status status; quote rejected")
+        return JSONObject()
+            .put("symbol", symbol).put("price", price).put("currency", data.optString("currency", "INR"))
+            .put("provider", source).put("source", source).put("status", status)
+            .put("marketDataStatus", status).put("quoteTimestamp", asOf / 1000L)
+            .put("quoteAsOf", data.optString("asOf")).put("rows", JSONArray())
+            .put("isExchangeCertifiedRealtime", false) // A gateway status claim is not proof of exchange certification.
+            .put("marketDataDisclaimer", if (status == "REALTIME") "Provider-declared real-time quote; licensing and SLA must be verified at gateway." else "Quote is $status, not real-time. Use its disclosed timestamp and status.")
+    }
+
     private fun nseQuote(raw: String): JSONObject {
         val symbol = canonical(raw)
         if (symbol.isBlank()) throw IOException("Enter a valid NSE equity symbol")
-        throw IOException("NSE live quotes are blocked: this installation has no authorized NSE real-time API/feed configured. Public website scraping is disabled; no price was fabricated.")
+        if (!gatewayConfigured()) throw IOException("Authorized NSE/vendor gateway is not configured. Live price is unavailable; no website scraping or third-party fallback is used.")
+        return validatedGatewayQuote(symbol)
     }
 
     private fun sectionTableRows(html: String, sectionId: String): List<List<String>> {
@@ -383,11 +468,15 @@ private class NativeProvider {
         val pageUrl = "https://www.screener.in/company/${Uri.encode(s)}/"
         val html = get(pageUrl)
         val pageTitle = Regex("(?is)<h1\\b[^>]*>(.*?)</h1>").find(html)?.groupValues?.get(1)?.let { cleanText(it) }
-        val hasRatioSection = Regex("(?is)<(?:section|div)\\b[^>]*id=[\"']top-ratios[\"']").containsMatchIn(html)
-        // Restrict ratio matching to the dedicated section to avoid duplicate labels
-        // elsewhere in the page being treated as ambiguous.
-        val ratiosSectionHtml = Regex("(?is)<section\\b[^>]*id=[\"']top-ratios[\"'][^>]*>(.*?)</section>")
-            .find(html)?.groupValues?.get(1) ?: html
+        // Screener's company page uses <ul id="top-ratios"> in some layouts.
+        // Older code accepted only section/div, causing all valuation ratios to be dropped
+        // even when the company page was fetched successfully.
+        val ratioContainer = Regex("""(?is)<(section|div|ul|ol)\b[^>]*id=["']top-ratios["'][^>]*>(.*?)</\1>""")
+            .find(html)
+        val hasRatioSection = ratioContainer != null
+        // Parse only the matched container; do not fall back to the entire document,
+        // where repeated labels can create ambiguous duplicate values.
+        val ratiosSectionHtml = ratioContainer?.groupValues?.get(2) ?: ""
         val looksLikeLogin = Regex("(?is)<title[^>]*>.*?(?:login|sign in).*?</title>").containsMatchIn(html) ||
             html.contains("name=\"password\"", ignoreCase = true)
         if (looksLikeLogin) throw IOException("Screener returned a login page instead of company data; sign in again and retry.")
@@ -429,6 +518,59 @@ private class NativeProvider {
         number("ROE", true)?.let { f.put("roe", it) }
         number("Debt / Equity")?.let { f.put("debtEquity", it) }
         number("EPS in Rs")?.let { f.put("eps", it) }
+
+        // Parse all explicitly labelled metrics in Screener's top-ratios list.
+        // This avoids depending on one exact label spelling across page revisions.
+        val ratioItems = Regex("(?is)<li\\b[^>]*>(.*?)</li>").findAll(ratiosSectionHtml).map { it.groupValues[1] }.toList()
+        fun normalizeMetricLabel(value: String): String =
+            value.lowercase(Locale.ROOT).replace(Regex("[^a-z0-9]+"), " ").trim()
+        val aliases = mapOf(
+            "industry pe" to "industryPE", "industry p e" to "industryPE", "industry p e ratio" to "industryPE",
+            "peg ratio" to "peg", "peg" to "peg",
+            "face value" to "faceValue", "piotroski score" to "piotroski",
+            "dma 50" to "dma50", "50 dma" to "dma50", "dma 200" to "dma200", "200 dma" to "dma200",
+            "promoter holding" to "promoter", "promoters" to "promoter",
+            "public holding" to "public", "public" to "public",
+            "pledged percentage" to "pledged", "pledged percent" to "pledged",
+            "industry pb" to "industryPB", "industry p b" to "industryPB",
+            "price to book value" to "pb", "stock p b" to "pb", "p b" to "pb",
+            "sales growth 3years" to "sales3y", "profit var 3yrs" to "profitVariance3y",
+            "profit growth 3years" to "profit3y", "opm" to "opm", "rsi" to "rsi14"
+        )
+        val parsedAliases = mutableMapOf<String, MutableList<Double>>()
+        ratioItems.forEach { item ->
+            val label = Regex("(?is)<span\\b[^>]*class=[\\\"'][^\\\"']*\\bname\\b[^\\\"']*[\\\"'][^>]*>(.*?)</span>")
+                .find(item)?.groupValues?.getOrNull(1)?.let { cleanText(it) } ?: return@forEach
+            val key = aliases[normalizeMetricLabel(label)] ?: return@forEach
+            val valueHtml = Regex("(?is)<span\\b[^>]*class=[\\\"'][^\\\"']*\\bnumber\\b[^\\\"']*[\\\"'][^>]*>(.*?)</span>")
+                .find(item)?.groupValues?.getOrNull(1) ?: return@forEach
+            val value = asNumber(cleanText(valueHtml)) ?: return@forEach
+            parsedAliases.getOrPut(key) { mutableListOf() }.add(value)
+        }
+        parsedAliases.forEach { (key, values) ->
+            val distinct = values.distinct()
+            // Conflicting duplicate labels are ambiguous; never select one arbitrarily.
+            if (distinct.size == 1 && !f.has(key)) f.put(key, distinct.single())
+        }
+        // Screener renders the 52-week range as one labelled value, e.g. "₹ 3,350 / 1,976".
+        // Parse both numbers from that same row; do not infer them from other fields.
+        val highLowRows = ratioItems.filter { item ->
+            val label = Regex("(?is)<span\\b[^>]*class=[\\\"'][^\\\"']*\\bname\\b[^\\\"']*[\\\"'][^>]*>(.*?)</span>")
+                .find(item)?.groupValues?.getOrNull(1)?.let { cleanText(it) } ?: return@filter false
+            normalizeMetricLabel(label) in setOf("high low", "52 week high low", "52 week range")
+        }
+        if (highLowRows.size == 1) {
+            val valueHtml = Regex("(?is)<span\\b[^>]*class=[\\\"'][^\\\"']*\\bnumber\\b[^\\\"']*[\\\"'][^>]*>(.*?)</span>")
+                .find(highLowRows.single())?.groupValues?.getOrNull(1)
+            val values = valueHtml?.let { cleanText(it) }?.let { text ->
+                Regex("(?<![A-Za-z])(?:₹\\s*)?([0-9][0-9,]*(?:\\.[0-9]+)?)").findAll(text)
+                    .mapNotNull { asNumber(it.groupValues[1]) }.toList()
+            }.orEmpty()
+            if (values.size == 2 && values[0] > 0 && values[1] > 0 && values[0] >= values[1]) {
+                f.put("high52", values[0]).put("low52", values[1])
+            }
+        }
+
         val pnlRows = sectionTableRows(html, "profit-loss")
         val qRows = sectionTableRows(html, "quarters")
         val ownershipRows = sectionTableRows(html, "shareholding")
@@ -503,7 +645,7 @@ private class NativeProvider {
             }
         }
         val fetchedAt = System.currentTimeMillis()
-        val fieldKeys = listOf("price", "marketCap", "pe", "bookValue", "dividendYield", "roce", "roe", "debtEquity", "eps", "netProfit", "operatingProfit", "opm", "sales3y", "profit3y", "eps3y", "currentRatio", "interestCoverage", "quarterly", "shareholding")
+        val fieldKeys = listOf("price", "marketCap", "pe", "industryPE", "peg", "pb", "industryPB", "faceValue", "piotroski", "dma50", "dma200", "promoter", "public", "pledged", "bookValue", "dividendYield", "roce", "roe", "debtEquity", "eps", "netProfit", "operatingProfit", "opm", "sales3y", "profit3y", "profitVariance3y", "eps3y", "currentRatio", "interestCoverage", "rsi14", "high52", "low52", "quarterly", "shareholding")
         val available = fieldKeys.count { f.has(it) && !f.isNull(it) }
         val qualityFlags = JSONArray()
         if (available < 6) qualityFlags.put("LOW_FUNDAMENTAL_COVERAGE")
@@ -519,13 +661,16 @@ private class NativeProvider {
     }
 
     private fun screenerCookieHeader(): String {
-        val manager = CookieManager.getInstance()
-        return listOf(
-            manager.getCookie("https://www.screener.in"),
-            manager.getCookie("https://screener.in")
-        ).filterNotNull().flatMap { it.split(";") }
-            .map { it.trim() }.filter { it.contains("=") && !it.startsWith("=") }
-            .distinctBy { it.substringBefore("=") }.joinToString("; ")
+        // Match the same canonical host/path used by screener(raw). Never combine
+        // cookies from www and bare-domain jars: duplicate sessionid values can
+        // make status checks look authenticated while the actual request is denied.
+        return CookieManager.getInstance()
+            .getCookie("https://www.screener.in/company/INFY/")
+            .orEmpty()
+            .split(";")
+            .map { it.trim() }
+            .filter { it.contains("=") && !it.startsWith("=") }
+            .joinToString("; ")
     }
 
     private fun screenerLoggedIn(): Boolean {
@@ -536,10 +681,46 @@ private class NativeProvider {
         }
     }
     private fun screenerStatus(): JSONObject {
-        val active = screenerLoggedIn()
-        return JSONObject().put("connected", active).put("loggedIn", active).put("validated", false)
-            .put("loginUrl", if (active) JSONObject.NULL else "https://www.screener.in/login/")
-            .put("message", if (active) "Screener session cookie detected. Protected company data is not confirmed until a protected request succeeds." else "Tap to sign in to Screener inside this app. After login, return with the Android Back button.")
+        val cookieDetected = screenerLoggedIn()
+        val blocked = screener403Observed
+        val message = when {
+            blocked -> "Screener denied the data request (HTTP 403). Do not keep retrying. Use a permitted CSV export or request authorized integration access."
+            cookieDetected -> "Session cookie detected, but access is not verified yet. Tap Test Connection to validate a permitted company-page request."
+            else -> "Tap Connect Screener to open the official login page. Sign in there, return to the app, then tap Test Connection."
+        }
+        // A cookie is not proof of login. Only a successful validated company-page request
+        // may set connected/loggedIn/validated to true.
+        return JSONObject().put("connected", false).put("loggedIn", false).put("cookieDetected", cookieDetected)
+            .put("blockedBy403", blocked).put("validated", false).put("requestValidated", false)
+            .put("status", if (blocked) "HTTP_403_FORBIDDEN" else if (cookieDetected) "SESSION_UNVERIFIED" else "LOGIN_REQUIRED")
+            .put("httpStatus", if (blocked) 403 else JSONObject.NULL)
+            .put("recommendedAction", if (blocked) "Use a permitted Screener CSV export or request authorized API access. Do not retry automated scraping." else "Sign in through the official page, then tap Test Connection.")
+            .put("loginUrl", "https://www.screener.in/login/")
+            .put("message", message)
+    }
+
+    private fun screenerConnectionTest(): JSONObject {
+        return try {
+            // Use the same company-page path and parser as normal fundamentals retrieval.
+            val sample = screener("INFY")
+            val status = screenerStatus()
+            status.put("connected", true).put("loggedIn", true).put("validated", true)
+                .put("requestValidated", true).put("httpStatus", 200)
+                .put("status", "CONNECTED_VERIFIED")
+                .put("message", "Screener company page validated successfully. Fundamental fields can still be missing; review field coverage per stock.")
+                .put("sampleSymbol", "INFY")
+                .put("sampleFieldCount", sample.keys().asSequence().count { it !in setOf("name", "symbol", "sector", "provider", "sourceUrl", "fetchedAtEpochMs", "fundamentalStatus", "availableFundamentalFields", "expectedFundamentalFields", "qualityFlags") })
+            status
+        } catch (e: Exception) {
+            val status = screenerStatus()
+            val blocked = screener403Observed || e.message.orEmpty().contains("403")
+            status.put("connected", false).put("loggedIn", false).put("validated", false)
+                .put("requestValidated", false).put("blockedBy403", blocked)
+                .put("status", if (blocked) "HTTP_403_FORBIDDEN" else if (!screenerLoggedIn()) "LOGIN_REQUIRED" else "CONNECTION_FAILED")
+                .put("httpStatus", if (blocked) 403 else JSONObject.NULL)
+                .put("message", if (blocked) "Screener returned HTTP 403. Sign in once through the official site; if it persists, use a permitted CSV export or request authorized access. The app will not bypass the block." else e.message ?: "Screener connection test failed.")
+                .put("recommendedAction", if (blocked) "Use permitted CSV import or authorized access; do not retry repeatedly." else "Open official Screener login, sign in, return, then test once.")
+        }
     }
 
     /**
@@ -580,10 +761,12 @@ private class NativeProvider {
             } catch (e: Exception) {
                 screener
                     .put("requestValidated", false)
-                    .put("status", "LIVE_VALIDATION_FAILED")
+                    .put("status", if ((e.message ?: "").contains("HTTP 403", ignoreCase = true)) "HTTP_403_FORBIDDEN" else "LIVE_VALIDATION_FAILED")
+                    .put("httpStatus", if ((e.message ?: "").contains("HTTP 403", ignoreCase = true)) 403 else JSONObject.NULL)
                     .put("validationDurationMs", System.currentTimeMillis() - probeStarted)
                     .put("errorType", e.javaClass.simpleName)
-                    .put("message", "Live Screener request did not validate. Re-login if needed, check connectivity, and retry. No live fundamentals should be claimed from this probe.")
+                    .put("message", e.message ?: "Live Screener request did not validate. No live fundamentals should be claimed from this probe.")
+                    .put("recommendedAction", if ((e.message ?: "").contains("HTTP 403", ignoreCase = true)) "Use permitted Screener CSV export in Data Sources / CSV, or configure an officially authorized API/data provider. Do not retry automated scraping." else "Verify the signed-in account, company symbol and network, then retry once.")
             }
         }
         val moneycontrol = JSONObject()
@@ -599,7 +782,14 @@ private class NativeProvider {
             .put("checkedAtEpochMs", checkedAt)
             .put("Screener.in", screener)
             .put("Moneycontrol", moneycontrol)
-            .put("overall", if (screener.optBoolean("requestValidated", false)) "SCREENER_LIVE_VALIDATED_MONEYCONTROL_NOT_AUTOMATED" else "PARTIAL_PROVIDER_COVERAGE_NOT_ALL_SOURCES_LIVE")
+            .put("AuthorizedProviderGateway", JSONObject()
+                .put("configured", gatewayConfigured())
+                .put("baseUrlConfigured", gatewayConfigured())
+                .put("credentialsInApk", false)
+                .put("requiredRoutes", JSONArray().put("/v1/quote").put("/v1/history").put("/v1/indices").put("/v1/events").put("/v1/dividends"))
+                .put("status", if (gatewayConfigured()) "URL_CONFIGURED_LIVE_HEALTH_CHECK_PENDING" else "NOT_CONFIGURED")
+                .put("message", if (gatewayConfigured()) "HTTPS gateway URL configured. Actual quote/history/event payloads are validated when requested." else "Configure Gradle property providerGatewayBaseUrl and deploy a licensed provider adapter. Vendor credentials must remain server-side."))
+            .put("overall", when { gatewayConfigured() && screener.optBoolean("requestValidated", false) -> "GATEWAY_URL_CONFIGURED_SCREENER_VALIDATED_GATEWAY_HEALTH_UNVERIFIED"; gatewayConfigured() -> "GATEWAY_URL_CONFIGURED_NOT_HEALTH_CHECKED"; screener.optBoolean("requestValidated", false) -> "SCREENER_VALIDATED_AUTHORIZED_GATEWAY_NOT_CONFIGURED"; else -> "PARTIAL_PROVIDER_COVERAGE_NOT_ALL_SOURCES_LIVE" })
     }
 
     private fun coreCoverage(f: JSONObject): JSONObject {
@@ -623,12 +813,12 @@ private class NativeProvider {
             } catch (e: Exception) {
                 JSONObject().put("symbol", s)
                     .put("provider", "Unavailable")
-                    .put("status", "AUTHORIZED_NSE_FEED_NOT_CONFIGURED")
+                    .put("status", if (gatewayConfigured()) "PROVIDER_GATEWAY_VALIDATION_FAILED" else "AUTHORIZED_NSE_FEED_NOT_CONFIGURED")
                     .put("rows", JSONArray())
                     .put("historyProvider", "Unavailable")
                     .put("historyStatus", "AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED")
                     .put("providerError", e.message ?: "Authorized NSE quote feed is not configured")
-                    .put("marketDataDisclaimer", "No authorized NSE real-time or historical feed is configured. No third-party fallback is used.")
+                    .put("marketDataDisclaimer", if (gatewayConfigured()) "Configured provider gateway failed validation; price is unavailable. No fallback is used." else "No authorized NSE real-time or historical feed is configured. No third-party fallback is used.")
             }
         }
         val fundamentalFuture = executor.submit<JSONObject> {
@@ -657,8 +847,13 @@ private class NativeProvider {
             val iter = f.keys()
             while (iter.hasNext()) {
                 val k = iter.next()
-                // Never promote Screener fundamentals to an exchange quote.
-                if (k != "providerError" && !(k == "price" && quote.has("price"))) market.put(k, f.get(k))
+                // Never promote Screener's displayed/last-close price into an exchange-live quote.
+                // Preserve it separately as a reference value so the UI cannot label it as CMP/live.
+                if (k == "price") {
+                    if (!quote.has("price") && !f.isNull(k)) market.put("screenerReferencePrice", f.get(k))
+                } else if (k != "providerError") {
+                    market.put(k, f.get(k))
+                }
             }
         }
         val rows = quote.optJSONArray("rows") ?: JSONArray()
@@ -669,7 +864,7 @@ private class NativeProvider {
         val data = JSONObject().put("symbol", s).put("exchange", selectedExchange).put("name", f.optString("name", stockName(s)))
             .put("quote", quote).put("market", market).put("fundamentals", f).put("history", history)
             .put("ohlcv", rows).put("technicalSeries", rows)
-            .put("dataConfidence", when { quote.has("price") && hasFundamentals -> "PARTIAL — VERIFY SOURCE/TIMESTAMP"; quote.has("price") -> "QUOTE AVAILABLE — NOT GUARANTEED REAL-TIME"; hasFundamentals -> "FUNDAMENTALS ONLY"; else -> "UNAVAILABLE" })
+            .put("dataConfidence", when { quote.has("price") && hasFundamentals -> "PARTIAL — VERIFY SOURCE/TIMESTAMP"; quote.has("price") -> "QUOTE AVAILABLE — NOT GUARANTEED REAL-TIME"; hasFundamentals -> "FUNDAMENTALS ONLY — SCREENER PRICE IS REFERENCE ONLY"; else -> "UNAVAILABLE" })
             .put("dataSources", JSONObject().put("Quote", if (quote.has("providerError")) "UNAVAILABLE" else quote.optString("provider", "Unknown"))
                 .put("History", quote.optString("historyProvider", "Unavailable"))
                 .put("Moneycontrol", "NOT INTEGRATED — NO VERIFIED ACCESS/FEED CONFIGURED")
@@ -685,13 +880,41 @@ private class NativeProvider {
 
     private fun historyData(raw: String, range: String): JSONObject {
         val symbol = canonical(raw)
+        if (gatewayConfigured()) {
+            val data = gatewayGet("/v1/history", mapOf("symbol" to symbol, "range" to range))
+            if (canonical(data.optString("symbol")) != symbol) throw IOException("History provider returned a different symbol; candles rejected")
+            val source = data.optString("source").trim()
+            val asOf = parseGatewayTime(data.optString("asOf"))
+            val historyAgeMs = System.currentTimeMillis() - asOf
+            if (historyAgeMs < -60_000L || historyAgeMs > 10L * 24 * 60 * 60 * 1000)
+                throw IOException("Historical provider timestamp is in the future or too old to verify")
+            val interval = data.optString("interval")
+            if (source.isBlank() || interval !in setOf("1m", "5m", "15m", "1d", "1wk", "1mo")) throw IOException("History payload missing source or valid interval")
+            val inputRows = data.optJSONArray("rows") ?: throw IOException("History payload missing OHLCV rows")
+            val rows = JSONArray()
+            var previousTime = Long.MIN_VALUE
+            for (i in 0 until inputRows.length()) {
+                val row = inputRows.optJSONObject(i) ?: continue
+                val time = parseGatewayTime(row.optString("time"))
+                val o = row.optDouble("open", Double.NaN); val h = row.optDouble("high", Double.NaN)
+                val l = row.optDouble("low", Double.NaN); val c = row.optDouble("close", Double.NaN)
+                val v = row.optDouble("volume", Double.NaN)
+                if (time <= previousTime || !o.isFinite() || !h.isFinite() || !l.isFinite() || !c.isFinite() ||
+                    o <= 0 || h <= 0 || l <= 0 || c <= 0 || h < maxOf(o, c, l) || l > minOf(o, c, h) || !v.isFinite() || v < 0) continue
+                rows.put(JSONObject().put("time", time).put("date", time).put("open", o).put("high", h).put("low", l).put("close", c).put("volume", v))
+                previousTime = time
+            }
+            if (rows.length() < 2) throw IOException("Provider history must contain at least two valid chronological OHLCV candles; partial or malformed history rejected")
+            return JSONObject().put("symbol", symbol).put("rows", rows).put("provider", source)
+                .put("historyProvider", source).put("historyStatus", "VALIDATED_GATEWAY_PAYLOAD")
+                .put("chartMode", "OHLCV").put("statusText", "Provider OHLCV • as of " + data.optString("asOf"))
+                .put("rangeRequested", range).put("interval", interval).put("quoteTimestamp", asOf / 1000L)
+        }
         return JSONObject().put("symbol", symbol).put("rows", JSONArray())
-            .put("provider", "Unavailable")
-            .put("historyStatus", "AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED")
+            .put("provider", "Unavailable").put("historyStatus", "AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED")
             .put("chartMode", "OHLCV")
-            .put("statusText", "Historical candles are unavailable until an authorized NSE historical-data feed is configured. No third-party fallback is used.")
-            .put("rangeRequested", range)
-            .put("quoteTimestamp", JSONObject.NULL)
+            .put("statusText", "Historical candles are unavailable until an authorized provider gateway is configured. No third-party fallback is used.")
+            .put("rangeRequested", range).put("quoteTimestamp", JSONObject.NULL)
     }
 
     private fun htmlEntities(s: String): String = s.replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<")
@@ -756,25 +979,75 @@ private class NativeProvider {
             "NIFTY ENERGY" to "^CNXENERGY", "NIFTY INFRA" to "^CNXINFRA", "NIFTY FIN SERVICE" to "^CNXFINANCE",
             "GOLD FUTURES (GLOBAL)" to "GC=F", "SILVER FUTURES (GLOBAL)" to "SI=F", "BRENT CRUDE (GLOBAL)" to "BZ=F"
         )
-        val out = JSONObject()
-        specs.forEach { (label, _) ->
-            out.put(label, JSONObject().put("value", JSONObject.NULL).put("changePct", JSONObject.NULL)
-                .put("status", "UNAVAILABLE").put("priceSource", "NONE").put("provider", "No quote returned")
-                .put("sourceType", "NO_DATA").put("isExchangeCertifiedRealtime", false)
-                .put("marketDataDisclaimer", "No usable quote returned. Do not use a blank or historical value as a live price."))
+        fun unavailable(status: String, message: String): JSONObject {
+            val out = JSONObject()
+            specs.forEach { (label, _) ->
+                out.put(label, JSONObject().put("value", JSONObject.NULL).put("changePct", JSONObject.NULL)
+                    .put("status", status).put("priceSource", "NONE").put("provider", "No verified quote")
+                    .put("sourceType", "NO_DATA").put("quoteTimestamp", JSONObject.NULL)
+                    .put("isExchangeCertifiedRealtime", false).put("marketDataDisclaimer", message))
+            }
+            return out
         }
-
-        // Fail closed: no historical or third-party fallback is allowed to masquerade as a current index quote.
-        // Keep explicit null values so the UI can show that an authorized feed is not configured.
-        specs.keys.forEach { label ->
-            out.optJSONObject(label)
-                ?.put("status", "AUTHORIZED_NSE_FEED_NOT_CONFIGURED")
-                ?.put("sourceType", "NO_AUTHORIZED_FEED")
-                ?.put("quoteTimestamp", JSONObject.NULL)
-                ?.put("isExchangeCertifiedRealtime", false)
-                ?.put("marketDataDisclaimer", "No authorized NSE real-time feed is configured. No live index value is available.")
+        if (!gatewayConfigured()) return unavailable(
+            "AUTHORIZED_NSE_FEED_NOT_CONFIGURED",
+            "No authorized HTTPS provider gateway is configured. Live index values are unavailable; no third-party fallback is used."
+        )
+        return try {
+            val data = gatewayGet("/v1/indices")
+            val source = data.optString("source").trim()
+            val status = data.optString("marketDataStatus").uppercase(Locale.ROOT)
+            val asOfText = data.optString("asOf")
+            if (source.isBlank()) throw IOException("Index feed source is missing")
+            if (status !in setOf("REALTIME", "DELAYED", "EOD")) throw IOException("Index feed marketDataStatus must be REALTIME, DELAYED or EOD")
+            val asOf = parseGatewayTime(asOfText)
+            val age = System.currentTimeMillis() - asOf
+            if (age < -60_000L) throw IOException("Index feed timestamp is in the future")
+            val maxAge = when (status) {
+                "REALTIME" -> 5 * 60 * 1000L
+                "DELAYED" -> {
+                    if (data.optInt("delayMinutes", 0) <= 0) throw IOException("Delayed index feed must disclose delayMinutes")
+                    24 * 60 * 60 * 1000L
+                }
+                else -> 72 * 60 * 60 * 1000L
+            }
+            if (age > maxAge) throw IOException("Index feed is stale for declared $status status")
+            val rows = data.optJSONArray("rows") ?: throw IOException("Index feed payload missing rows")
+            if (rows.length() == 0) throw IOException("Index feed returned no index rows; snapshot rejected")
+            val byName = mutableMapOf<String, JSONObject>()
+            for (i in 0 until rows.length()) {
+                val row = rows.optJSONObject(i) ?: throw IOException("Index feed row $i is not a JSON object")
+                val name = row.optString("name").trim().uppercase(Locale.ROOT)
+                if (name.isBlank()) throw IOException("Index feed row $i has no index name")
+                if (byName.containsKey(name)) throw IOException("Index feed contains duplicate index name '$name'; snapshot rejected")
+                val value = row.optDouble("value", Double.NaN)
+                val changePct = row.optDouble("changePct", Double.NaN)
+                if (!value.isFinite() || value <= 0.0 || !changePct.isFinite())
+                    throw IOException("Index feed row '$name' has invalid value/changePct; snapshot rejected")
+                byName[name] = row
+            }
+            val out = JSONObject()
+            specs.forEach { (label, _) ->
+                val row = byName[label.uppercase(Locale.ROOT)]
+                if (row == null) {
+                    out.put(label, JSONObject().put("value", JSONObject.NULL).put("changePct", JSONObject.NULL)
+                        .put("status", "INDEX_NOT_RETURNED_BY_AUTHORIZED_PROVIDER").put("priceSource", "NONE")
+                        .put("provider", source).put("sourceType", "NO_DATA").put("quoteTimestamp", asOf / 1000L)
+                        .put("isExchangeCertifiedRealtime", false)
+                        .put("marketDataDisclaimer", "The authorized provider did not return this index. No value is inferred or substituted."))
+                } else {
+                    out.put(label, JSONObject().put("value", row.optDouble("value"))
+                        .put("changePct", row.optDouble("changePct")).put("status", status)
+                        .put("priceSource", source).put("provider", source).put("sourceType", status)
+                        .put("quoteTimestamp", asOf / 1000L).put("quoteAsOf", asOfText)
+                        .put("isExchangeCertifiedRealtime", false)
+                        .put("marketDataDisclaimer", "Provider-declared $status index quote • $source • as of $asOfText. Exchange licensing/SLA must be independently verified."))
+                }
+            }
+            out
+        } catch (e: Exception) {
+            unavailable("PROVIDER_GATEWAY_VALIDATION_FAILED", "Authorized index gateway validation failed: ${e.message ?: "unknown error"}. No fallback is used.")
         }
-        return out
     }
 
     /**
@@ -785,6 +1058,50 @@ private class NativeProvider {
     /** Search is limited to the locally maintained NSE equity suggestions until an authorized security master is configured. */
     private fun equitySearch(term: String, limit: Int = 12): List<JSONObject> = emptyList()
 
+    private fun gatewayEvents(path: String, symbol: String, eventType: String): JSONObject {
+        val params = linkedMapOf("eventType" to eventType.uppercase(Locale.ROOT))
+        if (symbol.isNotBlank()) params["symbol"] = canonical(symbol)
+        val data = gatewayGet(path, params)
+        val source = data.optString("source").trim()
+        val asOfText = data.optString("asOf")
+        val asOf = parseGatewayTime(asOfText)
+        if (source.isBlank()) throw IOException("Event feed source is missing")
+        val age = System.currentTimeMillis() - asOf
+        if (age < -60_000L || age > 72 * 60 * 60 * 1000L) throw IOException("Event feed timestamp is stale or in the future")
+        val input = data.optJSONArray("rows") ?: throw IOException("Event feed payload missing rows")
+        val rows = JSONArray()
+        for (i in 0 until input.length()) {
+            val row = input.optJSONObject(i) ?: continue
+            val kind = row.optString("eventType").uppercase(Locale.ROOT)
+            val title = row.optString("title").trim()
+            val eventDate = row.optString("eventDate")
+            val announced = row.optString("announcedAt")
+            val sym = canonical(row.optString("symbol"))
+            if (kind !in setOf("RESULTS", "DIVIDEND", "SPLIT", "BONUS", "RIGHTS", "BOARD_MEETING", "OTHER")) continue
+            if (title.isBlank() || !Regex("^\\d{4}-\\d{2}-\\d{2}").containsMatchIn(eventDate) || sym.isBlank()) continue
+            try { parseGatewayTime(announced) } catch (_: Exception) { continue }
+            if (symbol.isNotBlank() && sym != canonical(symbol)) continue
+            if (eventType != "ALL" && kind != eventType.uppercase(Locale.ROOT)) continue
+            rows.put(JSONObject()
+                .put("symbol", sym)
+                .put("company", row.optString("company", stockName(sym)))
+                .put("name", row.optString("company", stockName(sym)))
+                .put("date", eventDate)
+                .put("eventDate", eventDate)
+                .put("event", title)
+                .put("title", title)
+                .put("type", kind)
+                .put("eventType", kind)
+                .put("announcedAt", announced)
+                .put("recordDate", row.optString("recordDate", ""))
+                .put("dividend", row.optString("dividend", ""))
+                .put("ratio", row.optString("ratio", "")))
+        }
+        return JSONObject().put("rows", rows).put("provider", source).put("source", source)
+            .put("asOf", asOfText).put("liveData", true)
+            .put("statusText", "Verified provider response • $source • as of $asOfText. Empty results mean no rows were returned, not that no events exist.")
+    }
+
     fun handle(path: String): String {
         val p = path.substringBefore("?")
         val q = parseQuery(path)
@@ -792,16 +1109,16 @@ private class NativeProvider {
         val s = canonical(raw)
         return try {
             when (p) {
-                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.79 NSE-FEED REQUIRED + SCREENER FUNDAMENTALS").put("data", JSONObject().put("ok", true).put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
+                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.80 AUTHORIZED GATEWAY + SCREENER FUNDAMENTALS").put("data", JSONObject().put("ok", true).put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
                 "/api/providers/status" -> JSONObject().put("ok", true).put("data", providerStatus(raw)).toString()
                 "/api/screener/status" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
-                "/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
+                "/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerConnectionTest()).toString()
                 "/api/screener/disconnect" -> JSONObject().put("ok", true).put("data", JSONObject().put("connected", false).put("loggedIn", false).put("message", "Sign out from Screener inside the web page to end the session.")).toString()
                 "/api/search-suggestions" -> {
                     val originalTerm = (q["q"] ?: "").trim()
                     val term = originalTerm.uppercase(Locale.ROOT).replace(Regex("[^A-Z0-9]"), "")
                     val local = stocks.filter { term.isBlank() || it.symbol.contains(term) || it.name.uppercase(Locale.ROOT).replace(Regex("[^A-Z0-9]"), "").contains(term) || (term.contains("INFOSYS") && it.symbol == "INFY") }
-                        .take(12).map { JSONObject().put("symbol", it.symbol).put("name", it.name).put("exchange", "NSE/BSE").put("sector", it.sector).put("provider", "Built-in fallback list") }
+                        .take(12).map { JSONObject().put("symbol", it.symbol).put("name", it.name).put("exchange", "LISTING_UNVERIFIED").put("sector", it.sector).put("provider", "Built-in suggestion list; exchange listing not verified") }
                     val external = if (originalTerm.length >= 2) try { equitySearch(originalTerm, 12) } catch (_: Exception) { emptyList() } else emptyList()
                     val combined = (external + local).distinctBy { it.optString("symbol").uppercase(Locale.ROOT) }.take(12)
                     val arr = JSONArray(); combined.forEach { arr.put(it) }
@@ -811,10 +1128,10 @@ private class NativeProvider {
                 }
                 "/api/quote", "/api/fast" -> {
                     val quote = try { nseQuote(raw) } catch (e: Exception) {
-                        JSONObject().put("symbol", s).put("status", "AUTHORIZED_NSE_FEED_NOT_CONFIGURED")
+                        JSONObject().put("symbol", s).put("status", if (gatewayConfigured()) "PROVIDER_GATEWAY_VALIDATION_FAILED" else "AUTHORIZED_NSE_FEED_NOT_CONFIGURED")
                             .put("provider", "Unavailable").put("price", JSONObject.NULL)
                             .put("quoteTimestamp", JSONObject.NULL)
-                            .put("marketDataDisclaimer", "No authorized NSE real-time feed is configured. No third-party fallback is used.")
+                            .put("marketDataDisclaimer", if (gatewayConfigured()) "Configured provider gateway failed validation; price is unavailable. No fallback is used." else "No authorized NSE real-time feed is configured. No third-party fallback is used.")
                             .put("providerError", e.message ?: "Authorized NSE quote feed unavailable")
                     }
                     quote.put("rows", JSONArray()).put("historyProvider", "Unavailable")
@@ -828,7 +1145,7 @@ private class NativeProvider {
                 "/api/screener-chart" -> JSONObject().put("ok", false).put("error", "Screener.in does not expose a documented chart-data API in this app. No Screener chart data was returned; use the separately labelled historical provider series or open Screener directly.").toString()
                 "/api/analyze", "/api/bootstrap" -> {
                     val data = combined(raw, true)
-                    if (p == "/api/bootstrap") data.put("diagnostics", JSONObject().put("quoteProvider", "NSE public endpoint with disclosed third-party fallback").put("fundamentalProvider", if (data.optJSONObject("fundamentals")?.has("providerError") == true) "Unavailable" else "Screener.in"))
+                    if (p == "/api/bootstrap") data.put("diagnostics", JSONObject().put("quoteProvider", if (gatewayConfigured()) "Authorized gateway configured; each response must pass source/timestamp validation" else "Unavailable — authorized NSE/vendor gateway not configured; no third-party fallback").put("fundamentalProvider", if (data.optJSONObject("fundamentals")?.has("providerError") == true) "Unavailable" else "Screener.in page parser; actual field coverage must be reviewed"))
                     JSONObject().put("ok", true).put("data", data).toString()
                 }
                 "/api/screener/live" -> {
@@ -868,26 +1185,72 @@ private class NativeProvider {
                     val news = try { unavailableNews(raw) } catch (e: Exception) { JSONObject().put("symbol", s).put("news", JSONArray()).put("statusText", "Authorized news source unavailable: ${e.message ?: "provider error"}").put("provider", "Unavailable") }
                     JSONObject().put("ok", true).put("data", news).toString()
                 }
-                "/api/company-events" -> JSONObject().put("ok", true).put("data",
-                    JSONObject().put("symbol", s).put("name", stockName(s)).put("rows", JSONArray())
-                        .put("provider", "Unavailable")
-                        .put("statusText", "Corporate events are unavailable until an authorized NSE/company-filings source is configured. No third-party event fallback is used.")
-                        .put("liveData", false)).toString()
-                "/api/dividend-stocks" -> {
-                    val d = runScreenerQuery("Market Capitalization > 1000 AND Dividend yield > 1 AND Return on capital employed > 10")
-                    val rows = d.optJSONArray("rows") ?: JSONArray()
-                    JSONObject().put("ok", true).put("data", JSONObject().put("rows", rows).put("statusText", "Screener session response parsed; authentication validity and field freshness are not independently certified. First result page only.").put("provider", d.optString("provider", "Screener.in")).put("partial", true)).toString()
+                "/api/company-events" -> {
+                    if (gatewayConfigured()) {
+                        val d = gatewayEvents("/v1/events", s, q["type"] ?: "ALL")
+                        JSONObject().put("ok", true).put("data", d.put("symbol", s).put("name", stockName(s))).toString()
+                    } else JSONObject().put("ok", true).put("data",
+                        JSONObject().put("symbol", s).put("name", stockName(s)).put("rows", JSONArray())
+                            .put("provider", "Unavailable")
+                            .put("statusText", "Corporate events unavailable: configure an authorized HTTPS provider gateway. No events are fabricated.")
+                            .put("liveData", false)).toString()
                 }
-                "/api/upcoming-events" -> JSONObject().put("ok", true).put("data", JSONObject().put("rows", JSONArray())
-                    .put("statusText", "Live calendar data is not embedded because NSE's page is dynamically served and this standalone app has no authorized, stable calendar feed. Open the official NSE event calendar to verify current dates; no events are fabricated.")
-                    .put("provider", "NSE official calendar link").put("officialUrl", "https://www.nseindia.com/companies-listing/corporate-filings-event-calendar")
-                    .put("resultsUrl", "https://www.nseindia.com/companies-listing/corporate-filings-financial-results").put("liveData", false)).toString()
-                "/api/upcoming-results" -> JSONObject().put("ok", true).put("data", JSONObject().put("rows", JSONArray())
-                    .put("sourcesChecked", JSONArray().put("NSE official event calendar URL configured; live extraction not enabled"))
-                    .put("providerErrors", JSONArray().put("Standalone client cannot guarantee stable, authorized NSE calendar extraction"))
-                    .put("statusText", "No dates are inferred. Use the official NSE event calendar for announced board-meeting/result dates and the financial-results filings page for submitted results.")
-                    .put("officialUrl", "https://www.nseindia.com/companies-listing/corporate-filings-event-calendar")
-                    .put("resultsUrl", "https://www.nseindia.com/companies-listing/corporate-filings-financial-results").put("liveData", false)).toString()
+                "/api/dividend-stocks" -> {
+                    if (gatewayConfigured()) {
+                        val d = gatewayGet("/v1/dividends")
+                        val rows = d.optJSONArray("rows") ?: throw IOException("Dividend gateway payload missing rows")
+                        val source = d.optString("source").trim()
+                        val asOfText = d.optString("asOf")
+                        val asOf = parseGatewayTime(asOfText)
+                        val ageMs = System.currentTimeMillis() - asOf
+                        if (source.isBlank() || ageMs < -300_000L || ageMs > 72 * 60 * 60 * 1000L)
+                            throw IOException("Dividend feed source/timestamp is missing, stale or more than 5 minutes in the future")
+                        val numericFields = listOf("CMP Rs.", "Div Yld %", "Mar Cap Rs.Cr.", "ROCE %")
+                        for (i in 0 until rows.length()) {
+                            val row = rows.optJSONObject(i) ?: throw IOException("Dividend row $i is not a JSON object")
+                            if (row.optString("company").isBlank() || row.optString("symbol").isBlank())
+                                throw IOException("Dividend row $i must include company and symbol")
+                            for (field in numericFields) {
+                                if (row.has(field) && !row.isNull(field)) {
+                                    val value = row.optDouble(field, Double.NaN)
+                                    if (!value.isFinite()) throw IOException("Dividend row $i has invalid numeric field '$field'")
+                                    if (field == "CMP Rs." && value <= 0.0) throw IOException("Dividend row $i CMP must be positive")
+                                    if (field == "Div Yld %" && value < 0.0) throw IOException("Dividend row $i dividend yield cannot be negative")
+                                    if (field == "Mar Cap Rs.Cr." && value < 0.0) throw IOException("Dividend row $i market cap cannot be negative")
+                                }
+                            }
+                        }
+                        JSONObject().put("ok", true).put("data", JSONObject().put("rows", rows).put("provider", source)
+                            .put("asOf", d.optString("asOf")).put("liveData", true)
+                            .put("statusText", "Provider dividend candidates • source: $source • as of ${d.optString("asOf")}. Verify official filings before investing.")
+                            .put("partial", d.optBoolean("partial", false))).toString()
+                    } else {
+                        val d = runScreenerQuery("Market Capitalization > 1000 AND Dividend yield > 1 AND Return on capital employed > 10")
+                        val rows = d.optJSONArray("rows") ?: JSONArray()
+                        JSONObject().put("ok", true).put("data", JSONObject().put("rows", rows).put("statusText", "Screener query results only; not a verified live dividend feed. Authentication and freshness are not independently certified.").put("provider", d.optString("provider", "Screener.in")).put("partial", true).put("liveData", false)).toString()
+                    }
+                }
+                "/api/upcoming-events" -> {
+                    if (gatewayConfigured()) JSONObject().put("ok", true).put("data", gatewayEvents("/v1/events", "", "ALL")
+                        .put("officialUrl", "https://www.nseindia.com/companies-listing/corporate-filings-event-calendar")
+                        .put("resultsUrl", "https://www.nseindia.com/companies-listing/corporate-filings-financial-results")).toString()
+                    else JSONObject().put("ok", true).put("data", JSONObject().put("rows", JSONArray())
+                        .put("statusText", "Live calendar unavailable: configure an authorized HTTPS provider gateway. This is not confirmation that no events are scheduled.")
+                        .put("provider", "Unavailable").put("officialUrl", "https://www.nseindia.com/companies-listing/corporate-filings-event-calendar")
+                        .put("resultsUrl", "https://www.nseindia.com/companies-listing/corporate-filings-financial-results").put("liveData", false)).toString()
+                }
+                "/api/upcoming-results" -> {
+                    if (gatewayConfigured()) JSONObject().put("ok", true).put("data", gatewayEvents("/v1/events", "", "RESULTS")
+                        .put("sourcesChecked", JSONArray().put("Configured authorized provider gateway"))
+                        .put("officialUrl", "https://www.nseindia.com/companies-listing/corporate-filings-event-calendar")
+                        .put("resultsUrl", "https://www.nseindia.com/companies-listing/corporate-filings-financial-results")).toString()
+                    else JSONObject().put("ok", true).put("data", JSONObject().put("rows", JSONArray())
+                        .put("sourcesChecked", JSONArray().put("Provider gateway not configured"))
+                        .put("providerErrors", JSONArray().put("Authorized live corporate-actions/results gateway not configured"))
+                        .put("statusText", "Live results calendar is not connected. This is not confirmation that no result dates are scheduled.")
+                        .put("officialUrl", "https://www.nseindia.com/companies-listing/corporate-filings-event-calendar")
+                        .put("resultsUrl", "https://www.nseindia.com/companies-listing/corporate-filings-financial-results").put("liveData", false)).toString()
+                }
                 "/api/cache-clear" -> JSONObject().put("ok", true).put("data", JSONObject().put("cleared", false).put("cacheConfigured", false).put("message", "No persistent provider cache is configured; fresh provider requests will be attempted.")).toString()
                 else -> JSONObject().put("ok", false).put("error", "Mobile API endpoint not implemented: $p").toString()
             }

@@ -20,6 +20,29 @@ class CsvImportTests(unittest.TestCase):
         self.assertEqual(row["fields"]["pe"], 25.4)
         self.assertEqual(row["fields"]["eps"], 55)
 
+    def test_screener_snapshot_maps_reference_ratio_fields(self):
+        code = r'''const p=require("./app/src/main/assets/csv-import.js"); const x=p.parseImportCsv("Name,NSE Code,Current Price,Market Capitalization,Stock P/E,Book Value,Dividend Yield,ROCE,ROE,Face Value,Industry PE,Piotroski Score,PEG Ratio,200 DMA,Promoter holding,Public holding,RSI,52 Week High,52 Week Low,Profit Var 3Yrs\nTata Consultancy Services,TCS,2465,891859,16.3,329,2.6,63,51.8,1,19.8,4,2.18,2463,71.8,5.69,73.5,3350,1976,7.5",{source:"Screener.in CSV"}); console.log(JSON.stringify(x.records[0]));'''
+        row = self.run_js(code)
+        f = row["fields"]
+        self.assertEqual(row["symbol"], "TCS")
+        self.assertEqual(f["price"], 2465)
+        self.assertEqual(f["marketCap"], 891859)
+        self.assertEqual(f["faceValue"], 1)
+        self.assertEqual(f["piotroski"], 4)
+        self.assertEqual(f["peg"], 2.18)
+        self.assertEqual(f["dma200"], 2463)
+        self.assertEqual(f["public"], 5.69)
+        self.assertEqual(f["rsi14"], 73.5)
+        self.assertEqual(f["high52"], 3350)
+        self.assertEqual(f["low52"], 1976)
+        self.assertEqual(f["profitVariance3y"], 7.5)
+
+    def test_invalid_rsi_and_piotroski_are_rejected(self):
+        code = r'''const p=require("./app/src/main/assets/csv-import.js"); console.log(JSON.stringify({rsi:p.strictNumber("101","RSI","rsi14","Screener.in CSV"),piotroski:p.strictNumber("10","Piotroski Score","piotroski","Screener.in CSV")}));'''
+        row = self.run_js(code)
+        self.assertIsNone(row["rsi"])
+        self.assertIsNone(row["piotroski"])
+
     def test_quoted_commas_and_newlines_are_parsed(self):
         code = r'''const p=require("./app/src/main/assets/csv-import.js"); console.log(JSON.stringify(p.parseCsv('Name,NSE Code,Notes\r\n"Infosys, Ltd",INFY,"first line\nsecond line"')));'''
         x = self.run_js(code)
