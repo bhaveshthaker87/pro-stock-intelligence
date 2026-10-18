@@ -347,5 +347,12 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn('Corporate events unavailable: configure an authorized HTTPS provider gateway', source)
 
 
+    def test_index_snapshot_rejects_empty_duplicate_and_invalid_rows(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("Index feed returned no index rows; snapshot rejected", source)
+        self.assertIn("Index feed contains duplicate index name", source)
+        self.assertIn("has invalid value/changePct; snapshot rejected", source)
+
+
 if __name__ == "__main__":
     unittest.main()
