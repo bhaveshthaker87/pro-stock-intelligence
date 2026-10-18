@@ -92,6 +92,11 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn('.put("qualityFlags", qualityFlags)', source)
         self.assertIn('"PAGE_VALIDATED_LOW_COVERAGE"', source)
 
+    def test_provider_realtime_claim_never_implies_exchange_certification(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn('.put("isExchangeCertifiedRealtime", false)', source)
+        self.assertNotIn('.put("isExchangeCertifiedRealtime", status == "REALTIME")', source)
+
     def test_quote_quality_does_not_infer_quote_time_from_response_time(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("UNVERIFIED_NO_PROVIDER_QUOTE_TIMESTAMP", source)
