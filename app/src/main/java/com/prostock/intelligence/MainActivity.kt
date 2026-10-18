@@ -672,7 +672,10 @@ private class NativeProvider {
             else -> "Tap to sign in to Screener inside this app. After login, return with the Android Back button."
         }
         return JSONObject().put("connected", active).put("loggedIn", active).put("cookieDetected", cookieDetected)
-            .put("blockedBy403", blocked).put("validated", false)
+            .put("blockedBy403", blocked).put("validated", false).put("requestValidated", false)
+            .put("status", if (blocked) "HTTP_403_FORBIDDEN" else if (cookieDetected) "SESSION_UNVERIFIED" else "LOGIN_REQUIRED")
+            .put("httpStatus", if (blocked) 403 else JSONObject.NULL)
+            .put("recommendedAction", if (blocked) "Use a permitted Screener CSV export or request authorized API access. Do not retry automated scraping." else "Sign in, then validate access with a permitted request or import an authorized CSV.")
             .put("loginUrl", if (active) JSONObject.NULL else "https://www.screener.in/login/")
             .put("message", message)
     }
