@@ -31,6 +31,9 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("private fun equitySearch", source)
         self.assertIn("Local symbol list only; broad search unavailable", source)
         self.assertIn("not a complete official NSE/BSE security master", source)
+        self.assertIn('"exchange", "LISTING_UNVERIFIED"', source)
+        self.assertIn("exchange listing not verified", source)
+        self.assertNotIn("NSE public endpoint with disclosed third-party fallback", source)
 
     def test_ui_and_native_engine_versions_match(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
