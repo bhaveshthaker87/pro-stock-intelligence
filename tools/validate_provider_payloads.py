@@ -81,7 +81,15 @@ def validate_history(payload):
     return {"kind":"history", "symbol":payload["symbol"].upper(), "bars":len(rows), "interval":interval}
 
 def validate_events(payload):
-    base(payload)
+    # Global corporate-event calendars may omit a top-level symbol; individual
+    # event rows must still identify the company they belong to.
+    for k in ("source", "asOf"):
+        if not isinstance(payload.get(k), str) or not payload[k].strip():
+            raise ValueError(f"{k} is required and must be a non-empty string")
+    parse_time(payload["asOf"], "asOf")
+    symbol=payload.get("symbol")
+    if symbol is not None and (not isinstance(symbol, str) or not symbol.strip()):
+        raise ValueError("symbol must be a non-empty string when provided")
     rows=payload.get("rows")
     if not isinstance(rows,list): raise ValueError("rows must be an array; empty array means unknown/none returned, not verified absence")
     for i,row in enumerate(rows):
@@ -95,7 +103,7 @@ def validate_events(payload):
             raise ValueError(f"rows[{i}].eventDate must be an ISO date or timestamp")
         try: datetime.fromisoformat(event_date[:10])
         except ValueError as exc: raise ValueError(f"rows[{i}].eventDate must begin with YYYY-MM-DD") from exc
-    return {"kind":"events", "symbol":payload["symbol"].upper(), "eventsReturned":len(rows), "absenceVerified":False}
+    return {"kind":"events", "symbol":symbol.upper() if symbol else None, "eventsReturned":len(rows), "absenceVerified":False}
 
 def validate_freshness(payload, now=None, status_key="marketDataStatus"):
     status=payload.get(status_key)
