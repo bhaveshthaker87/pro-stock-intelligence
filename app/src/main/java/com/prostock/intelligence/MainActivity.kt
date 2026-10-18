@@ -643,13 +643,16 @@ private class NativeProvider {
     }
 
     private fun screenerCookieHeader(): String {
-        val manager = CookieManager.getInstance()
-        return listOf(
-            manager.getCookie("https://www.screener.in"),
-            manager.getCookie("https://screener.in")
-        ).filterNotNull().flatMap { it.split(";") }
-            .map { it.trim() }.filter { it.contains("=") && !it.startsWith("=") }
-            .distinctBy { it.substringBefore("=") }.joinToString("; ")
+        // Match the same canonical host/path used by screener(raw). Never combine
+        // cookies from www and bare-domain jars: duplicate sessionid values can
+        // make status checks look authenticated while the actual request is denied.
+        return CookieManager.getInstance()
+            .getCookie("https://www.screener.in/company/INFY/")
+            .orEmpty()
+            .split(";")
+            .map { it.trim() }
+            .filter { it.contains("=") && !it.startsWith("=") }
+            .joinToString("; ")
     }
 
     private fun screenerLoggedIn(): Boolean {
