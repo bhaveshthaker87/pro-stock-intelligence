@@ -347,6 +347,12 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn('Corporate events unavailable: configure an authorized HTTPS provider gateway', source)
 
 
+    def test_gateway_configuration_is_not_mislabeled_as_health_verified(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("GATEWAY_URL_CONFIGURED_SCREENER_VALIDATED_GATEWAY_HEALTH_UNVERIFIED", source)
+        self.assertIn("GATEWAY_URL_CONFIGURED_NOT_HEALTH_CHECKED", source)
+        self.assertNotIn('"GATEWAY_CONFIGURED_AND_SCREENER_VALIDATED"', source)
+
     def test_index_snapshot_rejects_empty_duplicate_and_invalid_rows(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("Index feed returned no index rows; snapshot rejected", source)
