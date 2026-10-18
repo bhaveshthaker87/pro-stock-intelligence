@@ -341,17 +341,19 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn("strictly increasing", validator)
 
     def test_workflow_checks_foreground_activity_and_least_privilege(self):
-        workflow = (Path(__file__).parents[1] / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
+        root = Path(__file__).parents[1]
+        workflow = (root / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
+        script = (root / ".github/scripts/android-smoke-test.sh").read_text(encoding="utf-8")
         self.assertIn("contents: read", workflow)
         # APK artifacts are uploaded before emulator validation, so device instability
-        # cannot prevent artifact publication. Reject shell/PTY screenshot capture, but
-        # allow binary-safe exec-out capture followed by PNG signature validation.
-        self.assertIn("dumpsys activity activities", workflow)
-        self.assertIn("com.prostock.intelligence/.MainActivity", workflow)
-        self.assertNotIn("adb shell pidof com.prostock.intelligence", workflow)
-        self.assertNotIn("adb shell screencap -p", workflow)
-        self.assertIn("adb exec-out screencap -p", workflow)
-        self.assertIn("Valid emulator screenshot", workflow)
+        # cannot prevent artifact publication. Keep emulator assertions against the
+        # dedicated script rather than requiring its implementation inside YAML.
+        self.assertIn("dumpsys activity activities", script)
+        self.assertIn("com.prostock.intelligence/.MainActivity", script)
+        self.assertNotIn("adb shell pidof com.prostock.intelligence", script)
+        self.assertNotIn("adb shell screencap -p", script)
+        self.assertIn("adb exec-out screencap -p", script)
+        self.assertIn("Valid emulator screenshot", script)
         self.assertIn("Upload APK and checksum", workflow)
         self.assertIn("api-level: 34", workflow)
         self.assertIn("emulator-boot-timeout: 900", workflow)
