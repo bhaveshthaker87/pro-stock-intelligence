@@ -113,6 +113,8 @@ body{background:linear-gradient(180deg,#eef5fa,#f8fbfd);color:var(--text)}
  .researchMetric{min-width:0!important;overflow-wrap:anywhere!important;padding:10px!important}
  .researchMetric b{font-size:16px!important;line-height:1.35!important;overflow-wrap:anywhere!important}
 }
+/* V40.81 compact no-data chart state */
+@media(max-width:760px){.tvpane{height:auto!important;min-height:0!important}.pricepane .canvas{height:150px!important;max-height:150px!important}.rsipane .rsi{height:65px!important;max-height:65px!important}.tvfooter{font-size:10px!important;line-height:1.35!important;flex-wrap:wrap!important}.tvtimebar{flex-wrap:wrap!important}.tvtimeleft{flex-wrap:wrap!important}.tvindicator{font-size:10px!important;line-height:1.35!important}}
 </style>
 <style id="v40-7-query-polish">
 .querySection{border-radius:14px;padding:14px;background:linear-gradient(180deg,#fff,#f8fbff)}
@@ -1188,7 +1190,11 @@ async function loadChart(range, options={}){
     const lastBar=rows[rows.length-1];const barTime=Number(lastBar?.time||lastBar?.date||0);const barMs=barTime>0?(barTime<1e12?barTime*1000:barTime):0;const barStamp=barMs?new Date(barMs).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'}):'timestamp unavailable';$('chartStatus').textContent=(d.provider||'Unknown provider')+' • '+rows.length+' bars • last bar '+barStamp+' • NOT certified exchange-live'+(range==='1d'?' • 60s refresh enabled while app is visible (provider delay possible)':'')+(d.historyWarning?' • '+d.historyWarning:'');return true;
   }catch(e){
     if(token!==analysisToken)return;
-    $('chartStatus').textContent=e.message||'Chart data unavailable';toast(e.message||'Chart history unavailable');return false;
+    // Never leave the prior symbol/range chart visible after a failed refresh.
+    window.chartRows=[];window.chartView={...(window.chartView||{}),start:0,end:-1,crosshair:null};
+    drawPriceChart([]);drawRSI([]);updateTechnicalFromRows([]);
+    $('chartStatus').textContent='NO VERIFIED CHART DATA · '+(e.message||'Configured provider unavailable')+' · No synthetic candles are shown.';
+    return false;
   }
 }
 
