@@ -22,8 +22,10 @@ function strictNumber(raw,header,key,source){
  if(!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(s))return null;let n=Number(s);if(!Number.isFinite(n))return null;if(neg)n=-Math.abs(n);
  if(key==='marketCap'){const h=norm(header);const hasUnit=/cr|crore/.test(h)||hasCr||suffixCr;const knownScreener=source==='Screener.in CSV'&&/marketcapitalization|marketcap/.test(h);if(!hasUnit&&!knownScreener)return null;}
  if(['netProfit','operatingProfit'].includes(key)&&!/cr|crore/i.test(header)&&!hasCr&&!suffixCr&&source!=='Screener.in CSV')return null;
- if(['price','marketCap','bookValue'].includes(key)&&n<=0)return null;
- if(['dividendYield','roce','roe','opm','sales3y','profit3y','promoter','pledged'].includes(key)&&Math.abs(n)>1000)return null;
+ if(['price','marketCap','bookValue','faceValue','high52','low52','dma50','dma200'].includes(key)&&n<=0)return null;
+ if(['dividendYield','roce','roe','opm','sales3y','profit3y','promoter','pledged','public','rsi14'].includes(key)&&(n<0||n>100))return null;
+ if(key==='piotroski'&&(n<0||n>9||!Number.isInteger(n)))return null;
+ if(key==='peg'&&n<0)return null;
  if(key==='volume'&&n<0)return null;return n;
 }
 const fields=[
@@ -59,7 +61,7 @@ const fields=[
 ];
 function findIndex(headers,names){const norms=headers.map(norm);for(const n of names){const i=norms.findIndex(x=>x===n);if(i>=0)return i;}return -1;}
 function parseDate(s){const v=String(s??'').trim();if(!v)return null;let d=new Date(v);if(Number.isFinite(d.getTime()))return d.getTime();let m=v.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);if(m){d=new Date(Number(m[3]),Number(m[2])-1,Number(m[1]));return Number.isFinite(d.getTime())?d.getTime():null;}m=v.match(/^(\d{1,2})[-\s]([A-Za-z]{3})[-\s](\d{4})$/);if(m){d=new Date(`${m[2]} ${m[1]}, ${m[3]} 00:00:00`);return Number.isFinite(d.getTime())?d.getTime():null;}return null;}
-function unitFor(key,header,source){if(key==='marketCap'||['netProfit','operatingProfit'].includes(key))return (/cr|crore/i.test(header)||(source==='Screener.in CSV'&&/marketcapitalization|marketcap|netprofit|operatingprofit/.test(norm(header))))?'INR_CRORE':'PROVIDER_UNIT_NOT_VERIFIED';if(['price','eps','bookValue'].includes(key))return 'INR_PER_SHARE';if(['dividendYield','roce','roe','opm','sales3y','profit3y','promoter','pledged'].includes(key))return 'PERCENT';if(['pe','industryPE','debtEquity','currentRatio','interestCoverage'].includes(key))return 'RATIO';return 'PROVIDER_UNIT_NOT_VERIFIED';}
+function unitFor(key,header,source){if(key==='marketCap'||['netProfit','operatingProfit'].includes(key))return (/cr|crore/i.test(header)||(source==='Screener.in CSV'&&/marketcapitalization|marketcap|netprofit|operatingprofit/.test(norm(header))))?'INR_CRORE':'PROVIDER_UNIT_NOT_VERIFIED';if(['price','eps','bookValue','faceValue','high52','low52','dma50','dma200'].includes(key))return 'INR_PER_SHARE';if(['dividendYield','roce','roe','opm','sales3y','profit3y','promoter','pledged','public','profitVariance3y'].includes(key))return 'PERCENT';if(['pe','industryPE','debtEquity','currentRatio','interestCoverage','peg'].includes(key))return 'RATIO';if(key==='rsi14')return 'INDEX_0_100';if(key==='piotroski')return 'SCORE_0_9';return 'PROVIDER_UNIT_NOT_VERIFIED';}
 function parseImportCsv(text,opts){
  opts=opts||{};const source=String(opts.source||'User CSV');const parsed=parseCsv(text);const headers=parsed.headers;const idx=(names)=>findIndex(headers,names);
  const symbolI=idx(['nsecode','nsesymbol','symbol','ticker','exchangecode','nse']);const bseI=idx(['bsecode','bsesymbol']);const periodI=idx(['period','reportingperiod','fiscalperiod','financialyear','fy','asofperiod']);
