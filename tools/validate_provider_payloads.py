@@ -55,12 +55,16 @@ def validate_quote(payload, now=None):
     age=(now-asof).total_seconds()
     if age > FRESHNESS_SECONDS[status]:
         raise ValueError(f"quote is stale for declared {status} status ({int(age)} seconds old)")
-    if status == "DELAYED" and (not isinstance(payload.get("delayMinutes"), int) or payload["delayMinutes"] <= 0):
+    if status == "DELAYED" and (not isinstance(payload.get("delayMinutes"), int) or isinstance(payload.get("delayMinutes"), bool) or payload["delayMinutes"] <= 0):
         raise ValueError("DELAYED quotes require a positive integer delayMinutes")
     return {"kind":"quote", "symbol":payload["symbol"].upper(), "status":status, "ageSeconds":int(max(0,age))}
 
-def validate_history(payload):
+def validate_history(payload, now=None):
     base(payload)
+    asof=parse_time(payload["asOf"], "asOf")
+    now=now or datetime.now(timezone.utc)
+    if (asof-now).total_seconds() > 300:
+        raise ValueError("asOf is more than 5 minutes in the future")
     rows=payload.get("rows")
     if not isinstance(rows,list) or len(rows)<2: raise ValueError("history.rows must contain at least two bars")
     interval=payload.get("interval")
@@ -70,6 +74,8 @@ def validate_history(payload):
         if not isinstance(row,dict): raise ValueError(f"rows[{i}] must be an object")
         dt=parse_time(row.get("time"), f"rows[{i}].time")
         if previous is not None and dt <= previous: raise ValueError("history timestamps must be strictly increasing with no duplicates")
+        if dt > asof and (dt-asof).total_seconds() > 300:
+            raise ValueError(f"rows[{i}].time is after the history asOf timestamp")
         previous=dt
         vals={k:row.get(k) for k in ("open","high","low","close","volume")}
         for k,v in vals.items():
