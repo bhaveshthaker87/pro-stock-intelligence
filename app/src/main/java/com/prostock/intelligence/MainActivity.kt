@@ -771,7 +771,7 @@ private class NativeProvider {
                 .put("requiredRoutes", JSONArray().put("/v1/quote").put("/v1/history").put("/v1/indices").put("/v1/events").put("/v1/dividends"))
                 .put("status", if (gatewayConfigured()) "URL_CONFIGURED_LIVE_HEALTH_CHECK_PENDING" else "NOT_CONFIGURED")
                 .put("message", if (gatewayConfigured()) "HTTPS gateway URL configured. Actual quote/history/event payloads are validated when requested." else "Configure Gradle property providerGatewayBaseUrl and deploy a licensed provider adapter. Vendor credentials must remain server-side."))
-            .put("overall", if (gatewayConfigured() && screener.optBoolean("requestValidated", false)) "GATEWAY_CONFIGURED_AND_SCREENER_VALIDATED" else "PARTIAL_PROVIDER_COVERAGE_NOT_ALL_SOURCES_LIVE")
+            .put("overall", when { gatewayConfigured() && screener.optBoolean("requestValidated", false) -> "GATEWAY_URL_CONFIGURED_SCREENER_VALIDATED_GATEWAY_HEALTH_UNVERIFIED"; gatewayConfigured() -> "GATEWAY_URL_CONFIGURED_NOT_HEALTH_CHECKED"; screener.optBoolean("requestValidated", false) -> "SCREENER_VALIDATED_AUTHORIZED_GATEWAY_NOT_CONFIGURED"; else -> "PARTIAL_PROVIDER_COVERAGE_NOT_ALL_SOURCES_LIVE" })
     }
 
     private fun coreCoverage(f: JSONObject): JSONObject {
