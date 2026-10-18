@@ -242,15 +242,11 @@ private class NativeProvider {
         val host = URL(url).host.lowercase(Locale.ROOT)
         if (host == "screener.in" || host.endsWith(".screener.in")) {
             c.setRequestProperty("Referer", "https://www.screener.in/")
-            // WebView may store host-only and parent-domain cookies differently.
-            val manager = CookieManager.getInstance()
-            val cookieParts = listOf(
-                manager.getCookie("https://www.screener.in"),
-                manager.getCookie("https://screener.in")
-            ).filterNotNull().flatMap { it.split(";") }
-                .map { it.trim() }.filter { it.contains("=") && !it.startsWith("=") }
-                .distinctBy { it.substringBefore("=") }
-            if (cookieParts.isNotEmpty()) c.setRequestProperty("Cookie", cookieParts.joinToString("; "))
+            // Use the cookie jar for the exact request host. Merging cookies from
+            // www and the bare domain can select a stale duplicate sessionid and cause 403.
+            // CookieManager already applies domain/path rules for this URL.
+            val cookie = CookieManager.getInstance().getCookie(url)
+            if (!cookie.isNullOrBlank()) c.setRequestProperty("Cookie", cookie)
         }
         try {
             val code = c.responseCode
@@ -261,13 +257,14 @@ private class NativeProvider {
             }
             if (code == 403 && (host == "screener.in" || host.endsWith(".screener.in"))) {
                 screener403Observed = true
+                val finalHost = runCatching { c.url.host.lowercase(Locale.ROOT) }.getOrDefault(host)
                 val responseKind = when {
                     Regex("""(?is)<title[^>]*>.*?(login|sign in).*?</title>|name=["']password["']""").containsMatchIn(body) -> "login page returned"
                     Regex("(?is)cloudflare|captcha|access denied|request blocked|security check").containsMatchIn(body) -> "security/access-control page returned"
                     body.isBlank() -> "empty denial response"
                     else -> "server denied the request"
                 }
-                throw IOException("Screener HTTP 403 Forbidden ($responseKind). The server rejected this request despite any stored session cookie. This app will not bypass access controls. Use Screener's permitted CSV export or request authorized API/data access.")
+                throw IOException("Screener HTTP 403 Forbidden ($responseKind; final host $finalHost). Session cookie was taken from the exact request URL to avoid stale duplicate cookies. If this persists, the account/session or server access policy is rejecting this request; use the permitted CSV export or authorized data access.")
             }
             if (code == 401 && (host == "screener.in" || host.endsWith(".screener.in"))) {
                 throw IOException("Screener returned HTTP 401. Tap Screener Login, sign in again, return to the app and retry.")
