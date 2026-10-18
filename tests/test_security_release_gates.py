@@ -50,11 +50,14 @@ class SecurityReleaseGateTests(unittest.TestCase):
         self.assertIn('No provider API key is present in source or built APK', self.provider_doc)
 
     def test_ci_build_lint_emulator_and_screenshot_checks_are_mandatory(self):
+        script = (Path(__file__).parents[1] / ".github/scripts/android-smoke-test.sh").read_text(encoding="utf-8")
         for required in ('gradle :app:assembleDebug', 'gradle :app:lintDebug',
-                         'reactivecircus/android-emulator-runner@v2',
-                         'adb exec-out screencap -p > app/build/outputs/psi-emulator.png',
-                         'test -s app/build/outputs/psi-emulator.png'):
+                         'reactivecircus/android-emulator-runner@v2'):
             self.assertIn(required, self.workflow)
+        for required in ('adb exec-out screencap -p > app/build/outputs/psi-emulator.png',
+                         'test -s app/build/outputs/psi-emulator.png',
+                         'Valid emulator screenshot'):
+            self.assertIn(required, script)
 
 if __name__ == '__main__':
     unittest.main()
