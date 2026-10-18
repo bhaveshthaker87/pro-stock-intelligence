@@ -61,8 +61,8 @@ class ReleaseRegressionTests(unittest.TestCase):
 
     def test_screener_session_cookie_checks_both_hosts_and_surfaces_parse_error(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn('manager.getCookie("https://www.screener.in")', source)
-        self.assertIn('manager.getCookie("https://screener.in")', source)
+        self.assertIn('CookieManager.getInstance().getCookie(url)', source)
+        self.assertIn("avoid stale duplicate cookies", source)
         self.assertIn("private fun screenerCookieHeader()", source)
         self.assertIn("Screener HTTP 403 Forbidden", source)
         self.assertIn('f.optString("providerError")', source)
@@ -295,6 +295,16 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn('"HTTP_403_FORBIDDEN"', status)
         self.assertIn('put("httpStatus", if (blocked) 403', status)
         self.assertIn('put("recommendedAction"', status)
+
+
+    def test_screener_request_uses_exact_host_cookie_not_merged_sessions(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        start = source.index("private fun get(url: String)")
+        end = source.index("private fun finite", start)
+        request = source[start:end]
+        self.assertIn("CookieManager.getInstance().getCookie(url)", request)
+        self.assertNotIn('manager.getCookie("https://screener.in")', request)
+        self.assertIn("avoid stale duplicate cookies", request)
 
 
 if __name__ == "__main__":
