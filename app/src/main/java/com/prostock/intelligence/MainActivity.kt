@@ -382,7 +382,7 @@ private class NativeProvider {
             .put("provider", source).put("source", source).put("status", status)
             .put("marketDataStatus", status).put("quoteTimestamp", asOf / 1000L)
             .put("quoteAsOf", data.optString("asOf")).put("rows", JSONArray())
-            .put("isExchangeCertifiedRealtime", status == "REALTIME")
+            .put("isExchangeCertifiedRealtime", false) // A gateway status claim is not proof of exchange certification.
             .put("marketDataDisclaimer", if (status == "REALTIME") "Provider-declared real-time quote; licensing and SLA must be verified at gateway." else "Quote is $status, not real-time. Use its disclosed timestamp and status.")
     }
 
