@@ -995,13 +995,17 @@ private class NativeProvider {
             }
             if (age > maxAge) throw IOException("Index feed is stale for declared $status status")
             val rows = data.optJSONArray("rows") ?: throw IOException("Index feed payload missing rows")
+            if (rows.length() == 0) throw IOException("Index feed returned no index rows; snapshot rejected")
             val byName = mutableMapOf<String, JSONObject>()
             for (i in 0 until rows.length()) {
-                val row = rows.optJSONObject(i) ?: continue
+                val row = rows.optJSONObject(i) ?: throw IOException("Index feed row $i is not a JSON object")
                 val name = row.optString("name").trim().uppercase(Locale.ROOT)
+                if (name.isBlank()) throw IOException("Index feed row $i has no index name")
+                if (byName.containsKey(name)) throw IOException("Index feed contains duplicate index name '$name'; snapshot rejected")
                 val value = row.optDouble("value", Double.NaN)
                 val changePct = row.optDouble("changePct", Double.NaN)
-                if (name.isBlank() || !value.isFinite() || value <= 0.0 || !changePct.isFinite()) continue
+                if (!value.isFinite() || value <= 0.0 || !changePct.isFinite())
+                    throw IOException("Index feed row '$name' has invalid value/changePct; snapshot rejected")
                 byName[name] = row
             }
             val out = JSONObject()
