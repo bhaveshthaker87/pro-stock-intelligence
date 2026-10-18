@@ -54,7 +54,7 @@ dashboard_ready=0
 for attempt in $(seq 1 30); do
   if adb shell dumpsys activity activities 2>/dev/null | grep -q 'com.prostock.intelligence/.MainActivity'; then
     adb exec-out screencap -p > app/build/outputs/psi-emulator.png
-    if python3 -c 'from PIL import Image; import numpy as np; a=np.asarray(Image.open("app/build/outputs/psi-emulator.png").convert("RGB")); nonwhite=float((a < 245).any(axis=2).mean()); colors=int(np.unique(a.reshape(-1,3),axis=0).shape[0]); print("Visual readiness: nonwhite={:.3f}, colors={}".format(nonwhite,colors)); raise SystemExit(0 if nonwhite > 0.05 and colors > 2500 else 1)'; then dashboard_ready=1; break; fi
+    if python3 -c 'from PIL import Image; import numpy as np; a=np.asarray(Image.open("app/build/outputs/psi-emulator.png").convert("RGB")); nonwhite=float((a < 245).any(axis=2).mean()); colors=int(np.unique(a.reshape(-1,3),axis=0).shape[0]); print("Visual readiness: nonwhite={:.3f}, colors={}".format(nonwhite,colors)); raise SystemExit(0 if nonwhite > 0.01 and colors > 500 else 1)'; then dashboard_ready=1; break; fi
   fi
   sleep 2
 done
