@@ -150,6 +150,8 @@ jobs:
           python3 tools/validate_provider_payloads.py quote /tmp/psi-provider/quote.json
           python3 tools/validate_provider_payloads.py history /tmp/psi-provider/history.json
           python3 tools/validate_provider_payloads.py events /tmp/psi-provider/events.json
+          python3 tools/validate_provider_payloads.py indices /tmp/psi-provider/indices.json
+          python3 tools/validate_provider_payloads.py dividends /tmp/psi-provider/dividends.json
 
       # Publish the APK immediately after a successful build; emulator validation is intentionally separate so an unstable virtual device cannot block delivery.
       - name: Build debug APK
