@@ -91,6 +91,7 @@ jobs:
           while IFS= read -r -d '' file; do
             node --check "$file"
           done < <(find /tmp/psi-js -type f -name '*.js' -print0)
+          node --check app/src/main/assets/csv-import.js
 
       - name: Install browser-test dependencies
         shell: bash
@@ -99,18 +100,84 @@ jobs:
           python3 -m pip install --upgrade pip playwright
           python3 -m playwright install --with-deps chromium
 
+      - name: Compile Python tests before execution
+        run: python -m compileall -q tests tools
+
       - name: Run project unit and UI smoke tests
         shell: bash
         run: |
           set -euo pipefail
           python3 -m unittest discover -s tests -v
 
+      # Live validation runs only when an HTTPS gateway URL is explicitly configured.
+      # Vendor credentials belong on the gateway server and must never be GitHub build args or APK resources.
+      - name: Validate configured authorized provider gateway
+        shell: bash
+        env:
+          PROVIDER_GATEWAY_BASE_URL: ${{ vars.PROVIDER_GATEWAY_BASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PROVIDER_GATEWAY_BASE_URL:-}" ]; then
+            echo "::notice::Live provider E2E test skipped: repository variable PROVIDER_GATEWAY_BASE_URL is not configured. No live-feed pass is claimed."
+            exit 0
+          fi
+          case "$PROVIDER_GATEWAY_BASE_URL" in https://*) ;; *) echo "Gateway URL must use HTTPS."; exit 1;; esac
+          mkdir -p /tmp/psi-provider
+          curl --fail --silent --show-error --max-time 15 "$PROVIDER_GATEWAY_BASE_URL/v1/quote?symbol=INFY" -o /tmp/psi-provider/quote.json
+          curl --fail --silent --show-error --max-time 20 "$PROVIDER_GATEWAY_BASE_URL/v1/history?symbol=INFY&range=1y" -o /tmp/psi-provider/history.json
+          curl --fail --silent --show-error --max-time 15 "$PROVIDER_GATEWAY_BASE_URL/v1/events?eventType=ALL" -o /tmp/psi-provider/events.json
+          curl --fail --silent --show-error --max-time 15 "$PROVIDER_GATEWAY_BASE_URL/v1/dividends" -o /tmp/psi-provider/dividends.json
+          curl --fail --silent --show-error --max-time 15 "$PROVIDER_GATEWAY_BASE_URL/v1/indices" -o /tmp/psi-provider/indices.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("/tmp/psi-provider")
+          for name in ("quote", "history", "events", "dividends", "indices"):
+              p = json.loads((root / f"{name}.json").read_text(encoding="utf-8"))
+              if isinstance(p.get("data"), dict): p = p["data"]
+              (root / f"{name}.json").write_text(json.dumps(p), encoding="utf-8")
+          p = json.loads((root / "indices.json").read_text(encoding="utf-8"))
+          if not isinstance(p.get("source"), str) or not p["source"].strip(): raise SystemExit("Index payload missing source")
+          if not isinstance(p.get("asOf"), str) or not p["asOf"].strip(): raise SystemExit("Index payload missing asOf timestamp")
+          if p.get("marketDataStatus") not in {"REALTIME", "DELAYED", "EOD"}: raise SystemExit("Index payload missing valid marketDataStatus")
+          if not isinstance(p.get("rows"), list): raise SystemExit("Index payload rows must be an array")
+          p = json.loads((root / "dividends.json").read_text(encoding="utf-8"))
+          if not isinstance(p.get("source"), str) or not p["source"].strip(): raise SystemExit("Dividend payload missing source")
+          if not isinstance(p.get("asOf"), str) or not p["asOf"].strip(): raise SystemExit("Dividend payload missing asOf timestamp")
+          if not isinstance(p.get("rows"), list): raise SystemExit("Dividend payload rows must be an array")
+          print("Index/dividend payload contracts valid.")
+          PY
+          python3 tools/validate_provider_payloads.py quote /tmp/psi-provider/quote.json
+          python3 tools/validate_provider_payloads.py history /tmp/psi-provider/history.json
+          python3 tools/validate_provider_payloads.py events /tmp/psi-provider/events.json
+          python3 tools/validate_provider_payloads.py indices /tmp/psi-provider/indices.json
+          python3 tools/validate_provider_payloads.py dividends /tmp/psi-provider/dividends.json
+
       # Publish the APK immediately after a successful build; emulator validation is intentionally separate so an unstable virtual device cannot block delivery.
       - name: Build debug APK
         shell: bash
+        env:
+          PROVIDER_GATEWAY_BASE_URL: ${{ vars.PROVIDER_GATEWAY_BASE_URL }}
         run: |
           set -euo pipefail
-          gradle --no-daemon :app:assembleDebug --stacktrace
+          # Maven Central can temporarily throttle hosted runners (HTTP 429).
+          # Retry dependency resolution/build with bounded backoff; never mask a persistent compile failure.
+          attempt=1
+          max_attempts=3
+          while [ "$attempt" -le "$max_attempts" ]; do
+            echo "APK build attempt $attempt/$max_attempts"
+            if gradle :app:assembleDebug --no-daemon --stacktrace -PproviderGatewayBaseUrl="${PROVIDER_GATEWAY_BASE_URL:-}"; then
+              exit 0
+            fi
+            if [ "$attempt" -eq "$max_attempts" ]; then
+              echo "::error::APK build failed after $max_attempts attempts. Review the Gradle error above."
+              exit 1
+            fi
+            delay=$((attempt * 30))
+            echo "::warning::Gradle build failed; retrying after ${delay}s to recover from transient repository throttling or network errors."
+            sleep "$delay"
+            attempt=$((attempt + 1))
+          done
 
       - name: Generate APK SHA-256 checksum
         if: always() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''
@@ -124,7 +191,7 @@ jobs:
         if: always() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-66-debug
+          name: PRO-STOCK-INTELLIGENCE-V40-80-debug
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/app-debug.apk.sha256
@@ -134,13 +201,32 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gradle --no-daemon :app:lintDebug --stacktrace
+          gradle :app:lintDebug --no-daemon --stacktrace
+
+      - name: Run Android emulator smoke test and capture screenshot
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-boot-timeout: 900
+          disable-animations: true
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none
+          script: bash .github/scripts/android-smoke-test.sh
+      - name: Upload emulator screenshot
+        if: always() && hashFiles('app/build/outputs/psi-emulator.png') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: PRO-STOCK-INTELLIGENCE-V40-80-emulator-screenshot
+          path: app/build/outputs/psi-emulator.png
+          if-no-files-found: error
 
 
       - name: Upload Android lint report
         if: always() && hashFiles('app/build/reports/lint-results-debug.html') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-66-lint-report
+          name: PRO-STOCK-INTELLIGENCE-V40-80-lint-report
           path: app/build/reports/lint-results-debug.html
           if-no-files-found: warn
