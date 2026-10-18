@@ -158,7 +158,24 @@ jobs:
           PROVIDER_GATEWAY_BASE_URL: ${{ vars.PROVIDER_GATEWAY_BASE_URL }}
         run: |
           set -euo pipefail
-          gradle :app:assembleDebug --no-daemon --stacktrace -PproviderGatewayBaseUrl="${PROVIDER_GATEWAY_BASE_URL:-}"
+          # Maven Central can temporarily throttle hosted runners (HTTP 429).
+          # Retry dependency resolution/build with bounded backoff; never mask a persistent compile failure.
+          attempt=1
+          max_attempts=3
+          while [ "$attempt" -le "$max_attempts" ]; do
+            echo "APK build attempt $attempt/$max_attempts"
+            if gradle :app:assembleDebug --no-daemon --stacktrace -PproviderGatewayBaseUrl="${PROVIDER_GATEWAY_BASE_URL:-}"; then
+              exit 0
+            fi
+            if [ "$attempt" -eq "$max_attempts" ]; then
+              echo "::error::APK build failed after $max_attempts attempts. Review the Gradle error above."
+              exit 1
+            fi
+            delay=$((attempt * 30))
+            echo "::warning::Gradle build failed; retrying after ${delay}s to recover from transient repository throttling or network errors."
+            sleep "$delay"
+            attempt=$((attempt + 1))
+          done
 
       - name: Generate APK SHA-256 checksum
         if: always() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''
