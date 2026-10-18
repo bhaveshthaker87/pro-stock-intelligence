@@ -45,7 +45,17 @@ const fields=[
  {key:'pledged',names:['pledgedpercentage','promoterpledged','pledged']},
  {key:'currentRatio',names:['currentratio']},
  {key:'interestCoverage',names:['interestcoverage','interestcoverageratio']},
- {key:'industryPE',names:['industrype','industrypriceearnings']}
+ {key:'industryPE',names:['industrype','industrypriceearnings']},
+ {key:'high52',names:['52weekhigh','week52high','high52week','high52','highlowhigh','high52w']},
+ {key:'low52',names:['52weeklow','week52low','low52week','low52','highlowlow','low52w']},
+ {key:'faceValue',names:['facevalue','facevalueinrs','fv']},
+ {key:'piotroski',names:['piotroskiscrore','piotroskiscore','piotroski']},
+ {key:'peg',names:['pegratio','peg']},
+ {key:'dma200',names:['dma200','200dma','200daymovingaverage','dma200inrs']},
+ {key:'dma50',names:['dma50','50dma','50daymovingaverage','dma50inrs']},
+ {key:'public',names:['publicholding','publicshareholding','publicholdingpercentage','publicshareholdingpercentage']},
+ {key:'rsi14',names:['rsi14','rsi']},
+ {key:'profitVariance3y',names:['profitvar3yrs','profitvar3years','profitvariance3yrs','profitvariance3years']}
 ];
 function findIndex(headers,names){const norms=headers.map(norm);for(const n of names){const i=norms.findIndex(x=>x===n);if(i>=0)return i;}return -1;}
 function parseDate(s){const v=String(s??'').trim();if(!v)return null;let d=new Date(v);if(Number.isFinite(d.getTime()))return d.getTime();let m=v.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);if(m){d=new Date(Number(m[3]),Number(m[2])-1,Number(m[1]));return Number.isFinite(d.getTime())?d.getTime():null;}m=v.match(/^(\d{1,2})[-\s]([A-Za-z]{3})[-\s](\d{4})$/);if(m){d=new Date(`${m[2]} ${m[1]}, ${m[3]} 00:00:00`);return Number.isFinite(d.getTime())?d.getTime():null;}return null;}
