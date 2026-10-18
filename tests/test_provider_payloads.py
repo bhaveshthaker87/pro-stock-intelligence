@@ -46,6 +46,21 @@ class ProviderPayloadTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"timezone"):
             m.validate_events(e)
 
+    def test_global_event_calendar_does_not_require_top_level_symbol(self):
+        e={"source":"Licensed test vendor","asOf":"2026-10-11T09:25:00+05:30","rows":[
+            {"symbol":"INFY","eventType":"RESULTS","title":"Quarterly results",
+             "announcedAt":"2026-10-10T12:00:00+05:30","eventDate":"2026-10-20"}]}
+        result=m.validate_events(e)
+        self.assertIsNone(result["symbol"])
+        self.assertEqual(result["eventsReturned"],1)
+
+    def test_global_event_calendar_still_requires_symbol_on_each_event(self):
+        e={"source":"Licensed test vendor","asOf":"2026-10-11T09:25:00+05:30","rows":[
+            {"eventType":"RESULTS","title":"Quarterly results",
+             "announcedAt":"2026-10-10T12:00:00+05:30","eventDate":"2026-10-20"}]}
+        with self.assertRaisesRegex(ValueError,"rows\\[0\\].symbol"):
+            m.validate_events(e)
+
 
     def test_indices_require_fresh_status_and_valid_numeric_rows(self):
         payload={"source":"Licensed test vendor","asOf":"2026-10-11T09:25:00+05:30","marketDataStatus":"REALTIME",
