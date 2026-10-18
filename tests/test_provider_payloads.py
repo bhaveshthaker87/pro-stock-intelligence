@@ -114,6 +114,21 @@ class ProviderPayloadTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"finite numeric"):
             m.validate_dividends(bad, now=NOW)
 
+    def test_dividends_reject_non_positive_cmp_and_market_cap(self):
+        base={"source":"Vendor","asOf":"2026-10-11T09:25:00+05:30","rows":[
+            {"company":"Infosys Ltd","symbol":"INFY","CMP Rs.":1500.5,"Div Yld %":2.1,"Mar Cap Rs.Cr.":620000}]}
+        for field, value in (("CMP Rs.", 0), ("CMP Rs.", -1), ("Mar Cap Rs.Cr.", 0), ("Mar Cap Rs.Cr.", -1)):
+            with self.subTest(field=field, value=value), self.assertRaisesRegex(ValueError, "must be positive"):
+                m.validate_dividends({**base,"rows":[{**base["rows"][0],field:value}]}, now=NOW)
+
+    def test_dividends_reject_negative_yield_and_boolean_numeric_values(self):
+        base={"source":"Vendor","asOf":"2026-10-11T09:25:00+05:30","rows":[
+            {"company":"Infosys Ltd","symbol":"INFY","CMP Rs.":1500.5,"Div Yld %":2.1,"Mar Cap Rs.Cr.":620000}]}
+        with self.assertRaisesRegex(ValueError, "cannot be negative"):
+            m.validate_dividends({**base,"rows":[{**base["rows"][0],"Div Yld %":-0.1}]}, now=NOW)
+        with self.assertRaisesRegex(ValueError, "finite numeric"):
+            m.validate_dividends({**base,"rows":[{**base["rows"][0],"CMP Rs.":True}]}, now=NOW)
+
     def test_empty_dividend_rows_do_not_prove_no_dividends(self):
         payload={"source":"Vendor","asOf":"2026-10-11T09:25:00+05:30","rows":[]}
         result=m.validate_dividends(payload, now=NOW)
