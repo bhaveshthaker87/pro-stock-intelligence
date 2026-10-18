@@ -264,7 +264,7 @@ private class NativeProvider {
                     body.isBlank() -> "empty denial response"
                     else -> "server denied the request"
                 }
-                throw IOException("Screener HTTP 403 Forbidden ($responseKind; final host $finalHost). Session cookie was taken from the exact request URL to avoid stale duplicate cookies. If this persists, the account/session or server access policy is rejecting this request; use the permitted CSV export or authorized data access.")
+                throw IOException("Screener HTTP 403 Forbidden ($responseKind; final host $finalHost). Session cookie was taken from the exact request URL to avoid stale duplicate cookies. This app will not bypass access controls. If this persists, the account/session or server access policy is rejecting this request; use the permitted CSV export or authorized data access.")
             }
             if (code == 401 && (host == "screener.in" || host.endsWith(".screener.in"))) {
                 throw IOException("Screener returned HTTP 401. Tap Screener Login, sign in again, return to the app and retry.")
