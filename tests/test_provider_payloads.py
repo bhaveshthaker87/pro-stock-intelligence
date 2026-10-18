@@ -27,12 +27,30 @@ class ProviderPayloadTests(unittest.TestCase):
     def test_delayed_quote_requires_delay_metadata(self):
         with self.assertRaisesRegex(ValueError,"delayMinutes"):
             m.validate_quote(self.quote(marketDataStatus="DELAYED"), now=NOW)
+
+    def test_delayed_quote_rejects_boolean_delay_metadata(self):
+        with self.assertRaisesRegex(ValueError,"delayMinutes"):
+            m.validate_quote(self.quote(marketDataStatus="DELAYED", delayMinutes=True), now=NOW)
     def test_history_rejects_inconsistent_ohlc(self):
         h={"symbol":"INFY","source":"Vendor","asOf":"2026-10-11T09:25:00+05:30","interval":"1d","rows":[
             {"time":"2026-10-09T10:00:00+05:30","open":100,"high":99,"low":98,"close":99,"volume":10},
             {"time":"2026-10-10T10:00:00+05:30","open":100,"high":102,"low":98,"close":101,"volume":12}]}
         with self.assertRaisesRegex(ValueError,"high is inconsistent"):
             m.validate_history(h)
+    def test_history_rejects_asof_timestamp_in_the_future(self):
+        h={"symbol":"INFY","source":"Vendor","asOf":"2026-10-11T12:00:00+05:30","interval":"1d","rows":[
+            {"time":"2026-10-09T10:00:00+05:30","open":100,"high":102,"low":98,"close":101,"volume":10},
+            {"time":"2026-10-10T10:00:00+05:30","open":100,"high":102,"low":98,"close":101,"volume":12}]}
+        with self.assertRaisesRegex(ValueError,"future"):
+            m.validate_history(h, now=NOW)
+
+    def test_history_rejects_bar_after_asof(self):
+        h={"symbol":"INFY","source":"Vendor","asOf":"2026-10-10T09:00:00+05:30","interval":"1d","rows":[
+            {"time":"2026-10-09T10:00:00+05:30","open":100,"high":102,"low":98,"close":101,"volume":10},
+            {"time":"2026-10-10T10:00:00+05:30","open":100,"high":102,"low":98,"close":101,"volume":12}]}
+        with self.assertRaisesRegex(ValueError,"after the history asOf"):
+            m.validate_history(h, now=NOW)
+
     def test_history_rejects_duplicate_or_unsorted_times(self):
         row={"time":"2026-10-10T10:00:00+05:30","open":100,"high":102,"low":98,"close":101,"volume":12}
         h={"symbol":"INFY","source":"Vendor","asOf":"2026-10-11T09:25:00+05:30","interval":"1d","rows":[row,row.copy()]}
