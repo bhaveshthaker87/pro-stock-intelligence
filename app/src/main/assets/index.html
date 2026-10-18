@@ -127,6 +127,9 @@ body{background:linear-gradient(180deg,#eef5fa,#f8fbfd);color:var(--text)}
  .market-pulse,.marketPulse,.market-section{margin-bottom:8px!important;padding-bottom:6px!important}
  .market-pulse h2,.marketPulse h2,.market-section h2{font-size:18px!important;margin:4px 0!important}
 }
+
+/* V40.80.1 mobile market-pulse compactness: horizontal ticker cards prevent the index section dominating the screen. */
+@media(max-width:760px){#indices{display:flex!important;flex-wrap:nowrap!important;align-items:stretch!important;gap:8px!important;padding:8px 10px!important;overflow-x:auto!important;overflow-y:hidden!important;scroll-snap-type:x proximity!important;-webkit-overflow-scrolling:touch!important}#indices .market-head{flex:0 0 100%!important;width:100%!important}#indices .icard{flex:0 0 148px!important;width:148px!important;min-width:148px!important;max-width:148px!important;min-height:112px!important;padding:9px!important;scroll-snap-align:start!important}#indices .ivalue{font-size:18px!important;line-height:1.15!important}#indices .idata{font-size:9px!important;line-height:1.2!important;margin-top:4px!important;max-width:none!important}#indices .itime{font-size:9px!important;line-height:1.15!important;margin-top:3px!important}#indices .isource{display:none!important}#indices .market-subtitle{max-width:100%!important;white-space:normal!important}#indices .market-refresh{min-height:34px!important;padding:7px 10px!important}}
 </style>
 <style id="v40-7-query-polish">
 .querySection{border-radius:14px;padding:14px;background:linear-gradient(180deg,#fff,#f8fbff)}
