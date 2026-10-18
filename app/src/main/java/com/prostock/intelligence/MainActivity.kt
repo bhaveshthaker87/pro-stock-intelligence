@@ -886,7 +886,7 @@ private class NativeProvider {
                 rows.put(JSONObject().put("time", time).put("date", time).put("open", o).put("high", h).put("low", l).put("close", c).put("volume", v))
                 previousTime = time
             }
-            if (rows.length() == 0) throw IOException("Provider history had no valid chronological OHLCV candles")
+            if (rows.length() < 2) throw IOException("Provider history must contain at least two valid chronological OHLCV candles; partial or malformed history rejected")
             return JSONObject().put("symbol", symbol).put("rows", rows).put("provider", source)
                 .put("historyProvider", source).put("historyStatus", "VALIDATED_GATEWAY_PAYLOAD")
                 .put("chartMode", "OHLCV").put("statusText", "Provider OHLCV • as of " + data.optString("asOf"))
@@ -1182,9 +1182,26 @@ private class NativeProvider {
                         val d = gatewayGet("/v1/dividends")
                         val rows = d.optJSONArray("rows") ?: throw IOException("Dividend gateway payload missing rows")
                         val source = d.optString("source").trim()
-                        val asOf = parseGatewayTime(d.optString("asOf"))
-                        if (source.isBlank() || System.currentTimeMillis() - asOf > 72 * 60 * 60 * 1000L || asOf > System.currentTimeMillis() + 60_000L)
-                            throw IOException("Dividend feed source/timestamp is missing, stale or in the future")
+                        val asOfText = d.optString("asOf")
+                        val asOf = parseGatewayTime(asOfText)
+                        val ageMs = System.currentTimeMillis() - asOf
+                        if (source.isBlank() || ageMs < -300_000L || ageMs > 72 * 60 * 60 * 1000L)
+                            throw IOException("Dividend feed source/timestamp is missing, stale or more than 5 minutes in the future")
+                        val numericFields = listOf("CMP Rs.", "Div Yld %", "Mar Cap Rs.Cr.", "ROCE %")
+                        for (i in 0 until rows.length()) {
+                            val row = rows.optJSONObject(i) ?: throw IOException("Dividend row $i is not a JSON object")
+                            if (row.optString("company").isBlank() || row.optString("symbol").isBlank())
+                                throw IOException("Dividend row $i must include company and symbol")
+                            for (field in numericFields) {
+                                if (row.has(field) && !row.isNull(field)) {
+                                    val value = row.optDouble(field, Double.NaN)
+                                    if (!value.isFinite()) throw IOException("Dividend row $i has invalid numeric field '$field'")
+                                    if (field == "CMP Rs." && value <= 0.0) throw IOException("Dividend row $i CMP must be positive")
+                                    if (field == "Div Yld %" && value < 0.0) throw IOException("Dividend row $i dividend yield cannot be negative")
+                                    if (field == "Mar Cap Rs.Cr." && value < 0.0) throw IOException("Dividend row $i market cap cannot be negative")
+                                }
+                            }
+                        }
                         JSONObject().put("ok", true).put("data", JSONObject().put("rows", rows).put("provider", source)
                             .put("asOf", d.optString("asOf")).put("liveData", true)
                             .put("statusText", "Provider dividend candidates • source: $source • as of ${d.optString("asOf")}. Verify official filings before investing.")
