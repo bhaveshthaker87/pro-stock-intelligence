@@ -307,5 +307,19 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("avoid stale duplicate cookies", request)
 
 
+    def test_screener_status_uses_one_canonical_cookie_jar(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        helper = source[source.index("private fun screenerCookieHeader()"):source.index("private fun screenerLoggedIn()")]
+        self.assertIn('getCookie("https://www.screener.in/company/INFY/")', helper)
+        self.assertNotIn('getCookie("https://screener.in")', helper)
+        self.assertIn("Never combine", helper)
+
+    def test_unconfigured_gateway_never_claims_live_provider_coverage(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn('else "NOT_CONFIGURED"', source)
+        self.assertIn('AUTHORIZED_NSE_FEED_NOT_CONFIGURED', source)
+        self.assertIn('Corporate events unavailable: configure an authorized HTTPS provider gateway', source)
+
+
 if __name__ == "__main__":
     unittest.main()
