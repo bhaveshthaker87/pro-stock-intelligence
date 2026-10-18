@@ -286,6 +286,24 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("max-height:150px!important", html)
 
 
+    def test_screener_connect_endpoint_performs_real_company_page_validation(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        start = source.index("private fun screenerConnectionTest()")
+        end = source.index("/**", start)
+        probe = source[start:end]
+        self.assertIn('screener("INFY")', probe)
+        self.assertIn('"CONNECTED_VERIFIED"', probe)
+        self.assertIn('"HTTP_403_FORBIDDEN"', probe)
+        self.assertIn('put("requestValidated", true)', probe)
+        self.assertIn('"/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerConnectionTest())', source)
+
+    def test_screener_ui_uses_simple_connect_and_connection_test_language(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn('id="session">Connect Screener</button>', html)
+        self.assertIn('Test Screener Connection', html)
+        self.assertIn('Screener Access Denied (403)', html)
+        self.assertIn('Official Screener login is opening', html)
+
     def test_screener_status_exposes_forbidden_state_to_ui(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         start = source.index("private fun screenerStatus()")
