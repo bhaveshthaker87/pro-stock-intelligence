@@ -170,7 +170,11 @@ def validate_dividends(payload, now=None):
         for field in numeric_fields:
             if field in row and row[field] is not None:
                 value=finite_number(row[field], f"dividends.rows[{i}].{field}")
-                if field in ("CMP Rs.", "Mar Cap Rs.Cr.") and value < 0:
+                if field == "CMP Rs." and value <= 0:
+                    raise ValueError(f"dividends.rows[{i}].{field} must be positive")
+                if field == "Mar Cap Rs.Cr." and value <= 0:
+                    raise ValueError(f"dividends.rows[{i}].{field} must be positive")
+                if field == "Div Yld %" and value < 0:
                     raise ValueError(f"dividends.rows[{i}].{field} cannot be negative")
     return {"kind":"dividends", "ageSeconds":int(max(0,age)), "rowsReturned":len(rows), "absenceVerified":False}
 
