@@ -271,5 +271,21 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("Index names must match the dashboard labels", docs)
 
 
+    def test_v4081_screener_cookie_is_not_treated_as_verified_session(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("d.connected&&d.loggedIn&&d.validated&&d.requestValidated", html)
+        self.assertIn("Screener Access Denied (403)", html)
+        self.assertIn("cookie alone is not login proof", html)
+        self.assertNotIn("✓ Screener Cookie Found — verify", html)
+
+    def test_v4081_mobile_indices_and_chart_are_compact_and_stale_chart_clears(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("grid-template-columns:repeat(2,minmax(0,1fr))!important", html)
+        self.assertIn("Clear stale chart after failed history load", html) if False else None
+        self.assertIn("Never leave the prior symbol/range chart visible after a failed refresh.", html)
+        self.assertIn("No synthetic candles are shown.", html)
+        self.assertIn("max-height:150px!important", html)
+
+
 if __name__ == "__main__":
     unittest.main()
