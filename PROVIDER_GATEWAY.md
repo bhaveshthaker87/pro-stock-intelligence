@@ -16,7 +16,7 @@ Quote: `{ "symbol":"INFY", "source":"Vendor Name", "asOf":"2026-10-11T09:15:00+0
 
 History: same `symbol/source/asOf` metadata plus `interval` in `1m, 5m, 15m, 1d, 1wk, 1mo` and chronological `rows`, each with timezone-aware `time`, positive `open/high/low/close`, and nonnegative `volume`.
 
-Events: same metadata plus `rows`; each row includes `symbol`, `eventType` (`RESULTS`, `DIVIDEND`, `SPLIT`, `BONUS`, `RIGHTS`, `BOARD_MEETING`, `OTHER`), `title`, timezone-aware `announcedAt`, and `eventDate` beginning with `YYYY-MM-DD`. Empty rows are allowed but never treated as proof of no events.
+Events: `source` and timezone-aware `asOf` are required; top-level `symbol` is optional for the global calendar route and should be supplied for a symbol-scoped response. Each `rows` item includes `symbol`, `eventType` (`RESULTS`, `DIVIDEND`, `SPLIT`, `BONUS`, `RIGHTS`, `BOARD_MEETING`, `OTHER`), `title`, timezone-aware `announcedAt`, and `eventDate` beginning with `YYYY-MM-DD`. Empty rows are allowed but never treated as proof of no events.
 
 ## Release gates
 - Vendor contract/license reviewed and source identified in UI.
