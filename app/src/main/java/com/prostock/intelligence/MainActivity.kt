@@ -185,8 +185,8 @@ private class NativeProvider {
         JSONObject().put("id", "master").put("name", "Large Cap Quality Stocks").put("description", "Large companies with quality and manageable debt").put("focus", "Market cap, ROCE, debt and valuation").put("query", "Market Capitalization > 10000 AND Current price > 50 AND Return on capital employed > 12 AND Debt to equity < 1"),
         JSONObject().put("id", "midcap").put("name", "Mid Cap Hidden Gems").put("description", "Mid-sized companies with profitability and growth").put("focus", "Market cap ₹5,000–30,000 Cr, ROCE > 15%").put("query", "Market Capitalization > 5000 AND Market Capitalization < 30000 AND Return on capital employed > 15 AND Return on equity > 15"),
         JSONObject().put("id", "smallcap").put("name", "Small Cap Quality").put("description", "Smaller profitable companies; higher risk").put("focus", "Market cap ₹1,000–5,000 Cr").put("query", "Market Capitalization > 1000 AND Market Capitalization < 5000 AND Return on capital employed > 15 AND Debt to equity < 1"),
-        JSONObject().put("id", "oversold").put("name", "RSI Oversold Scanner (RSI ≤ 30)").put("description", "Technical scan of tracked stocks using Wilder RSI(14) from Yahoo daily bars; latest bar may be partial during market hours").put("focus", "Wilder RSI(14) ≤ 30; tracked symbols only, daily bars may be delayed or partial").put("query", "Technical scan: RSI(14) <= 30; tracked universe only"),
-        JSONObject().put("id", "crash").put("name", "Daily Crash Scanner (drop ≥ 5%)").put("description", "Finds tracked stocks whose latest Yahoo daily bar is down at least 5% versus the prior daily bar; current-session bar may be partial").put("focus", "Latest daily-bar change ≤ -5%; tracked symbols only, not a whole-market scan").put("query", "Technical scan: daily change <= -5%; tracked universe only")
+        JSONObject().put("id", "oversold").put("name", "RSI Oversold Scanner (RSI ≤ 30)").put("description", "Technical scan of tracked stocks using Wilder RSI(14); requires authorized NSE historical bars").put("focus", "Wilder RSI(14) ≤ 30; tracked symbols only, unavailable until authorized NSE history is configured").put("query", "Technical scan: RSI(14) <= 30; tracked universe only"),
+        JSONObject().put("id", "crash").put("name", "Daily Crash Scanner (drop ≥ 5%)").put("description", "Finds tracked stocks down at least 5% versus the prior daily bar; requires authorized NSE historical bars").put("focus", "Latest daily-bar change ≤ -5%; tracked symbols only; unavailable until authorized NSE history is configured").put("query", "Technical scan: daily change <= -5%; tracked universe only")
     )
 
     fun jsonResponseFor(path: String): WebResourceResponse = WebResourceResponse(
@@ -204,7 +204,7 @@ private class NativeProvider {
 
     private fun canonical(raw: String): String {
         val upper = raw.trim().uppercase(Locale.ROOT)
-        // Preserve Yahoo's exchange-index and futures ticker syntax. Stripping punctuation here
+        // Preserve exchange-index and futures ticker syntax. Stripping punctuation here
         // used to turn ^NSEI into NSEI and GC=F into GCF, silently breaking every index/futures quote.
         if (upper.matches(Regex("^\\^[A-Z0-9]+$")) || upper.matches(Regex("^[A-Z]{1,5}=F$"))) return upper
         val noSuffix = upper.removeSuffix(".NS").removeSuffix(".BO").trim()
