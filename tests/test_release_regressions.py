@@ -286,5 +286,16 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("max-height:150px!important", html)
 
 
+    def test_screener_status_exposes_forbidden_state_to_ui(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        start = source.index("private fun screenerStatus()")
+        end = source.index("/**", start)
+        status = source[start:end]
+        self.assertIn('put("requestValidated", false)', status)
+        self.assertIn('"HTTP_403_FORBIDDEN"', status)
+        self.assertIn('put("httpStatus", if (blocked) 403', status)
+        self.assertIn('put("recommendedAction"', status)
+
+
 if __name__ == "__main__":
     unittest.main()
