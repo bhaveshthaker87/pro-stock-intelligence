@@ -115,6 +115,18 @@ body{background:linear-gradient(180deg,#eef5fa,#f8fbfd);color:var(--text)}
 }
 /* V40.81 compact no-data chart state */
 @media(max-width:760px){.tvpane{height:auto!important;min-height:0!important}.pricepane .canvas{height:150px!important;max-height:150px!important}.rsipane .rsi{height:65px!important;max-height:65px!important}.tvfooter{font-size:10px!important;line-height:1.35!important;flex-wrap:wrap!important}.tvtimebar{flex-wrap:wrap!important}.tvtimeleft{flex-wrap:wrap!important}.tvindicator{font-size:10px!important;line-height:1.35!important}}
+/* V40.82: force compact index tiles in the actual mobile market-pulse markup */
+@media(max-width:760px){
+ .indices{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important;padding:8px 10px!important;overflow:visible!important;white-space:normal!important}
+ .indices .icard{box-sizing:border-box!important;display:grid!important;grid-template-columns:minmax(0,1fr)!important;align-content:start!important;gap:2px!important;min-width:0!important;width:100%!important;min-height:94px!important;height:auto!important;flex:none!important;padding:8px 9px!important;border-radius:12px!important;box-shadow:none!important}
+ .indices .ilabel{font-size:11px!important;line-height:1.15!important;margin:0!important}
+ .indices .ivalue{font-size:18px!important;line-height:1.1!important;margin:3px 0 0!important}
+ .indices .icurrency,.indices .icard .muted,.indices .icard .stamp{font-size:9px!important;line-height:1.15!important;margin:0!important}
+ .indices .idata{font-size:9px!important;line-height:1.2!important;margin:3px 0 0!important;max-width:none!important;overflow-wrap:anywhere!important}
+ .indices .icard .source,.indices .icard .timestamp{display:none!important}
+ .market-pulse,.marketPulse,.market-section{margin-bottom:8px!important;padding-bottom:6px!important}
+ .market-pulse h2,.marketPulse h2,.market-section h2{font-size:18px!important;margin:4px 0!important}
+}
 </style>
 <style id="v40-7-query-polish">
 .querySection{border-radius:14px;padding:14px;background:linear-gradient(180deg,#fff,#f8fbff)}
