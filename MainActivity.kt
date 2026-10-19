@@ -447,13 +447,15 @@ private class NativeProvider {
 
     private fun combined(raw: String, includeFundamentals: Boolean): JSONObject {
         val s = canonical(raw)
-        // Run independent providers concurrently. Yahoo failures must never prevent
-        // Screener fundamentals from returning, which was a root cause of blank cards.
+        // Keep fundamentals and market data separate. Never label a third-party
+        // fallback as live; use a Screener snapshot only for the displayed reference price.
         val executor = Executors.newFixedThreadPool(2)
         val quoteFuture = executor.submit<JSONObject> {
-            try { yahoo(raw, "1y") } catch (e: Exception) {
-                JSONObject().put("symbol", s).put("rows", JSONArray()).put("provider", "Yahoo Finance")
-                    .put("providerError", e.message ?: "Yahoo Finance unavailable")
+            try { screenerQuote(s) } catch (e: Exception) {
+                JSONObject().put("symbol", s).put("rows", JSONArray())
+                    .put("provider", "Authorized market-data feed not configured")
+                    .put("marketDataStatus", "UNAVAILABLE")
+                    .put("providerError", e.message ?: "Screener snapshot unavailable; authorized quote feed is not configured")
             }
         }
         val fundamentalFuture = executor.submit<JSONObject> {
@@ -470,7 +472,7 @@ private class NativeProvider {
                 fallback
             }
         }
-        val quote = result(quoteFuture, JSONObject().put("symbol", s).put("rows", JSONArray()).put("provider", "Yahoo Finance").put("providerError", "Yahoo Finance timed out"))
+        val quote = result(quoteFuture, JSONObject().put("symbol", s).put("rows", JSONArray()).put("provider", "Authorized market-data feed not configured").put("marketDataStatus", "UNAVAILABLE").put("providerError", "Screener snapshot timed out; authorized quote feed is not configured"))
         val f = result(fundamentalFuture, JSONObject().put("symbol", s).put("name", stockName(s)).put("providerError", "Screener.in request timed out"))
         executor.shutdownNow()
 
@@ -503,9 +505,28 @@ private class NativeProvider {
     }
 
     private fun historyData(raw: String, range: String): JSONObject {
-        val y = yahoo(raw, range)
-        return JSONObject().put("symbol", y.optString("symbol")).put("rows", y.optJSONArray("rows") ?: JSONArray())
-            .put("provider", y.optString("provider", "Yahoo Finance")).put("chartMode", "OHLCV")
+        // Do not fabricate candles or silently substitute an unapproved third-party feed.
+        // Screener company pages provide fundamentals/snapshot metrics, not a licensed OHLCV feed.
+        return JSONObject().put("symbol", canonical(raw)).put("rows", JSONArray())
+            .put("provider", "Authorized market-data feed not configured")
+            .put("providerError", "Historical candles are unavailable until an authorized market-data provider is configured.")
+            .put("chartMode", "UNAVAILABLE").put("requestedRange", range)
+            .put("marketDataStatus", "UNAVAILABLE")
+    }
+    private fun screenerQuote(raw: String): JSONObject {
+        val symbol = canonical(raw)
+        val f = screener(symbol)
+        val q = JSONObject().put("symbol", symbol).put("resolvedSymbol", symbol)
+            .put("name", f.optString("name", stockName(symbol)))
+            .put("provider", "Screener.in company-page snapshot (not real-time)")
+            .put("marketDataStatus", "SNAPSHOT_NOT_REALTIME")
+            .put("rows", JSONArray())
+            .put("asOf", JSONObject.NULL)
+            .put("providerError", "Screener company-page price is a snapshot, not a verified live quote. Authorized quote feed is not configured.")
+        if (f.has("price") && !f.isNull("price")) q.put("price", f.get("price"))
+        if (f.has("previousClose") && !f.isNull("previousClose")) q.put("previousClose", f.get("previousClose"))
+        if (f.has("dayChangePct") && !f.isNull("dayChangePct")) q.put("dayChangePct", f.get("dayChangePct"))
+        return q
     }
 
     private fun htmlEntities(s: String): String = s.replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<")
@@ -661,9 +682,11 @@ private class NativeProvider {
                     JSONObject().put("ok", true).put("data", arr).toString()
                 }
                 "/api/quote", "/api/fast" -> {
-                    val y = yahoo(raw, if (p == "/api/fast") "5d" else "5d")
-                    val data = JSONObject().put("symbol", y.optString("symbol", s)).put("name", stockName(s)).put("quote", y)
-                        .put("provider", "Yahoo Finance").put("rows", y.optJSONArray("rows") ?: JSONArray())
+                    val q = screenerQuote(s)
+                    val data = JSONObject().put("symbol", s).put("name", q.optString("name", stockName(s)))
+                        .put("quote", q).put("provider", q.optString("provider"))
+                        .put("marketDataStatus", q.optString("marketDataStatus"))
+                        .put("rows", JSONArray())
                     JSONObject().put("ok", true).put("data", data).toString()
                 }
                 "/api/history", "/api/screener-chart" -> JSONObject().put("ok", true).put("data", historyData(s, q["range"] ?: "1y")).toString()
@@ -674,8 +697,11 @@ private class NativeProvider {
                 }
                 "/api/screener/live" -> {
                     if (!screenerLoggedIn()) throw IOException("Screener login is not active. Tap Screener Login first.")
-                    val f = screener(s); val y = yahoo(s, "5d")
-                    JSONObject().put("ok", true).put("data", JSONObject().put("symbol", s).put("name", f.optString("name", stockName(s))).put("quote", y).put("fundamentals", f).put("dataConfidence", "AUTHENTICATED")).toString()
+                    val f = screener(s); val q = screenerQuote(s)
+                    JSONObject().put("ok", true).put("data", JSONObject().put("symbol", s)
+                        .put("name", f.optString("name", stockName(s))).put("quote", q)
+                        .put("fundamentals", f).put("dataConfidence", "SCREENER_SESSION_ONLY")
+                        .put("marketDataStatus", "SNAPSHOT_NOT_REALTIME")).toString()
                 }
                 "/api/indices" -> JSONObject().put("ok", true).put("data", marketIndices()).toString()
                 "/api/queries" -> JSONObject().put("ok", true).put("data", JSONArray().apply { queryDefs.forEach { put(it) } }).toString()
