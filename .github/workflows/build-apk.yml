@@ -4,19 +4,16 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 on:
   workflow_dispatch:
+  # Feature-branch commits are validated by pull_request:synchronize below.
+  # Avoid duplicate push + PR runs cancelling each other on the same head.
   push:
     branches:
       - main
-      - expert-remediation-v40-67
-      - expert-pro-hardening-v40-66
-      - v40-78-nse-screener-only
-      - fix/v40-79-diamond-data-chart
-      - fix/v40-80-provider-gateway-validation
   pull_request:
     branches:
       - main
