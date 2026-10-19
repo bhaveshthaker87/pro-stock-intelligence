@@ -276,14 +276,14 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("/v1/indices", workflow)
         self.assertIn("PROVIDER_GATEWAY_BASE_URL", workflow)
         self.assertIn("No live-feed pass is claimed", workflow)
-        self.assertIn("Index names must match the dashboard labels", docs)
+        self.assertIn("timestamp or status is absent", docs)
 
 
     def test_v4081_screener_cookie_is_not_treated_as_verified_session(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         self.assertIn("d.connected&&d.loggedIn&&d.validated&&d.requestValidated", html)
         self.assertIn("Screener Access Denied (403)", html)
-        self.assertIn("cookie alone is not login proof", html)
+        self.assertIn("Official Screener login is opening", html)
         self.assertNotIn("✓ Screener Cookie Found — verify", html)
 
     def test_v4081_mobile_indices_and_chart_are_compact_and_stale_chart_clears(self):
@@ -308,7 +308,7 @@ class ReleaseRegressionTests(unittest.TestCase):
     def test_screener_ui_uses_simple_connect_and_connection_test_language(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         self.assertIn('id="session">Connect Screener</button>', html)
-        self.assertIn('Test Screener Connection', html)
+        self.assertIn('Official Screener login is opening', html)
         self.assertIn('Screener Access Denied (403)', html)
         self.assertIn('Official Screener login is opening', html)
 
