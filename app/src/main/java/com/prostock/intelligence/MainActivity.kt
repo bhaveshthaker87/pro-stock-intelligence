@@ -701,6 +701,9 @@ private class NativeProvider {
 
     private fun screenerConnectionTest(): JSONObject {
         return try {
+            // A public company page can load without an account. Never report a valid
+            // session unless the session cookie exists before the protected-page probe.
+            if (!screenerLoggedIn()) throw IOException("LOGIN_REQUIRED: no Screener session cookie detected. Open the official login page, sign in, return, and test again.")
             // Use the same company-page path and parser as normal fundamentals retrieval.
             val sample = screener("INFY")
             val status = screenerStatus()
