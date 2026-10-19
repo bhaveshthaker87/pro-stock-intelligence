@@ -16,7 +16,7 @@ except ImportError as exc:  # CI installs Playwright; keep the error explicit lo
     raise RuntimeError("Install Playwright and Chromium to run tests/test_ui_smoke.py") from exc
 
 HTML = Path(__file__).parents[1] / "app/src/main/assets/index.html"
-ENGINE = "V40.66 PRO HARDENING"
+ENGINE = "V40.80 AUTHORIZED GATEWAY + SCREENER FUNDAMENTALS"
 
 
 def launch_chromium(playwright):
@@ -102,13 +102,40 @@ class DashboardUISmokeTests(unittest.TestCase):
             html = html[:pos] + "<script>" + mock_js + "</script>" + html[pos:]
             page.set_content(html, wait_until="domcontentloaded", timeout=30000)
             page.wait_for_timeout(250)
-            self.assertIn("V40.66", page.locator(".taglive").first.inner_text())
+            self.assertIn("V40.80", page.locator(".taglive").first.inner_text())
             page.locator("#search").fill("INFY")
             page.locator("#analyze").click()
             page.wait_for_function("document.getElementById('company').textContent.includes('Infosys')", timeout=8000)
             self.assertIn("1,310", page.locator("#price").inner_text())
             signal_count = page.evaluate("(window.chartRows||[]).filter(r=>r.nwSignal==='BUY'||r.nwSignal==='SELL').length")
             self.assertLess(signal_count, max(10, len(self.rows)//3), f"NW signals look over-triggered: {signal_count}")
+            # Check actual chart series against independently recomputed SMA/RSI and candle invariants.
+            chart_check = page.evaluate("""() => {
+              const rows = window.chartRows || [];
+              if (rows.length < 200) return {error:'insufficient history', count:rows.length};
+              const closes = rows.map(r=>Number(r.close));
+              const sma = (i,n)=>closes.slice(i-n+1,i+1).reduce((a,b)=>a+b,0)/n;
+              const rsi14 = (i)=>{
+                if(i<14)return null;
+                let gain=0,loss=0;
+                for(let k=1;k<=14;k++){const d=closes[k]-closes[k-1];gain+=Math.max(d,0);loss+=Math.max(-d,0);}
+                gain/=14;loss/=14;
+                for(let k=15;k<=i;k++){const d=closes[k]-closes[k-1];gain=(gain*13+Math.max(d,0))/14;loss=(loss*13+Math.max(-d,0))/14;}
+                return gain===0&&loss===0?50:loss===0?100:gain===0?0:100-100/(1+gain/loss);
+              };
+              const i=rows.length-1, last=rows[i];
+              return {count:rows.length, volume:rows.every(r=>Number.isFinite(Number(r.volume))&&Number(r.volume)>=0),
+                candles:rows.every(r=>r.high>=Math.max(r.open,r.close)&&r.low<=Math.min(r.open,r.close)&&r.high>=r.low),
+                sma50Error:Math.abs(Number(last.dma50)-sma(i,50)), sma200Error:Math.abs(Number(last.dma200)-sma(i,200)),
+                rsiError:Math.abs(Number(last.rsi14)-rsi14(i)), rsiRange:last.rsi14>=0&&last.rsi14<=100};
+            }""")
+            self.assertNotIn("error", chart_check, chart_check)
+            self.assertTrue(chart_check["volume"], chart_check)
+            self.assertTrue(chart_check["candles"], chart_check)
+            self.assertLess(chart_check["sma50Error"], 1e-6, chart_check)
+            self.assertLess(chart_check["sma200Error"], 1e-6, chart_check)
+            self.assertLess(chart_check["rsiError"], 1e-6, chart_check)
+            self.assertTrue(chart_check["rsiRange"], chart_check)
             self.assertEqual(page.locator(".tab").count(), 6)
             for tab in page.locator(".tab").all():
                 tab.click()
@@ -207,7 +234,7 @@ class DashboardUISmokeTests(unittest.TestCase):
     def test_quote_data_disclaimer_is_explicit(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("marketDataDisclaimer", source)
-        self.assertIn("verify with the exchange before trading", source)
+        self.assertIn("No authorized NSE real-time feed is configured", source)
 
 
     def test_provider_wording_does_not_claim_unverified_quotes_are_live(self):
@@ -216,7 +243,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertNotIn("dataConfidence:'LIVE QUOTE'", html)
         self.assertNotIn("Verified exchange + Screener HTTP", html)
         self.assertIn("QUOTE RETURNED • FRESHNESS UNVERIFIED", html)
-        self.assertIn("responseReceivedAt", source)
+        self.assertIn("UNVERIFIED_NO_PROVIDER_QUOTE_TIMESTAMP", source)
         self.assertNotIn('.put("priceTimestamp", System.currentTimeMillis() / 1000L)', source)
 
     def test_api_response_headers_are_hardened_and_not_public_wildcard(self):
@@ -227,16 +254,13 @@ class DashboardUISmokeTests(unittest.TestCase):
 
     def test_version_code_and_name_are_aligned(self):
         gradle = (Path(__file__).parents[1] / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 65", gradle)
-        self.assertIn("versionName '40.66'", gradle)
+        self.assertIn("versionCode 79", gradle)
+        self.assertIn("versionName '40.80'", gradle)
 
     def test_workflow_artifact_names_match_release_version(self):
         workflow = (Path(__file__).parents[1] / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
-        self.assertIn("Publish the APK immediately after a successful build", workflow)
-        self.assertNotIn("Emulator smoke test (launch app and check runtime)", workflow)
-        self.assertNotIn("screencap -p", workflow)
-        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-66-debug", workflow)
-        self.assertLess(workflow.index("Upload APK and checksum"), workflow.index("Run Android lint"))
+        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-80-lint-report", workflow)
+        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-80-debug", workflow)
         self.assertNotIn("V40-57", workflow)
         self.assertIn("pull_request:", workflow)
         self.assertIn("sha256sum app/build/outputs/apk/debug/app-debug.apk", workflow)
@@ -250,16 +274,16 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIsNotNone(client)
         self.assertIsNotNone(server)
         self.assertEqual(client.group(1), server.group(1), "UI must not report a false server-version mismatch")
-        self.assertIn("V40.66", html)
-        self.assertIn("V40.66", source)
+        self.assertIn("V40.80", html)
+        self.assertIn("V40.80", source)
 
 
-    def test_canonical_preserves_yahoo_index_and_futures_tickers(self):
+    def test_canonical_preserves_index_and_futures_tickers_without_external_market_provider(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         canonical = source[source.index("private fun canonical"):source.index("private fun stockName")]
         self.assertIn('upper.matches(Regex("^\\\\^[A-Z0-9]+$"))', canonical)
         self.assertIn('upper.matches(Regex("^[A-Z]{1,5}=F$"))', canonical)
-        # These symbols must reach Yahoo unchanged; canonical() must not strip ^ or =.
+        # Canonicalization must preserve index/futures syntax without enabling an external provider.
         for ticker in ["^NSEI", "^BSESN", "^NSEBANK", "GC=F", "SI=F", "BZ=F"]:
             self.assertTrue(ticker.startswith("^") or ticker.endswith("=F"))
 
@@ -275,7 +299,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         for label in required:
             self.assertIn(label, market_fn)
             self.assertIn(label, html)
-        self.assertIn("HISTORICAL_ONLY_NOT_A_CURRENT_QUOTE", source)
+        self.assertIn("AUTHORIZED_NSE_FEED_NOT_CONFIGURED", source)
         self.assertIn("HISTORICAL BAR • NOT LIVE", html)
         self.assertIn("QUOTE RETURNED • FRESHNESS UNVERIFIED", html)
         self.assertIn("quoteTimestamp", market_fn)
@@ -299,12 +323,12 @@ class DashboardUISmokeTests(unittest.TestCase):
 
     def test_mixed_provider_session_is_not_mislabeled_fully_authenticated(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn("SESSION-BASED / MIXED SOURCES — VERIFY PROVIDERS AND TIMESTAMPS", source)
+        self.assertIn("SCREENER FUNDAMENTALS FETCHED; NSE QUOTE UNAVAILABLE UNTIL AUTHORIZED FEED IS CONFIGURED", source)
         self.assertNotIn('put("dataConfidence", "AUTHENTICATED")', source)
         html = (Path(__file__).parents[1] / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         self.assertNotIn("dataConfidence:'AUTHENTICATED'", html)
         self.assertIn("NATIVE ENGINE", html)
-        self.assertIn("confirm dates with the exchange", source)
+        self.assertIn("Corporate events unavailable: configure an authorized HTTPS provider gateway.", source)
 
 
     def test_provider_gateway_contract_and_validator_are_present(self):
@@ -317,19 +341,35 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn("strictly increasing", validator)
 
     def test_workflow_checks_foreground_activity_and_least_privilege(self):
-        workflow = (Path(__file__).parents[1] / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
+        root = Path(__file__).parents[1]
+        workflow = (root / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
+        script = (root / ".github/scripts/android-smoke-test.sh").read_text(encoding="utf-8")
         self.assertIn("contents: read", workflow)
-        # APK delivery must not depend on a flaky emulator; runtime validation is a separate concern.
-        self.assertNotIn("dumpsys activity activities", workflow)
-        self.assertNotIn("adb shell pidof com.prostock.intelligence", workflow)
-        self.assertNotIn("screencap -p", workflow)
+        # APK artifacts are uploaded before emulator validation, so device instability
+        # cannot prevent artifact publication. Keep emulator assertions against the
+        # dedicated script rather than requiring its implementation inside YAML.
+        self.assertIn("dumpsys activity activities", script)
+        self.assertIn("com.prostock.intelligence/.MainActivity", script)
+        self.assertNotIn("adb shell pidof com.prostock.intelligence", script)
+        self.assertNotIn("adb shell screencap -p", script)
+        self.assertIn("adb exec-out screencap -p", script)
+        self.assertIn("Valid emulator screenshot", script)
         self.assertIn("Upload APK and checksum", workflow)
+        self.assertIn("api-level: 34", workflow)
+        self.assertIn("emulator-boot-timeout: 900", workflow)
+        self.assertIn("disable-animations: true", workflow)
+        self.assertIn("-gpu swiftshader_indirect", workflow)
 
     def test_source_claims_disclose_unintegrated_moneycontrol_and_history(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("NOT INTEGRATED — NO VERIFIED ACCESS/FEED CONFIGURED", source)
-        self.assertIn("THIRD_PARTY_HISTORICAL_BARS_NOT_NSE_VERIFIED", source)
-        self.assertIn("NSE_WEBSITE_RESPONSE_NOT_LICENSED_REALTIME_FEED", source)
+        self.assertIn("AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED", source)
+        self.assertIn("screenerReferencePrice", source)
+        self.assertIn("FUNDAMENTALS ONLY — SCREENER PRICE IS REFERENCE ONLY", source)
+        self.assertIn("Authorized NSE/vendor gateway is not configured.", source)
+        html = HTML.read_text(encoding="utf-8")
+        self.assertIn("Screener Reference Price (not live)", html)
+        self.assertIn("Screener reference price only • live NSE quote unavailable", html)
 
 
     def test_chart_refresh_and_source_links_are_present(self):
@@ -340,9 +380,62 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn("NOT certified exchange-live", html)
         self.assertIn("chart-expanded", html)
 
+
+    def test_v4078_disables_yahoo_and_unlicensed_nse_scraping(self):
+        source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertNotIn("https://query1.finance.yahoo.com", source)
+        self.assertNotIn("https://query2.finance.yahoo.com", source)
+        self.assertNotIn("https://www.nseindia.com/api/quote-equity", source)
+        self.assertIn("Authorized NSE/vendor gateway is not configured.", source)
+        self.assertIn("No third-party fallback is used", source)
+
     def test_screener_chart_endpoint_does_not_mislabel_yahoo_history(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("Screener.in does not expose a documented chart-data API", source)
+
+    def test_csv_import_modal_parses_and_persists_authorized_export(self):
+        errors = []
+        with sync_playwright() as p:
+            browser = launch_chromium(p)
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.on("pageerror", lambda e: errors.append(str(e)))
+            html = HTML.read_text(encoding="utf-8")
+            importer = (Path(__file__).parents[1] / "app/src/main/assets/csv-import.js").read_text(encoding="utf-8")
+            html = html.replace('<script src="csv-import.js"></script>', '<script>\n' + importer + '\n</script>')
+            mock_js = '''
+              Object.defineProperty(window,"localStorage",{value:{_s:{},getItem(k){return this._s[k]??null},setItem(k,v){this._s[k]=String(v)},removeItem(k){delete this._s[k]}}});
+              const MOCK_API = ''' + json.dumps(self.mock_api, separators=(",", ":")) + ''';
+              window.fetch=(u,opts)=>{const path=String(u).split("?")[0];const key=Object.keys(MOCK_API).find(k=>path.endsWith(k));const value=key?MOCK_API[key]:{ok:false,error:"unmocked "+path};return Promise.resolve(new Response(JSON.stringify(value),{status:200,headers:{"Content-Type":"application/json"}}));};
+            '''
+            pos = html.find('<script')
+            html = html[:pos] + '<script>' + mock_js + '</script>' + html[pos:]
+            page.set_content(html, wait_until="domcontentloaded", timeout=30000)
+            page.locator('#dataSourcesBtn').click()
+            self.assertTrue(page.locator('#dataSourcesModal').is_visible())
+            page.locator('#csvSource').select_option('Screener.in CSV')
+            page.locator('#csvFile').set_input_files({"name":"sample.csv","mimeType":"text/csv","buffer":b"Name,NSE Code,Market Capitalization,Stock P/E,Dividend yield\nInfosys,INFY,650000,25.4,1.8"})
+            page.wait_for_function("document.querySelector('#csvImportStatus').textContent.includes('Imported 1 stock row')", timeout=5000)
+            store = page.evaluate("JSON.parse(localStorage.getItem('psi.provider.csv.v1'))")
+            self.assertEqual(store['sources']['Screener.in CSV']['rows']['INFY']['fields']['dividendYield'], 1.8)
+            # Also exercise the historical CSV path using the selected stock.
+            page.locator('#search').fill('INFY')
+            page.locator('#csvSource').select_option('User CSV')
+            lines = ['Date,Open,High,Low,Close,Volume']
+            from datetime import date, timedelta
+            for i in range(24, -1, -1):
+                day = date(2025, 1, 1) + timedelta(days=i)
+                close = 100 + i
+                lines.append(f'{day.isoformat()},{close-1},{close+2},{close-2},{close},1000')
+            page.locator('#csvFile').set_input_files({"name":"infy-history.csv","mimeType":"text/csv","buffer":("\n".join(lines)).encode()})
+            page.wait_for_function("document.querySelector('#csvImportStatus').textContent.includes('Imported 0 stock row(s) and 25 historical bar(s)')", timeout=5000)
+            page.locator('#dataSourcesClose').click()
+            page.locator('#analyze').click()
+            page.wait_for_function("document.querySelector('#providerStatus').textContent.includes('CSV fallback:')", timeout=12000)
+            self.assertIn('1 missing field(s) filled', page.locator('#providerStatus').inner_text())
+            page.wait_for_function("window.chartRows && window.chartRows.length === 25", timeout=12000)
+            self.assertIn('user-imported historical CSV', page.locator('#chartStatus').inner_text())
+            self.assertEqual(errors, [])
+            browser.close()
 
     def test_brand_logo_asset_header_and_android_launcher_icon_exist(self):
         root = Path(__file__).parents[1]
@@ -355,8 +448,68 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn('class="brand"', html)
         self.assertIn('android:icon="@drawable/ic_launcher"', manifest)
         self.assertTrue(launcher.exists())
-        self.assertIn("40.66", (root / "app/build.gradle").read_text(encoding="utf-8"))
+        self.assertIn("versionName '40.80'", (root / "app/build.gradle").read_text(encoding="utf-8"))
 
+
+    def test_v4079_parses_additional_screener_valuation_fields(self):
+        source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        for field in ['"industry pe" to "industryPE"', '"peg ratio" to "peg"', '"face value" to "faceValue"',
+                      '"piotroski score" to "piotroski"', '"dma 50" to "dma50"', '"dma 200" to "dma200"',
+                      '"promoter holding" to "promoter"', '"public holding" to "public"', '"pledged percentage" to "pledged"']:
+            with self.subTest(field=field):
+                self.assertIn(field, source)
+        html = HTML.read_text(encoding="utf-8")
+        for metric in ["Industry P/E", "PEG Ratio", "Book Value", "EPS", "Dividend Yield", "Face Value"]:
+            with self.subTest(metric=metric):
+                self.assertIn("criterion('" + metric + "'", html)
+
+    def test_peg_is_not_falsely_derived_from_profit_growth(self):
+        html = HTML.read_text(encoding="utf-8")
+        self.assertIn("Number(f.eps3y)>0", html)
+        self.assertNotIn("Number(f.profit3y)>0)f.peg=Number(f.pe)/Number(f.profit3y)", html)
+
+    def test_unavailable_calendar_is_not_rendered_as_verified_empty(self):
+        html = HTML.read_text(encoding="utf-8")
+        self.assertIn("intelEventsLiveAvailable=d.liveData===true", html)
+        self.assertIn("This is not confirmation that no events are scheduled", html)
+        self.assertIn("Live results calendar is not connected", html)
+        self.assertIn("No dividend candidates were returned", html)
+
+    def test_mobile_chart_controls_wrap_without_toolbar_overlap(self):
+        html = HTML.read_text(encoding="utf-8")
+        self.assertIn(".tvtoolbar.tvtoolbar-pro{height:auto!important", html)
+        self.assertIn(".tvtoolbar-pro .tvmaincontrols,.tvtoolbar-pro .tvrightcontrols{flex:1 1 100%!important", html)
+        self.assertIn(".tvpane.pricepane{height:390px!important", html)
+
+
+    def test_v4080_gateway_is_https_configurable_and_secrets_stay_server_side(self):
+        gradle = (Path(__file__).parents[1] / "app/build.gradle").read_text(encoding="utf-8")
+        source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("providerGatewayBaseUrl", gradle)
+        self.assertIn("PROVIDER_GATEWAY_BASE_URL", source)
+        self.assertIn('"/v1/quote"', source)
+        self.assertIn('"/v1/history"', source)
+        self.assertIn('"/v1/events"', source)
+        self.assertIn('"/v1/dividends"', source)
+        self.assertIn("Provider quote is stale", source)
+        self.assertIn("Provider gateway returned a different symbol", source)
+        self.assertIn("credentialsInApk", source)
+
+    def test_screener_403_is_reported_without_bypass_or_response_body(self):
+        source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("Screener HTTP 403 Forbidden", source)
+        self.assertIn("will not bypass access controls", source)
+        self.assertIn("screener403Observed = true", source)
+        self.assertIn('"HTTP_403_FORBIDDEN"', source)
+        self.assertIn("recommendedAction", source)
+        self.assertIn('if (code !in 200..299) throw IOException("HTTP $code from $host")', source)
+
+    def test_live_events_require_gateway_source_and_timestamp(self):
+        source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("Event feed source is missing", source)
+        self.assertIn("Event feed timestamp is stale or in the future", source)
+        self.assertIn("Empty results mean no rows were returned, not that no events exist.", source)
+        self.assertIn("This is not confirmation that no result dates are scheduled.", source)
 
 if __name__ == "__main__":
     unittest.main()
