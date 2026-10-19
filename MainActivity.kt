@@ -427,6 +427,7 @@ private class NativeProvider {
         val result = JSONObject()
             .put("connected", cookiePresent)
             .put("loggedIn", cookiePresent)
+            .put("cookieDetected", cookiePresent)
             .put("validated", validated)
             .put("requestValidated", validated)
             .put("httpStatus", if (httpStatus == 0) JSONObject.NULL else httpStatus)
