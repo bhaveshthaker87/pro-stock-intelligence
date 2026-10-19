@@ -633,33 +633,23 @@ private class NativeProvider {
     }
 
     private fun marketIndices(): JSONObject {
-        val specs = linkedMapOf(
-            "NIFTY 50" to "^NSEI", "SENSEX" to "^BSESN", "NIFTY BANK" to "^NSEBANK",
-            "NIFTY MIDCAP 100" to "^CRSMID", "NIFTY SMALLCAP 100" to "^CRSSML", "NIFTY IT" to "^CNXIT",
-            "NIFTY AUTO" to "^CNXAUTO", "NIFTY FMCG" to "^CNXFMCG", "NIFTY PHARMA" to "^CNXPHARMA",
-            "NIFTY METAL" to "^CNXMETAL", "NIFTY PSU BANK" to "^CNXPSUBANK", "NIFTY PRIVATE BANK" to "^NIFTYPVTBANK",
-            "NIFTY ENERGY" to "^CNXENERGY", "NIFTY INFRA" to "^CNXINFRA", "NIFTY FIN SERVICE" to "^CNXFINANCE",
-            "GOLD (MCX)" to "GC=F", "SILVER (MCX)" to "SI=F", "BRENT CRUDE" to "BZ=F"
+        // No unlicensed third-party fallback: the ribbon must not imply that
+        // cached/reference values are live market prices.
+        val labels = listOf(
+            "NIFTY 50", "SENSEX", "NIFTY BANK", "NIFTY MIDCAP 100",
+            "NIFTY SMALLCAP 100", "NIFTY IT", "NIFTY AUTO", "NIFTY FMCG",
+            "NIFTY PHARMA", "NIFTY METAL", "NIFTY PSU BANK", "NIFTY PRIVATE BANK",
+            "NIFTY ENERGY", "NIFTY INFRA", "NIFTY FIN SERVICE",
+            "GOLD (MCX)", "SILVER (MCX)", "BRENT CRUDE"
         )
         val out = JSONObject()
-        specs.forEach { (label, _) -> out.put(label, JSONObject().put("value", JSONObject.NULL).put("changePct", JSONObject.NULL).put("status", "NOT_LOADED")) }
-        // Keep the mobile ribbon fast: retrieve only the three headline indices in parallel.
-        val executor = Executors.newFixedThreadPool(3)
-        try {
-            val jobs = listOf("NIFTY 50", "SENSEX", "NIFTY BANK").map { label ->
-                executor.submit<Pair<String, JSONObject>> {
-                    val rows = yahoo(specs.getValue(label), "5d").optJSONArray("rows") ?: JSONArray()
-                    val last = if (rows.length() > 0) rows.getJSONObject(rows.length() - 1) else JSONObject()
-                    val prev = if (rows.length() > 1) rows.getJSONObject(rows.length() - 2) else JSONObject()
-                    val v = last.optDouble("close", Double.NaN); val p = prev.optDouble("close", Double.NaN)
-                    val obj = JSONObject().put("status", "OK")
-                    putFinite(obj, "value", v)
-                    if (finite(v) && finite(p) && p > 0) putFinite(obj, "changePct", (v / p - 1) * 100)
-                    label to obj
-                }
-            }
-            jobs.forEach { job -> try { val pair = job.get(3500, TimeUnit.MILLISECONDS); out.put(pair.first, pair.second) } catch (_: Exception) {} }
-        } finally { executor.shutdownNow() }
+        labels.forEach { label ->
+            out.put(label, JSONObject()
+                .put("value", JSONObject.NULL)
+                .put("changePct", JSONObject.NULL)
+                .put("status", "UNAVAILABLE")
+                .put("message", "Authorized live market-data feed is not configured"))
+        }
         return out
     }
 
@@ -692,7 +682,7 @@ private class NativeProvider {
                 "/api/history", "/api/screener-chart" -> JSONObject().put("ok", true).put("data", historyData(s, q["range"] ?: "1y")).toString()
                 "/api/analyze", "/api/bootstrap" -> {
                     val data = combined(raw, true)
-                    if (p == "/api/bootstrap") data.put("diagnostics", JSONObject().put("quoteProvider", "Yahoo Finance").put("fundamentalProvider", if (data.optJSONObject("fundamentals")?.has("providerError") == true) "Unavailable" else "Screener.in"))
+                    if (p == "/api/bootstrap") data.put("diagnostics", JSONObject().put("quoteProvider", "Screener snapshot only; live quote feed not configured").put("fundamentalProvider", if (data.optJSONObject("fundamentals")?.has("providerError") == true) "Unavailable" else "Screener.in"))
                     JSONObject().put("ok", true).put("data", data).toString()
                 }
                 "/api/screener/live" -> {
