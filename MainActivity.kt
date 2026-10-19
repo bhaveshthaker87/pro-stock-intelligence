@@ -393,11 +393,48 @@ private class NativeProvider {
         val cookie = CookieManager.getInstance().getCookie("https://www.screener.in") ?: return false
         return cookie.split(";").any { it.trim().startsWith("sessionid=") }
     }
-    private fun screenerStatus(): JSONObject {
-        val active = screenerLoggedIn()
-        return JSONObject().put("connected", active).put("loggedIn", active).put("validated", false)
-            .put("loginUrl", if (active) JSONObject.NULL else "https://www.screener.in/login/")
-            .put("message", if (active) "Screener session cookie detected; server-side validity is not confirmed until a protected request succeeds." else "Tap to sign in to Screener inside this app. After login, return with the Android Back button.")
+    private fun screenerStatus(validate: Boolean = false): JSONObject {
+        val cookiePresent = screenerLoggedIn()
+        var validated = false
+        var httpStatus = 0
+        var message = if (cookiePresent) {
+            "Screener session cookie detected; server access has not yet been verified."
+        } else {
+            "No Screener session cookie detected. Sign in through the official login page."
+        }
+        if (validate) {
+            try {
+                val html = get("https://www.screener.in/company/INFY/")
+                httpStatus = 200
+                // A successful HTTP response alone is insufficient: a login/challenge page can also return 200.
+                validated = html.contains("company-ratios", ignoreCase = true) &&
+                    (html.contains("Current Price", ignoreCase = true) || html.contains("Market Cap", ignoreCase = true))
+                message = if (validated) {
+                    "Screener protected company page returned usable company data."
+                } else {
+                    "Screener returned HTTP 200, but expected company metrics were absent. Sign in again or use permitted CSV import."
+                }
+            } catch (e: Exception) {
+                val match = Regex("HTTP\\s+(\\d{3})", RegexOption.IGNORE_CASE).find(e.message ?: "")
+                httpStatus = match?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0
+                message = when (httpStatus) {
+                    401 -> "Screener returned HTTP 401. Sign in again through the official login page."
+                    403 -> "Screener returned HTTP 403. The session or access policy rejected this request; re-login may not resolve it. Do not retry or bypass the restriction."
+                    else -> "Screener validation failed: " + (e.message ?: "network error")
+                }
+            }
+        }
+        val result = JSONObject()
+            .put("connected", cookiePresent)
+            .put("loggedIn", cookiePresent)
+            .put("validated", validated)
+            .put("requestValidated", validated)
+            .put("httpStatus", if (httpStatus == 0) JSONObject.NULL else httpStatus)
+            .put("status", when { validated -> "VALIDATED"; httpStatus == 403 -> "HTTP_403_FORBIDDEN"; httpStatus == 401 -> "HTTP_401_UNAUTHORIZED"; validate -> "LIVE_VALIDATION_FAILED"; else -> "SESSION_UNVERIFIED" })
+            // Always expose the official login URL so a stale session can be replaced.
+            .put("loginUrl", "https://www.screener.in/login/")
+            .put("message", message)
+        return result
     }
 
     private fun coreCoverage(f: JSONObject): JSONObject {
@@ -613,7 +650,7 @@ private class NativeProvider {
             when (p) {
                 "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.52 ANDROID MOBILE DATA + UI SMOKE TESTS + PEER INDICATORS + TECHNICAL SCANNERS").put("data", JSONObject().put("ok", true)).toString()
                 "/api/screener/status" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
-                "/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
+                "/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerStatus(validate = true)).toString()
                 "/api/screener/disconnect" -> JSONObject().put("ok", true).put("data", JSONObject().put("connected", false).put("loggedIn", false).put("message", "Sign out from Screener inside the web page to end the session.")).toString()
                 "/api/search-suggestions" -> {
                     val term = (q["q"] ?: "").uppercase(Locale.ROOT).replace(Regex("[^A-Z0-9]"), "")
