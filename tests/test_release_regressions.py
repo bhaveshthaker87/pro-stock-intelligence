@@ -371,6 +371,7 @@ if __name__ == "__main__":
         self.assertLess(handler.index("api('/api/screener/status'"), handler.index("api('/api/screener/connect'"))
         self.assertLess(handler.index("if(!current.cookieDetected)"), handler.index("api('/api/screener/connect'"))
         self.assertIn("https://www.screener.in/login/", handler)
-        self.assertIn("Screener denied automated access", handler)
+        self.assertIn("Screener Access Denied (403)", handler)
+        self.assertIn("Re-login once", handler)
         self.assertIn("Import a permitted Screener CSV", handler)
         self.assertIn("Refusing an unexpected login URL", handler)
