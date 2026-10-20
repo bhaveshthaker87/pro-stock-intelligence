@@ -14,7 +14,8 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("for attempt in 1 2 3 4; do", script)
         self.assertIn("APK installation failed after 4 attempts", script)
         self.assertIn("adb logcat -d -t 1200", script)
-        self.assertIn("adb shell am start -W -n com.prostock.intelligence/.MainActivity", script)
+        self.assertIn('adb shell am start -W -n "$ACTIVITY"', script)
+        self.assertIn('ACTIVITY="com.prostock.intelligence/.MainActivity"', script)
         self.assertNotIn("while [ \"$attempt\" -lt 4 ]; do", workflow)
 
     def test_emulator_screenshot_does_not_write_to_sdcard(self):
