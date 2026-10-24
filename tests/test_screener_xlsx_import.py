@@ -1,0 +1,38 @@
+from pathlib import Path
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+class ScreenerXlsxImportTests(unittest.TestCase):
+    def test_xlsx_parser_is_bundled_and_loaded_before_dashboard(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        parser = ROOT / "app/src/main/assets/xlsx-import.js"
+        self.assertTrue(parser.exists())
+        self.assertIn('<script src="xlsx-import.js"></script>', html)
+        self.assertIn("window.PSIXlsxImport.parseWorkbook", html)
+
+    def test_import_picker_accepts_xlsx_and_keeps_csv_compatibility(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn('accept=".xlsx,.csv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', html)
+        self.assertIn("window.PSICsvImport.parseImportCsv", html)
+        self.assertIn("window.PSIXlsxImport.parseWorkbook", html)
+
+    def test_screener_workbook_reader_maps_only_explicit_or_derived_values(self):
+        source = (ROOT / "app/src/main/assets/xlsx-import.js").read_text(encoding="utf-8")
+        for marker in ("Data Sheet", "COMPANY NAME", "Current Price", "Market Capitalization",
+                       "Net profit", "Adjusted Equity Shares in Cr", "INR_CRORE",
+                       "not a live quote", "does not create OHLCV candles"):
+            self.assertIn(marker, source)
+        self.assertIn("DecompressionStream('deflate-raw')", source)
+        self.assertIn("Workbook has no", source)
+
+    def test_xlsx_import_does_not_claim_quarterly_financials_are_candles(self):
+        source = (ROOT / "app/src/main/assets/xlsx-import.js").read_text(encoding="utf-8")
+        self.assertIn("historyRows:[]", source)
+        self.assertIn("historyPeriod:'UNAVAILABLE_IN_WORKBOOK'", source)
+        self.assertIn("Quarterly statements remain in the workbook", source)
+
+
+if __name__ == "__main__":
+    unittest.main()
