@@ -41,13 +41,15 @@ async function parseWorkbook(buffer,opts){
  const compact=company.toUpperCase().replace(/[^A-Z0-9]/g,'');const aliases={COLGATEPALMOLIVEINDIALTD:'COLPAL',COLGATEPALMOLIVEINDIA:'COLPAL',INFOSYSLIMITED:'INFY',TATACONSULTANCYSERVICES:'TCS'};let symbol=aliases[compact]||'';
  if(!symbol){const selected=String(opts.selectedSymbol||'').trim().toUpperCase().replace(/\.(NS|BO)$/,'');if(selected)symbol=selected;else throw Error('Cannot safely map "'+company+'" to an NSE symbol. Select the matching stock before import.');}
  const num=x=>{if(x===null||x===undefined||String(x).trim()==='')return null;const n=Number(String(x).replace(/,/g,''));return Number.isFinite(n)?n:null;};
+ const excelDate=x=>{const n=num(x);if(n===null||n<1||n>100000)return '';const d=new Date(Date.UTC(1899,11,30)+Math.round(n)*86400000);return Number.isFinite(d.getTime())?d.toISOString().slice(0,10):'';};
+ const quarterLabel=x=>{const iso=excelDate(x);if(!iso)return '';const d=new Date(iso+'T00:00:00Z');return d.toLocaleString('en-US',{month:'short',timeZone:'UTC'})+' '+d.getUTCFullYear();};
  const fields={},meta={},source=String(opts.source||'Screener.in Excel export');
  function put(key,val,unit,period,header){if(val===null||!Number.isFinite(val))return;fields[key]=val;meta[key]={source,header,unit,period:period||'UNSPECIFIED_IN_EXPORT'};}
  const price=num(get('Current Price')),cap=num(get('Market Capitalization')),shares=num(get('Adjusted Equity Shares in Cr',10));
  const findRow=(label,start,end)=>{for(let i=start;i<Math.min(end,rows.length);i++)if(String(rows[i][0]||'').trim().toLowerCase()===label.toLowerCase())return rows[i];return [];};
  const annualDates=findRow('Report Date',15,40),annualSales=findRow('Sales',15,40),annualProfit=findRow('Net profit',15,40);
- const latestAnnualCol=10;const latestAnnualDate=String(annualDates[latestAnnualCol]||'').slice(0,10)||'LATEST_ANNUAL_PERIOD_IN_EXPORT';
- const quarterDates=findRow('Report Date',40,55),quarterSales=findRow('Sales',40,55),quarterProfit=findRow('Net profit',40,55);
+ const latestAnnualCol=10;const latestAnnualDate=excelDate(annualDates[latestAnnualCol])||'LATEST_ANNUAL_PERIOD_IN_EXPORT';
+ const quarterDates=findRow('Report Date',40,55),quarterSales=findRow('Sales',40,55),quarterExpenses=findRow('Expenses',40,55),quarterOperatingProfit=findRow('Operating Profit',40,55),quarterOtherIncome=findRow('Other Income',40,55),quarterInterest=findRow('Interest',40,55),quarterDepreciation=findRow('Depreciation',40,55),quarterPbt=findRow('Profit before tax',40,55),quarterTax=findRow('Tax',40,55),quarterProfit=findRow('Net profit',40,55);
  const latestQuarterCol=10,qSales=num(quarterSales[latestQuarterCol]),qNet=num(quarterProfit[latestQuarterCol]);
  const annualComponent=(label)=>findRow(label,15,40);const rawMaterial=annualComponent('Raw Material Cost'),changeInventory=annualComponent('Change in Inventory'),powerFuel=annualComponent('Power and Fuel'),otherMfr=annualComponent('Other Mfr. Exp'),employeeCost=annualComponent('Employee Cost'),sellingAdmin=annualComponent('Selling and admin'),otherExpenses=annualComponent('Other Expenses');
  const componentValues=[rawMaterial,changeInventory,powerFuel,otherMfr,employeeCost,sellingAdmin,otherExpenses].map(r=>num(r[latestAnnualCol]));
@@ -68,8 +70,9 @@ async function parseWorkbook(buffer,opts){
  put('roce',pbt!==null&&currentCapital+prevCapital>0?(pbt+interest)*2/(currentCapital+prevCapital)*100:null,'PERCENT',latestAnnualDate,'Derived using Screener workbook ROCE formula');
  // Include the latest quarterly snapshot as explicitly labelled metadata; do not treat it as live market data.
  const period=latestAnnualDate;
+ const quarterlyRows=[];for(let col=1;col<quarterDates.length;col++){const periodLabel=quarterLabel(quarterDates[col]);if(!periodLabel)continue;const salesValue=num(quarterSales[col]),expenseValue=num(quarterExpenses[col]),opValue=num(quarterOperatingProfit[col]),otherValue=num(quarterOtherIncome[col]),interestValue=num(quarterInterest[col]),deprValue=num(quarterDepreciation[col]),pbtValue=num(quarterPbt[col]),taxValue=num(quarterTax[col]),netValue=num(quarterProfit[col]);if([salesValue,netValue].every(v=>v===null))continue;quarterlyRows.push({period:periodLabel,sales:salesValue,expenses:expenseValue,operating_profit:opValue,opm:salesValue>0&&opValue!==null?opValue/salesValue*100:null,other_income:otherValue,interest:interestValue,depreciation:deprValue,profit_before_tax:pbtValue,tax:pbtValue>0&&taxValue!==null?taxValue/pbtValue*100:null,net_profit:netValue,eps:netValue!==null&&shares>0?netValue/shares:null,source,periodType:'USER_IMPORTED_SCREENER_XLSX'});}
  if(!Object.keys(fields).length)throw Error('No supported metrics were found in the Screener workbook.');
- const records=[{symbol,fields,meta,period,companyName:company,quarterlySummary:{period:String(quarterDates[latestQuarterCol]||'UNSPECIFIED_IN_EXPORT'),sales:qSales,netProfit:qNet}}];
+ const records=[{symbol,fields,meta,period,companyName:company,quarterlyRows,quarterlySummary:{period:quarterLabel(quarterDates[latestQuarterCol])||'UNSPECIFIED_IN_EXPORT',sales:qSales,netProfit:qNet}}];
  const warnings=['Imported from Screener Data Sheet; not a live quote.','Only metrics present or safely derivable from this workbook are mapped.','Quarterly statements remain in the workbook; this import does not create OHLCV candles.'];
  return {source,records,historyRows:[],historySymbol:symbol,historyPeriod:'UNAVAILABLE_IN_WORKBOOK',totalFields:Object.keys(fields).length,mappedHeaders:Object.keys(meta).map(k=>meta[k].header+' → '+k),warnings,workbookSheets:Object.keys(sheets),companyName:company};
 }
