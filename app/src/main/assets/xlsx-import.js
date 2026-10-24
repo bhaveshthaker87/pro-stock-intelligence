@@ -45,7 +45,7 @@ async function parseWorkbook(buffer,opts){
  const quarterLabel=x=>{const iso=excelDate(x);if(!iso)return '';const d=new Date(iso+'T00:00:00Z');return d.toLocaleString('en-US',{month:'short',timeZone:'UTC'})+' '+d.getUTCFullYear();};
  const fields={},meta={},source=String(opts.source||'Screener.in Excel export');
  function put(key,val,unit,period,header){if(val===null||!Number.isFinite(val))return;fields[key]=val;meta[key]={source,header,unit,period:period||'UNSPECIFIED_IN_EXPORT'};}
- const price=num(get('Current Price')),cap=num(get('Market Capitalization')),shares=num(get('Adjusted Equity Shares in Cr',10));
+ const price=num(get('Current Price')),cap=num(get('Market Capitalization')),shares=num(get('Adjusted Equity Shares in Cr',10)),latestDividendAmount=num(get('Dividend Amount',10));
  const findRow=(label,start,end)=>{for(let i=start;i<Math.min(end,rows.length);i++)if(String(rows[i][0]||'').trim().toLowerCase()===label.toLowerCase())return rows[i];return [];};
  const annualDates=findRow('Report Date',15,40),annualSales=findRow('Sales',15,40),annualProfit=findRow('Net profit',15,40);
  const latestAnnualCol=10;const latestAnnualDate=excelDate(annualDates[latestAnnualCol])||'LATEST_ANNUAL_PERIOD_IN_EXPORT';
@@ -56,6 +56,10 @@ async function parseWorkbook(buffer,opts){
  const annualOPValue=componentValues.every(v=>v!==null)&&num(annualSales[latestAnnualCol])!==null?num(annualSales[latestAnnualCol])-(componentValues[0]+componentValues[2]+componentValues[3]+componentValues[4]+componentValues[5]+componentValues[6]-componentValues[1]):null;
  put('price',price,'INR_PER_SHARE','WORKBOOK_META','Current Price');
  put('marketCap',cap,'INR_CRORE','WORKBOOK_META','Market Capitalization');
+ put('dividendAmount',latestDividendAmount,'INR_CRORE',latestAnnualDate,'Dividend Amount');
+ const dividendPerShare=latestDividendAmount!==null&&shares>0?latestDividendAmount/shares:null;
+ put('dividendPerShare',dividendPerShare,'INR_PER_SHARE',latestAnnualDate,'Derived: annual dividend amount / adjusted equity shares');
+ put('dividendYield',dividendPerShare!==null&&price>0?dividendPerShare/price*100:null,'PERCENT',latestAnnualDate,'Derived: annual dividend per share / workbook current price');
  const eps=(num(annualProfit[latestAnnualCol])!==null&&shares>0)?num(annualProfit[latestAnnualCol])/shares:null;
  put('eps',eps,'INR_PER_SHARE',latestAnnualDate,'Derived: latest annual net profit / adjusted equity shares');
  put('netProfit',num(annualProfit[latestAnnualCol]),'INR_CRORE',latestAnnualDate,'Net profit');
