@@ -361,9 +361,6 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("has invalid value/changePct; snapshot rejected", source)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
     def test_screener_login_opens_official_page_before_probing_and_stops_after_403(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         handler_start = html.index("$('session').onclick=async()=>{")
@@ -376,3 +373,21 @@ if __name__ == "__main__":
         self.assertIn("Re-login once", handler)
         self.assertIn("Import a permitted Screener CSV", handler)
         self.assertIn("Refusing an unexpected login URL", handler)
+
+    def test_provider_validator_supports_every_gateway_payload_type(self):
+        import subprocess
+        import sys
+        validator = ROOT / "tools/validate_provider_payloads.py"
+        result = subprocess.run([sys.executable, str(validator), "--help"], capture_output=True, text=True, check=True)
+        for kind in ("quote", "history", "events", "indices", "dividends"):
+            self.assertIn(kind, result.stdout)
+
+    def test_gateway_workflow_checks_requested_symbol_and_dividend_status(self):
+        workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
+        self.assertIn("quote /tmp/psi-provider/quote.json --expected-symbol INFY", workflow)
+        self.assertIn("history /tmp/psi-provider/history.json --expected-symbol INFY", workflow)
+        self.assertIn('Dividend payload missing valid marketDataStatus', workflow)
+
+
+if __name__ == "__main__":
+    unittest.main()
