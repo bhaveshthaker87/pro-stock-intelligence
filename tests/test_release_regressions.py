@@ -423,6 +423,15 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("REQUIRE_LIVE_PROVIDER_GATEWAY", workflow)
         self.assertIn("does not qualify as a live-data release", workflow)
 
+    def test_imported_event_csv_fallback_is_explicit_and_source_aware(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("psiEventCsvParse", html)
+        self.assertIn("psi_imported_corporate_events_v1", html)
+        self.assertIn("eventCsvImportBtn", html)
+        self.assertIn("Imported CSV snapshot", html)
+        self.assertIn("an empty list does not mean no events exist", html)
+        self.assertIn("financial-results", html)
+
 if __name__ == "__main__":
     unittest.main()
 
