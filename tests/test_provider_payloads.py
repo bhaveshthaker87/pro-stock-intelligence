@@ -70,14 +70,19 @@ class ProviderPayloadTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"stale"):
             m.validate_indices(p,now=NOW)
     def test_valid_dividend_payload_and_empty_does_not_prove_absence(self):
-        p={"source":"Licensed vendor","asOf":"2026-10-11T09:25:00+05:30","rows":[
+        p={"source":"Licensed vendor","asOf":"2026-10-11T09:25:00+05:30","marketDataStatus":"EOD","rows":[
             {"symbol":"INFY","exDate":"2026-10-20","amount":25.0,"currency":"INR"}]}
-        self.assertEqual(m.validate_dividends(p)["dividendsReturned"],1)
-        self.assertFalse(m.validate_dividends({"source":"Vendor","asOf":"2026-10-11T09:25:00+05:30","rows":[]})["absenceVerified"])
+        self.assertEqual(m.validate_dividends(p,now=NOW)["dividendsReturned"],1)
+        self.assertFalse(m.validate_dividends({"source":"Vendor","asOf":"2026-10-11T09:25:00+05:30","marketDataStatus":"EOD","rows":[]},now=NOW)["absenceVerified"])
     def test_dividend_requires_date_and_valid_amount(self):
         with self.assertRaisesRegex(ValueError,"requires exDate"):
-            m.validate_dividends({"source":"Vendor","asOf":"2026-10-11T09:25:00+05:30","rows":[{"symbol":"INFY","amount":10,"currency":"INR"}]})
+            m.validate_dividends({"source":"Vendor","asOf":"2026-10-11T09:25:00+05:30","marketDataStatus":"EOD","rows":[{"symbol":"INFY","amount":10,"currency":"INR"}]},now=NOW)
         with self.assertRaisesRegex(ValueError,"positive finite"):
-            m.validate_dividends({"source":"Vendor","asOf":"2026-10-11T09:25:00+05:30","rows":[{"symbol":"INFY","exDate":"2026-10-20","amount":0,"currency":"INR"}]})
+            m.validate_dividends({"source":"Vendor","asOf":"2026-10-11T09:25:00+05:30","marketDataStatus":"EOD","rows":[{"symbol":"INFY","exDate":"2026-10-20","amount":0,"currency":"INR"}]},now=NOW)
+
+    def test_dividend_rejects_stale_snapshot(self):
+        p={"source":"Vendor","asOf":"2026-10-01T09:25:00+05:30","marketDataStatus":"EOD","rows":[]}
+        with self.assertRaisesRegex(ValueError,"stale"):
+            m.validate_dividends(p,now=NOW)
 
 if __name__=='__main__': unittest.main()
