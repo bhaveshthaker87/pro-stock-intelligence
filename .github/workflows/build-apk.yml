@@ -121,7 +121,7 @@ jobs:
               echo "::error::Live provider validation is required but PROVIDER_GATEWAY_BASE_URL is not configured."
               exit 1
             fi
-            echo "::warning::LIVE DATA NOT VERIFIED: PROVIDER_GATEWAY_BASE_URL is not configured. APK build may continue for development, but this run does not qualify as a live-data release."
+            echo "::warning::LIVE DATA NOT VERIFIED: PROVIDER_GATEWAY_BASE_URL is not configured. No live-feed pass is claimed. APK build may continue for development, but this run does not qualify as a live-data release."
             {
               echo "## Live market-data validation"
               echo "**Status: NOT VERIFIED**"
