@@ -163,7 +163,7 @@ jobs:
           if not isinstance(p.get("source"), str) or not p["source"].strip(): raise SystemExit("Dividend payload missing source")
           if not isinstance(p.get("asOf"), str) or not p["asOf"].strip(): raise SystemExit("Dividend payload missing asOf timestamp")
           if p.get("marketDataStatus") not in {"REALTIME", "DELAYED", "EOD"}: raise SystemExit("Dividend payload missing valid marketDataStatus")
-if not isinstance(p.get("rows"), list): raise SystemExit("Dividend payload rows must be an array")
+          if not isinstance(p.get("rows"), list): raise SystemExit("Dividend payload rows must be an array")
           print("Index/dividend payload contracts valid.")
           PY
           python3 tools/validate_provider_payloads.py quote /tmp/psi-provider/quote.json --expected-symbol INFY
