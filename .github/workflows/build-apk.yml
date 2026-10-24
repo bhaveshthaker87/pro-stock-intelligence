@@ -14,7 +14,7 @@ on:
         description: 'Require validated provider data before treating this run as release-ready'
         required: false
         type: boolean
-        default: false
+        default: true
   # Feature-branch commits are validated by pull_request:synchronize below.
   # Avoid duplicate push + PR runs cancelling each other on the same head.
   push:
