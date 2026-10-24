@@ -43,14 +43,12 @@ async function parseWorkbook(buffer,opts){
  const num=x=>{if(x===null||x===undefined||String(x).trim()==='')return null;const n=Number(String(x).replace(/,/g,''));return Number.isFinite(n)?n:null;};
  const fields={},meta={},source=String(opts.source||'Screener.in Excel export');
  function put(key,val,unit,period,header){if(val===null||!Number.isFinite(val))return;fields[key]=val;meta[key]={source,header,unit,period:period||'UNSPECIFIED_IN_EXPORT'};}
- const price=num(get('Current Price')),cap=num(get('Market Capitalization')),shares=num(get('Adjusted Equity Shares in Cr',11))??num(get('Adjusted Equity Shares in Cr',10));
- const annualDateRow=labelMap.get('report date')||[]; // section-specific dates are read below by row number.
- const byLabel=new Map();for(let i=0;i<rows.length;i++){const label=String(rows[i][0]||'').trim().toLowerCase();if(label)byLabel.set(label,rows[i]);}
- const rowAt=(label)=>{const r=byLabel.get(label.toLowerCase());return r||[];};
- const annualSales=rowAt('Sales'),annualProfit=rowAt('Net profit'),annualOP=rowAt('Operating Profit');
- const latestAnnualCol=10;const latestAnnualDate=String(rowAt('Report Date')[latestAnnualCol]||'').slice(0,10)||'LATEST_ANNUAL_PERIOD_IN_EXPORT';
- const latestQuarterCol=10,quarterDates=rowAt('Report Date');
- const qSales= num(rowAt('Sales')[latestQuarterCol]), qNet=num(rowAt('Net profit')[latestQuarterCol]);
+ const price=num(get('Current Price')),cap=num(get('Market Capitalization')),shares=num(get('Adjusted Equity Shares in Cr',10));
+ const findRow=(label,start,end)=>{for(let i=start;i<Math.min(end,rows.length);i++)if(String(rows[i][0]||'').trim().toLowerCase()===label.toLowerCase())return rows[i];return [];};
+ const annualDates=findRow('Report Date',15,40),annualSales=findRow('Sales',15,40),annualProfit=findRow('Net profit',15,40),annualOP=findRow('Operating Profit',15,40);
+ const latestAnnualCol=10;const latestAnnualDate=String(annualDates[latestAnnualCol]||'').slice(0,10)||'LATEST_ANNUAL_PERIOD_IN_EXPORT';
+ const quarterDates=findRow('Report Date',40,55),quarterSales=findRow('Sales',40,55),quarterProfit=findRow('Net profit',40,55);
+ const latestQuarterCol=10,qSales=num(quarterSales[latestQuarterCol]),qNet=num(quarterProfit[latestQuarterCol]);
  put('price',price,'INR_PER_SHARE','WORKBOOK_META','Current Price');
  put('marketCap',cap,'INR_CRORE','WORKBOOK_META','Market Capitalization');
  const eps=(num(annualProfit[latestAnnualCol])!==null&&shares>0)?num(annualProfit[latestAnnualCol])/shares:null;
