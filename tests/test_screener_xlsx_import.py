@@ -46,3 +46,10 @@ class ScreenerXlsxImportTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_nse_udiff_bhavcopy_headers_are_supported_and_mixed_symbols_are_filtered(self):
+        source = (ROOT / "app/src/main/assets/csv-import.js").read_text(encoding="utf-8")
+        for marker in ("'tckrsymb'", "'tradt'", "'opnpric'", "'hghpric'", "'lwpric'",
+                       "'clspric'", "'ttltradgvol'", "mixed-symbol candles were rejected",
+                       "rows for other symbols were excluded"):
+            self.assertIn(marker, source)
