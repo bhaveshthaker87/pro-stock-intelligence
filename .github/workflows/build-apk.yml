@@ -106,19 +106,31 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tests -v
 
-      # Live validation runs only when an HTTPS gateway URL is explicitly configured.
-      # Vendor credentials belong on the gateway server and must never be GitHub build args or APK resources.
+      # A build without an authorized gateway is useful for development, but must not
+      # silently pass as a verified live-data release. Missing gateway is an explicit
+      # non-fatal CI status; set REQUIRE_LIVE_PROVIDER_GATEWAY=true to enforce release gating.
       - name: Validate configured authorized provider gateway
         shell: bash
         env:
           PROVIDER_GATEWAY_BASE_URL: ${{ vars.PROVIDER_GATEWAY_BASE_URL }}
+          REQUIRE_LIVE_PROVIDER_GATEWAY: ${{ vars.REQUIRE_LIVE_PROVIDER_GATEWAY }}
         run: |
           set -euo pipefail
           if [ -z "${PROVIDER_GATEWAY_BASE_URL:-}" ]; then
-            echo "::notice::Live provider E2E test skipped: repository variable PROVIDER_GATEWAY_BASE_URL is not configured. No live-feed pass is claimed."
+            if [ "${REQUIRE_LIVE_PROVIDER_GATEWAY:-false}" = "true" ]; then
+              echo "::error::Live provider validation is required but PROVIDER_GATEWAY_BASE_URL is not configured."
+              exit 1
+            fi
+            echo "::warning::LIVE DATA NOT VERIFIED: PROVIDER_GATEWAY_BASE_URL is not configured. APK build may continue for development, but this run does not qualify as a live-data release."
+            {
+              echo "## Live market-data validation"
+              echo "**Status: NOT VERIFIED**"
+              echo "No authorized HTTPS provider gateway is configured. Quote, historical-candle, index, dividend and event end-to-end tests were not run."
+              echo "Configure repository variable `PROVIDER_GATEWAY_BASE_URL` to test the authorized gateway. Set `REQUIRE_LIVE_PROVIDER_GATEWAY=true` to make this a blocking release gate."
+            } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          case "$PROVIDER_GATEWAY_BASE_URL" in https://*) ;; *) echo "Gateway URL must use HTTPS."; exit 1;; esac
+          case "$PROVIDER_GATEWAY_BASE_URL" in https://*) ;; *) echo "::error::Gateway URL must use HTTPS."; exit 1;; esac
           mkdir -p /tmp/psi-provider
           curl --fail --silent --show-error --max-time 15 "$PROVIDER_GATEWAY_BASE_URL/v1/quote?symbol=INFY" -o /tmp/psi-provider/quote.json
           curl --fail --silent --show-error --max-time 20 "$PROVIDER_GATEWAY_BASE_URL/v1/history?symbol=INFY&range=1y" -o /tmp/psi-provider/history.json
@@ -149,6 +161,11 @@ jobs:
           python3 tools/validate_provider_payloads.py events /tmp/psi-provider/events.json
           python3 tools/validate_provider_payloads.py indices /tmp/psi-provider/indices.json
           python3 tools/validate_provider_payloads.py dividends /tmp/psi-provider/dividends.json
+          {
+            echo "## Live market-data validation"
+            echo "**Status: PASSED**"
+            echo "Authorized provider gateway responded successfully for quote, history, events, dividends and indices; normalized payload validators passed."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # Publish the APK immediately after a successful build; emulator validation is intentionally separate so an unstable virtual device cannot block delivery.
       - name: Build debug APK
