@@ -31,3 +31,42 @@ Events: same metadata plus `rows`; each row includes `symbol`, `eventType` (`RES
 The app must not treat a paid website login as permission to extract or redistribute structured data. Moneycontrol's published Terms of Use restrict automated extraction and machine-readable reuse without prior express written permission; Screener's published terms describe personal, non-commercial viewing and restrict copying/mirroring. This project therefore does not scrape Moneycontrol, invent undocumented endpoints, or label Yahoo/NSE fallback data as Moneycontrol data. The chart toolbar links directly to the relevant company/source search pages.
 
 Before enabling structured Moneycontrol or Screener data in the gateway, provide the vendor's written authorization/API documentation, response schema, allowed use (personal display, storage, historical data and corporate events), and authentication requirements. Configure the vendor secret only in server-side environment secrets. The current APK intentionally contains no vendor credentials.
+
+
+## Index and dividend payload contracts (V40.81)
+
+The CI validator supports five payload types: `quote`, `history`, `events`, `indices`, and `dividends`. A provider response is not accepted solely because it returns HTTP 200.
+
+Indices payload:
+```json
+{
+  "source": "Authorized Vendor",
+  "asOf": "2026-10-24T09:20:00+05:30",
+  "marketDataStatus": "REALTIME",
+  "rows": [
+    {"symbol": "NIFTY 50", "value": 25100.25, "previousClose": 25000.0, "changePct": 0.40}
+  ]
+}
+```
+- `source` and timezone-aware `asOf` are mandatory.
+- `marketDataStatus` must be `REALTIME`, `DELAYED`, or `EOD`; delayed data must include a positive `delayMinutes`.
+- Rows must be non-empty, contain unique `symbol` or `name` values and a finite positive `value`. Optional numeric fields must be finite.
+- The validator enforces freshness limits (5 minutes real-time, 24 hours delayed, 72 hours EOD).
+
+Dividends payload:
+```json
+{
+  "source": "Authorized Vendor",
+  "asOf": "2026-10-24T09:20:00+05:30",
+  "marketDataStatus": "EOD",
+  "rows": [
+    {"symbol": "INFY", "exDate": "2026-10-30", "amount": 25.0, "currency": "INR"}
+  ]
+}
+```
+- `source`, timezone-aware `asOf`, a valid `marketDataStatus`, and a `rows` array are required.
+- Each non-empty row must identify a symbol and an `exDate`, `eventDate`, or `recordDate`.
+- If an amount is present, it must be positive and finite and include a currency.
+- An empty array means the provider returned no rows; it does not prove there are no dividends.
+
+Quote/history CI probes also pass `--expected-symbol INFY`, so a valid-shaped response for the wrong stock fails validation. These checks improve data integrity but do not independently prove provider licensing or exchange-certified real-time status.
