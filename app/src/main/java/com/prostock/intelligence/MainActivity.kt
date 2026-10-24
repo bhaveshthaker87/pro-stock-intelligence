@@ -394,19 +394,21 @@ private class NativeProvider {
     }
 
     private fun sectionTableRows(html: String, sectionId: String): List<List<String>> {
-        val idRegex = Regex("(?is)<section\\b[^>]*id=[\"']" + Regex.escape(sectionId) + "[\"'][^>]*>")
-        val sectionMatch = idRegex.find(html)
-        val section = if (sectionMatch != null) {
-            val start = sectionMatch.range.last + 1
-            val end = html.indexOf("</section>", start).let { if (it >= 0) it else html.length }
-            html.substring(start, end)
-        } else {
-            val divRegex = Regex("(?is)<div\\b[^>]*id=[\"']" + Regex.escape(sectionId) + "[\"'][^>]*>")
-            val divMatch = divRegex.find(html) ?: return emptyList()
-            val start = divMatch.range.last + 1
-            val end = html.indexOf("</div>", start).let { if (it >= 0) it else html.length }
-            html.substring(start, end)
+        // Screener sections are commonly nested divs. Stopping at the first </div>
+        // truncates the section before its table and made quarterly/P&L/ownership look empty.
+        // Locate the matching close tag for the exact id-bearing container instead.
+        val open = Regex("(?is)<(section|div)\\b(?=[^>]*\\bid=[\"']" + Regex.escape(sectionId) + "[\"'])[^>]*>").find(html)
+            ?: return emptyList()
+        val tag = Regex("(?is)^<(section|div)\\b").find(open.value)?.groupValues?.getOrNull(1)?.lowercase(Locale.ROOT)
+            ?: return emptyList()
+        val token = Regex("(?is)</?"+tag+"\\b[^>]*>")
+        var depth = 1
+        var end = html.length
+        for (m in token.findAll(html, open.range.last + 1)) {
+            if (m.value.startsWith("</")) depth-- else if (!m.value.endsWith("/>")) depth++
+            if (depth == 0) { end = m.range.first; break }
         }
+        val section = html.substring(open.range.last + 1, end)
         val table = Regex("(?is)<table\\b[^>]*>(.*?)</table>").find(section)?.groupValues?.getOrNull(1) ?: return emptyList()
         return Regex("(?is)<tr\\b[^>]*>(.*?)</tr>").findAll(table).mapNotNull { row ->
             val cells = Regex("(?is)<t[hd]\\b[^>]*>(.*?)</t[hd]>").findAll(row.groupValues[1]).map { cleanText(it.groupValues[1]) }.toList()
