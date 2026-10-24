@@ -9,6 +9,12 @@ concurrency:
 
 on:
   workflow_dispatch:
+    inputs:
+      require_live_data:
+        description: 'Require validated provider data before treating this run as release-ready'
+        required: false
+        type: boolean
+        default: false
   # Feature-branch commits are validated by pull_request:synchronize below.
   # Avoid duplicate push + PR runs cancelling each other on the same head.
   push:
@@ -114,10 +120,13 @@ jobs:
         env:
           PROVIDER_GATEWAY_BASE_URL: ${{ vars.PROVIDER_GATEWAY_BASE_URL }}
           REQUIRE_LIVE_PROVIDER_GATEWAY: ${{ vars.REQUIRE_LIVE_PROVIDER_GATEWAY }}
+          REQUIRE_LIVE_DATA_INPUT: ${{ inputs.require_live_data }}
         run: |
           set -euo pipefail
+          require_gateway="${REQUIRE_LIVE_PROVIDER_GATEWAY:-false}"
+          if [ "${REQUIRE_LIVE_DATA_INPUT:-false}" = "true" ]; then require_gateway=true; fi
           if [ -z "${PROVIDER_GATEWAY_BASE_URL:-}" ]; then
-            if [ "${REQUIRE_LIVE_PROVIDER_GATEWAY:-false}" = "true" ]; then
+            if [ "$require_gateway" = "true" ]; then
               echo "::error::Live provider validation is required but PROVIDER_GATEWAY_BASE_URL is not configured."
               exit 1
             fi

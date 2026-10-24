@@ -51,7 +51,7 @@ Indices payload:
 - `source` and timezone-aware `asOf` are mandatory.
 - `marketDataStatus` must be `REALTIME`, `DELAYED`, or `EOD`; delayed data must include a positive `delayMinutes`.
 - Rows must be non-empty, contain unique `symbol` or `name` values and a finite positive `value`. Optional numeric fields must be finite.
-- The validator enforces freshness limits (5 minutes real-time, 24 hours delayed, 72 hours EOD).
+- The validator enforces freshness limits (5 minutes real-time, 24 hours delayed, 72 hours EOD). The gateway response timestamp must also be recent: quote/index/dividend status is checked against those limits, while history and event snapshot timestamps must be no more than 24 hours old.
 
 Dividends payload:
 ```json
@@ -67,6 +67,6 @@ Dividends payload:
 - `source`, timezone-aware `asOf`, a valid `marketDataStatus`, and a `rows` array are required.
 - Each non-empty row must identify a symbol and an `exDate`, `eventDate`, or `recordDate`.
 - If an amount is present, it must be positive and finite and include a currency.
-- An empty array means the provider returned no rows; it does not prove there are no dividends.
+- An empty array means the provider returned no rows; it does not prove there are no dividends. The snapshot's status and timestamp must also pass the same freshness contract as index data.
 
 Quote/history CI probes also pass `--expected-symbol INFY`, so a valid-shaped response for the wrong stock fails validation. These checks improve data integrity but do not independently prove provider licensing or exchange-certified real-time status.

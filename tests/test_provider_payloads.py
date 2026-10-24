@@ -35,18 +35,18 @@ class ProviderPayloadTests(unittest.TestCase):
             {"time":"2026-10-09T10:00:00+05:30","open":100,"high":99,"low":98,"close":99,"volume":10},
             {"time":"2026-10-10T10:00:00+05:30","open":100,"high":102,"low":98,"close":101,"volume":12}]}
         with self.assertRaisesRegex(ValueError,"high is inconsistent"):
-            m.validate_history(h)
+            m.validate_history(h, now=HISTORY_NOW)
     def test_history_rejects_duplicate_or_unsorted_times(self):
         row={"time":"2026-10-10T10:00:00+05:30","open":100,"high":102,"low":98,"close":101,"volume":12}
         h={"symbol":"INFY","source":"Vendor","asOf":"2026-10-11T09:25:00+05:30","interval":"1d","rows":[row,row.copy()]}
         with self.assertRaisesRegex(ValueError,"strictly increasing"):
-            m.validate_history(h)
+            m.validate_history(h, now=HISTORY_NOW)
     def test_history_rejects_wrong_symbol(self):
         h={"symbol":"INFY","source":"Vendor","asOf":"2026-10-11T09:25:00+05:30","interval":"1d","rows":[
             {"time":"2026-10-09T10:00:00+05:30","open":100,"high":102,"low":98,"close":99,"volume":10},
             {"time":"2026-10-10T10:00:00+05:30","open":100,"high":102,"low":98,"close":101,"volume":12}]}
         with self.assertRaisesRegex(ValueError,"symbol mismatch"):
-            m.validate_history(h, expected_symbol="TCS")
+            m.validate_history(h, expected_symbol="TCS", now=HISTORY_NOW)
     def test_empty_events_do_not_claim_absence_verified(self):
         e={"symbol":"INFY","source":"Vendor","asOf":"2026-10-11T09:25:00+05:30","rows":[]}
         self.assertFalse(m.validate_events(e)["absenceVerified"])

@@ -276,7 +276,12 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("Index feed is stale for declared", source)
         self.assertIn("/v1/indices", workflow)
         self.assertIn("PROVIDER_GATEWAY_BASE_URL", workflow)
-        self.assertIn("No live-feed pass is claimed", workflow)
+        gateway_step = workflow.split("- name: Validate configured authorized provider gateway", 1)[1].split("- name: Build debug APK", 1)[0]
+        self.assertIn("LIVE DATA NOT VERIFIED", gateway_step)
+        self.assertIn("REQUIRE_LIVE_PROVIDER_GATEWAY", gateway_step)
+        self.assertIn("REQUIRE_LIVE_DATA_INPUT", gateway_step)
+        self.assertIn('exit 0', gateway_step)
+        self.assertIn('exit 1', gateway_step)
         self.assertIn("timestamp or status is absent", docs)
 
 
@@ -381,6 +386,12 @@ class ReleaseRegressionTests(unittest.TestCase):
         result = subprocess.run([sys.executable, str(validator), "--help"], capture_output=True, text=True, check=True)
         for kind in ("quote", "history", "events", "indices", "dividends"):
             self.assertIn(kind, result.stdout)
+
+    def test_manual_release_mode_requires_verified_provider_gateway(self):
+        workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
+        self.assertIn("require_live_data:", workflow)
+        self.assertIn("REQUIRE_LIVE_DATA_INPUT", workflow)
+        self.assertIn('if [ "$require_gateway" = "true" ]; then', workflow)
 
     def test_gateway_workflow_checks_requested_symbol_and_dividend_status(self):
         workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")

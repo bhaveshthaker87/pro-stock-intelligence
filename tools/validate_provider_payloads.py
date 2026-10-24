@@ -86,8 +86,14 @@ def validate_quote(payload, now=None, expected_symbol=None):
     return {"kind": "quote", "symbol": symbol, "status": status, "ageSeconds": age}
 
 
-def validate_history(payload, expected_symbol=None):
-    base(payload)
+def validate_history(payload, expected_symbol=None, now=None):
+    asof = base(payload)
+    now = now or datetime.now(timezone.utc)
+    age = (now - asof).total_seconds()
+    if age < -300:
+        raise ValueError("history snapshot timestamp is more than 5 minutes in the future")
+    if age > 86400:
+        raise ValueError(f"history snapshot is stale ({int(age)} seconds old)")
     symbol = payload["symbol"].strip().upper()
     if expected_symbol and symbol != expected_symbol.strip().upper():
         raise ValueError(f"symbol mismatch: requested {expected_symbol.strip().upper()}, received {symbol}")
@@ -98,7 +104,6 @@ def validate_history(payload, expected_symbol=None):
     if interval not in {"1m", "5m", "15m", "1d", "1wk", "1mo"}:
         raise ValueError("unsupported history interval")
     previous = None
-    now = datetime.now(timezone.utc)
     for i, row in enumerate(rows):
         if not isinstance(row, dict):
             raise ValueError(f"rows[{i}] must be an object")
@@ -123,8 +128,14 @@ def validate_history(payload, expected_symbol=None):
     return {"kind": "history", "symbol": symbol, "bars": len(rows), "interval": interval}
 
 
-def validate_events(payload):
-    base(payload)
+def validate_events(payload, now=None):
+    asof = base(payload)
+    now = now or datetime.now(timezone.utc)
+    age = (now - asof).total_seconds()
+    if age < -300:
+        raise ValueError("events snapshot timestamp is more than 5 minutes in the future")
+    if age > 86400:
+        raise ValueError(f"events snapshot is stale ({int(age)} seconds old)")
     rows = payload.get("rows")
     if not isinstance(rows, list):
         raise ValueError("rows must be an array; empty array means unknown/none returned, not verified absence")
