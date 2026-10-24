@@ -53,3 +53,18 @@ if __name__ == "__main__":
                        "'clspric'", "'ttltradgvol'", "mixed-symbol candles were rejected",
                        "rows for other symbols were excluded"):
             self.assertIn(marker, source)
+
+    def test_provider_gateway_has_bounded_safe_retry_and_no_stale_quote_fallback(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        for marker in ("for (attempt in 0..2)", "code == 429 || code in 500..599",
+                       "never substitute stale cached quotes", "HTTP 401", "HTTP 403",
+                       "malformed JSON", "2 MB safety limit"):
+            self.assertIn(marker, source)
+
+    def test_release_version_is_aligned_across_android_and_dashboard(self):
+        gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
+        native = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("versionCode 80; versionName '40.81'", gradle)
+        self.assertIn("V40.81 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", native)
+        self.assertIn("V40.81 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", html)

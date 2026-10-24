@@ -6,7 +6,7 @@ dependencies {
 
 android { namespace 'com.prostock.intelligence'; compileSdk 35
     buildFeatures { buildConfig true }
-    defaultConfig { applicationId 'com.prostock.intelligence'; minSdk 26; targetSdk 35; versionCode 79; versionName '40.80'
+    defaultConfig { applicationId 'com.prostock.intelligence'; minSdk 26; targetSdk 35; versionCode 80; versionName '40.81'
         buildConfigField 'String', 'PROVIDER_GATEWAY_BASE_URL', '"' + (providers.gradleProperty('providerGatewayBaseUrl').getOrElse('')) + '"' }
 
 

@@ -334,21 +334,61 @@ private class NativeProvider {
         }
         val url = URL(urlText)
         if (url.host.isBlank() || urlText.substringAfter("://").substringBefore("/").contains("@")) throw IOException("Invalid provider gateway URL")
-        val c = url.openConnection() as HttpURLConnection
-        c.connectTimeout = 5000
-        c.readTimeout = 8000
-        c.requestMethod = "GET"
-        c.setRequestProperty("Accept", "application/json")
-        c.setRequestProperty("Cache-Control", "no-cache")
-        try {
-            val code = c.responseCode
-            if (code !in 200..299) throw IOException("Provider gateway returned HTTP $code. Check gateway health, authentication and vendor subscription.")
-            val body = c.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
-            if (body.length > 2_000_000) throw IOException("Provider gateway response exceeded the 2 MB safety limit")
-            val parsed = JSONObject(body)
-            if (parsed.optBoolean("ok", true) == false) throw IOException(parsed.optString("error", "Provider gateway reported unavailable data"))
-            return parsed.optJSONObject("data") ?: parsed
-        } finally { c.disconnect() }
+        var lastFailure: IOException? = null
+        // Bounded retries for idempotent GETs only. Never retry access denials and never
+        // substitute stale cached quotes when the provider denies or fails a request.
+        for (attempt in 0..2) {
+            val c = url.openConnection() as HttpURLConnection
+            c.connectTimeout = 5000
+            c.readTimeout = 8000
+            c.requestMethod = "GET"
+            c.instanceFollowRedirects = false
+            c.setRequestProperty("Accept", "application/json")
+            c.setRequestProperty("Cache-Control", "no-cache")
+            try {
+                val code = c.responseCode
+                if (code in 200..299) {
+                    val body = c.inputStream.bufferedReader(Charsets.UTF_8).use { reader ->
+                        val out = StringBuilder()
+                        val buf = CharArray(8192)
+                        while (true) {
+                            val n = reader.read(buf)
+                            if (n < 0) break
+                            if (out.length + n > 2_000_000) throw IOException("Provider gateway response exceeded the 2 MB safety limit")
+                            out.append(buf, 0, n)
+                        }
+                        out.toString()
+                    }
+                    val parsed = try { JSONObject(body) } catch (_: Exception) {
+                        throw IOException("Provider gateway returned malformed JSON; response rejected")
+                    }
+                    if (parsed.optBoolean("ok", true) == false) throw IOException(parsed.optString("error", "Provider gateway reported unavailable data"))
+                    return parsed.optJSONObject("data") ?: parsed
+                }
+                val retryable = code == 429 || code in 500..599
+                if (!retryable || attempt == 2) {
+                    val detail = when (code) {
+                        401, 403 -> "Provider gateway authentication/access denied (HTTP $code). Check server-side credentials and subscription; no bypass attempted."
+                        429 -> "Provider gateway rate-limited the request (HTTP 429) after bounded retries."
+                        else -> "Provider gateway returned HTTP $code. Check gateway health, authentication and vendor subscription."
+                    }
+                    throw IOException(detail)
+                }
+                val retryAfter = c.getHeaderField("Retry-After")?.toLongOrNull()?.coerceIn(0L, 1L) ?: 0L
+                Thread.sleep(if (retryAfter > 0L) retryAfter * 1000L else (250L shl attempt))
+            } catch (e: IOException) {
+                lastFailure = e
+                if (e.message.orEmpty().contains("HTTP 401") || e.message.orEmpty().contains("HTTP 403") ||
+                    e.message.orEmpty().contains("malformed JSON") || e.message.orEmpty().contains("2 MB safety") ||
+                    e.message.orEmpty().contains("after bounded retries")) throw e
+                if (attempt == 2) throw e
+                Thread.sleep(250L shl attempt)
+            } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
+                throw IOException("Provider request retry interrupted", e)
+            } finally { c.disconnect() }
+        }
+        throw lastFailure ?: IOException("Provider gateway request failed")
     }
 
     private fun parseGatewayTime(value: String): Long {
@@ -1114,7 +1154,7 @@ private class NativeProvider {
         val s = canonical(raw)
         return try {
             when (p) {
-                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.80 AUTHORIZED GATEWAY + SCREENER FUNDAMENTALS").put("data", JSONObject().put("ok", true).put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
+                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.81 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK").put("data", JSONObject().put("ok", true).put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
                 "/api/providers/status" -> JSONObject().put("ok", true).put("data", providerStatus(raw)).toString()
                 "/api/screener/status" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
                 "/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerConnectionTest()).toString()
