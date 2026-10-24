@@ -16,7 +16,7 @@ except ImportError as exc:  # CI installs Playwright; keep the error explicit lo
     raise RuntimeError("Install Playwright and Chromium to run tests/test_ui_smoke.py") from exc
 
 HTML = Path(__file__).parents[1] / "app/src/main/assets/index.html"
-ENGINE = "V40.80 AUTHORIZED GATEWAY + SCREENER FUNDAMENTALS"
+ENGINE = "V40.81 AUTHORIZED GATEWAY + SCREENER FUNDAMENTALS"
 
 
 def launch_chromium(playwright):
@@ -102,7 +102,7 @@ class DashboardUISmokeTests(unittest.TestCase):
             html = html[:pos] + "<script>" + mock_js + "</script>" + html[pos:]
             page.set_content(html, wait_until="domcontentloaded", timeout=30000)
             page.wait_for_timeout(250)
-            self.assertIn("V40.80", page.locator(".taglive").first.inner_text())
+            self.assertIn("V40.81", page.locator(".taglive").first.inner_text())
             page.locator("#search").fill("INFY")
             page.locator("#analyze").click()
             page.wait_for_function("document.getElementById('company').textContent.includes('Infosys')", timeout=8000)
@@ -254,13 +254,13 @@ class DashboardUISmokeTests(unittest.TestCase):
 
     def test_version_code_and_name_are_aligned(self):
         gradle = (Path(__file__).parents[1] / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 79", gradle)
-        self.assertIn("versionName '40.80'", gradle)
+        self.assertIn("versionCode 80", gradle)
+        self.assertIn("versionName '40.81'", gradle)
 
     def test_workflow_artifact_names_match_release_version(self):
         workflow = (Path(__file__).parents[1] / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
-        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-80-lint-report", workflow)
-        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-80-debug", workflow)
+        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-81-lint-report", workflow)
+        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-81-debug", workflow)
         self.assertNotIn("V40-57", workflow)
         self.assertIn("pull_request:", workflow)
         self.assertIn("sha256sum app/build/outputs/apk/debug/app-debug.apk", workflow)
@@ -274,8 +274,8 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIsNotNone(client)
         self.assertIsNotNone(server)
         self.assertEqual(client.group(1), server.group(1), "UI must not report a false server-version mismatch")
-        self.assertIn("V40.80", html)
-        self.assertIn("V40.80", source)
+        self.assertIn("V40.81", html)
+        self.assertIn("V40.81", source)
 
 
     def test_canonical_preserves_index_and_futures_tickers_without_external_market_provider(self):
@@ -448,7 +448,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn('class="brand"', html)
         self.assertIn('android:icon="@drawable/ic_launcher"', manifest)
         self.assertTrue(launcher.exists())
-        self.assertIn("versionName '40.80'", (root / "app/build.gradle").read_text(encoding="utf-8"))
+        self.assertIn("versionName '40.81'", (root / "app/build.gradle").read_text(encoding="utf-8"))
 
 
     def test_v4079_parses_additional_screener_valuation_fields(self):
