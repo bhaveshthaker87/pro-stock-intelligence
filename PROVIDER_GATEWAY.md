@@ -70,3 +70,13 @@ Dividends payload:
 - An empty array means the provider returned no rows; it does not prove there are no dividends. The snapshot's status and timestamp must also pass the same freshness contract as index data.
 
 Quote/history CI probes also pass `--expected-symbol INFY`, so a valid-shaped response for the wrong stock fails validation. These checks improve data integrity but do not independently prove provider licensing or exchange-certified real-time status.
+
+
+## Offline/manual fallback path added for V40.81
+
+When the authorized provider does not return corporate events, the Android dashboard now supports a user-selected CSV snapshot via **Import Events CSV**. Supported normalized headers are:
+`eventType` (or `type`), `title` (or `event`), `eventDate` (or `date`), plus optional `symbol`, `company`, `amount`, `ratio`, `exDate`, and `recordDate`. Dates must be `YYYY-MM-DD`. Supported event categories include results, dividends, splits, bonus, rights, board meetings, and other. Imported rows are stored locally in the WebView and explicitly labelled as an imported snapshot; they are not a live feed and must be checked against official notices. This is an alternate user-controlled data path, not an automatic NSE download.
+
+The 52-week high/low may be derived only from validated OHLCV history with at least 200 rows spanning at least 300 calendar days. Short chart windows must not be labelled as a 52-week range. A Screener XLSX workbook does not provide OHLCV candles unless its own data actually contains them; annual/quarterly financial rows must never be converted into price candles.
+
+The Screener XLSX importer also maps the annual `Dividend Amount` when present, and derives dividend per share as annual dividend amount divided by adjusted equity shares (both in crore units), then derives dividend yield using the workbook current-price snapshot. The derived yield retains the workbook's annual period and is not a prediction or confirmation of an upcoming dividend.
