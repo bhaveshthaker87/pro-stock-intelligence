@@ -432,6 +432,14 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("an empty list does not mean no events exist", html)
         self.assertIn("financial-results", html)
 
+    def test_screener_reference_price_is_visible_but_never_mislabelled_live(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("const livePrice=hasUsablePrice(q.price)?Number(q.price):null;", html)
+        self.assertIn("const referencePrice=livePrice==null&&hasUsablePrice(q.screenerReferencePrice)?Number(q.screenerReferencePrice):null;", html)
+        self.assertIn("Screener reference price only — not live or exchange-verified", html)
+        self.assertIn("q.dayChangePct==null?'—'", html)
+        self.assertIn("const displayedPrice=livePrice??referencePrice;", html)
+
 if __name__ == "__main__":
     unittest.main()
 
