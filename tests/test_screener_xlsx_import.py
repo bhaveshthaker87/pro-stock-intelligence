@@ -44,6 +44,13 @@ class ScreenerXlsxImportTests(unittest.TestCase):
         self.assertIn("Quarterly statements remain in the workbook", source)
 
 
+    def test_screener_xlsx_maps_annual_dividend_and_labels_derived_yield(self):
+        source = (ROOT / "app/src/main/assets/xlsx-import.js").read_text(encoding="utf-8")
+        self.assertIn("get('Dividend Amount',10)", source)
+        self.assertIn("put('dividendAmount',latestDividendAmount,'INR_CRORE'", source)
+        self.assertIn("Derived: annual dividend amount / adjusted equity shares", source)
+        self.assertIn("Derived: annual dividend per share / workbook current price", source)
+
 if __name__ == "__main__":
     unittest.main()
 
