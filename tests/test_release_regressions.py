@@ -376,7 +376,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("https://www.screener.in/login/", handler)
         self.assertIn("Screener Access Denied (403)", handler)
         self.assertIn("Re-login once", handler)
-        self.assertIn("Import a permitted Screener CSV", handler)
+        self.assertIn("use permitted CSV import or authorized access", handler)
         self.assertIn("Refusing an unexpected login URL", handler)
 
     def test_provider_validator_supports_every_gateway_payload_type(self):
