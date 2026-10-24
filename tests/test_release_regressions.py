@@ -440,6 +440,13 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("q.dayChangePct==null?'—'", html)
         self.assertIn("const displayedPrice=livePrice??referencePrice;", html)
 
+    def test_imported_price_only_fills_non_live_reference_field(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("d.market.screenerReferencePrice=numeric", html)
+        self.assertIn("!hasUsablePrice(d.market.price)&&!hasUsablePrice(d.market.screenerReferencePrice)", html)
+        self.assertIn("referenceOnly:true", html)
+        self.assertIn("continue;}if(excluded.has(key)", html)
+
 if __name__ == "__main__":
     unittest.main()
 
