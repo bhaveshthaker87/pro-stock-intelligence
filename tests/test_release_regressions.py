@@ -7,20 +7,22 @@ ROOT = Path(__file__).parents[1]
 class ReleaseRegressionTests(unittest.TestCase):
     def test_emulator_smoke_waits_for_android_services_and_retries_transient_install(self):
         workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
-        self.assertIn("service check package", workflow)
-        self.assertIn("service check activity", workflow)
-        self.assertIn("while [ \"$attempt\" -lt 4 ]; do", workflow)
-        self.assertIn("APK installation failed after 4 attempts", workflow)
-        self.assertIn("adb logcat -d -t 1200", workflow)
-        self.assertIn("adb shell am start -W -n com.prostock.intelligence/.MainActivity", workflow)
-        self.assertNotIn("for attempt in $(seq", workflow)
-        self.assertNotIn("seq 1 180", workflow)
+        script = (ROOT / ".github/scripts/android-smoke-test.sh").read_text(encoding="utf-8")
+        self.assertIn("script: bash .github/scripts/android-smoke-test.sh", workflow)
+        self.assertIn("service check package", script)
+        self.assertIn("service check activity", script)
+        self.assertIn("for attempt in 1 2 3 4; do", script)
+        self.assertIn("APK installation failed after 4 attempts", script)
+        self.assertIn("adb logcat -d -t 1200", script)
+        self.assertIn('adb shell am start -W -n "$ACTIVITY"', script)
+        self.assertIn('ACTIVITY="com.prostock.intelligence/.MainActivity"', script)
+        self.assertNotIn("while [ \"$attempt\" -lt 4 ]; do", workflow)
 
     def test_emulator_screenshot_does_not_write_to_sdcard(self):
-        workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
-        self.assertIn("adb exec-out screencap -p > app/build/outputs/psi-emulator.png", workflow)
-        self.assertNotIn("adb shell screencap -p /sdcard/psi-emulator.png", workflow)
-        self.assertIn("89504e470d0a1a0a", workflow)
+        script = (ROOT / ".github/scripts/android-smoke-test.sh").read_text(encoding="utf-8")
+        self.assertIn("adb exec-out screencap -p > app/build/outputs/psi-emulator.png", script)
+        self.assertNotIn("adb shell screencap -p /sdcard/psi-emulator.png", script)
+        self.assertIn("89504e470d0a1a0a", script)
 
     def test_autocomplete_has_broad_provider_search_and_disclaimer(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
@@ -30,12 +32,15 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("private fun equitySearch", source)
         self.assertIn("Local symbol list only; broad search unavailable", source)
         self.assertIn("not a complete official NSE/BSE security master", source)
+        self.assertIn('"exchange", "LISTING_UNVERIFIED"', source)
+        self.assertIn("exchange listing not verified", source)
+        self.assertNotIn("NSE public endpoint with disclosed third-party fallback", source)
 
     def test_ui_and_native_engine_versions_match(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn("V40.80 AUTHORIZED GATEWAY + SCREENER FUNDAMENTALS", html)
-        self.assertIn('"engine", "V40.80 AUTHORIZED GATEWAY + SCREENER FUNDAMENTALS"', source)
+        self.assertIn("V40.81 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", html)
+        self.assertIn('"engine", "V40.81 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK"', source)
 
     def test_fundamental_parser_fails_closed_instead_of_guessing_nearby_number(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
@@ -48,22 +53,22 @@ class ReleaseRegressionTests(unittest.TestCase):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("V40.80 AUTHORIZED GATEWAY + SCREENER FUNDAMENTALS", html)
-        self.assertIn('"engine", "V40.80 AUTHORIZED GATEWAY + SCREENER FUNDAMENTALS"', source)
-        self.assertIn("versionCode 79; versionName '40.80'", gradle)
-        self.assertIn("DASHBOARD_VERSION='V40.80'", html)
-        self.assertIn("window.__PSI_BOOT_VERSION='V40.80'", html)
+        self.assertIn("V40.81 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", html)
+        self.assertIn('"engine", "V40.81 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK"', source)
+        self.assertIn("versionCode 80; versionName '40.81'", gradle)
+        self.assertIn("DASHBOARD_VERSION='V40.81'", html)
+        self.assertIn("window.__PSI_BOOT_VERSION='V40.81'", html)
         self.assertNotIn("DASHBOARD_VERSION='V40.75'", html)
         self.assertNotIn("window.__PSI_BOOT_VERSION='V40.75'", html)
-        self.assertIn(".researchRibbon:after{content:'V40.80'", html)
+        self.assertIn(".researchRibbon:after{content:'V40.81'", html)
 
 
     def test_screener_session_cookie_checks_both_hosts_and_surfaces_parse_error(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn('manager.getCookie("https://www.screener.in")', source)
-        self.assertIn('manager.getCookie("https://screener.in")', source)
+        self.assertIn('CookieManager.getInstance().getCookie(url)', source)
+        self.assertIn("avoid stale duplicate cookies", source)
         self.assertIn("private fun screenerCookieHeader()", source)
-        self.assertIn("Protected company data is not confirmed", source)
+        self.assertIn("Screener HTTP 403 Forbidden", source)
         self.assertIn('f.optString("providerError")', source)
 
     def test_ui_surfaces_screener_enrichment_failure(self):
@@ -90,6 +95,11 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn('.put("fetchedAtEpochMs", fetchedAt)', source)
         self.assertIn('.put("qualityFlags", qualityFlags)', source)
         self.assertIn('"PAGE_VALIDATED_LOW_COVERAGE"', source)
+
+    def test_provider_realtime_claim_never_implies_exchange_certification(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn('.put("isExchangeCertifiedRealtime", false)', source)
+        self.assertNotIn('.put("isExchangeCertifiedRealtime", status == "REALTIME")', source)
 
     def test_quote_quality_does_not_infer_quote_time_from_response_time(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
@@ -201,7 +211,9 @@ class ReleaseRegressionTests(unittest.TestCase):
 
     def test_screener_ratio_parser_scopes_labels_and_accepts_debt_alias(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn("val ratiosSectionHtml = Regex", source)
+        self.assertIn("val ratioContainer = Regex", source)
+        self.assertIn("val ratiosSectionHtml = ratioContainer?.groupValues?.get(2) ?: \"\"", source)
+        self.assertIn("section|div|ul|ol", source)
         self.assertIn("findAll(ratiosSectionHtml)", source)
         self.assertIn('"debt to equity"', source)
         self.assertIn('"eps in rs" -> setOf("eps in rs", "eps")', source)
@@ -264,9 +276,196 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("Index feed is stale for declared", source)
         self.assertIn("/v1/indices", workflow)
         self.assertIn("PROVIDER_GATEWAY_BASE_URL", workflow)
-        self.assertIn("No live-feed pass is claimed", workflow)
-        self.assertIn("Index names must match the dashboard labels", docs)
+        gateway_step = workflow.split("- name: Validate configured authorized provider gateway", 1)[1].split("- name: Build debug APK", 1)[0]
+        self.assertIn("LIVE DATA NOT VERIFIED", gateway_step)
+        self.assertIn("REQUIRE_LIVE_PROVIDER_GATEWAY", gateway_step)
+        self.assertIn("REQUIRE_LIVE_DATA_INPUT", gateway_step)
+        self.assertIn('exit 0', gateway_step)
+        self.assertIn('exit 1', gateway_step)
+        self.assertIn("timestamp or status is absent", docs)
 
+
+    def test_v4081_screener_cookie_is_not_treated_as_verified_session(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("d.connected&&d.loggedIn&&d.validated&&d.requestValidated", html)
+        self.assertIn("Screener Access Denied (403)", html)
+        self.assertIn("Official Screener login is opening", html)
+        self.assertNotIn("✓ Screener Cookie Found — verify", html)
+
+    def test_v4081_mobile_indices_and_chart_are_compact_and_stale_chart_clears(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("grid-template-columns:repeat(2,minmax(0,1fr))!important", html)
+        self.assertIn("Never leave the prior symbol/range chart visible after a failed refresh.", html)
+        self.assertIn("No synthetic candles are shown.", html)
+        self.assertIn("max-height:150px!important", html)
+
+
+    def test_screener_connect_endpoint_performs_real_company_page_validation(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        start = source.index("private fun screenerConnectionTest()")
+        end = source.index("/**", start)
+        probe = source[start:end]
+        self.assertIn('screener("INFY")', probe)
+        self.assertIn('"CONNECTED_VERIFIED"', probe)
+        self.assertIn('"HTTP_403_FORBIDDEN"', probe)
+        self.assertIn('put("requestValidated", true)', probe)
+        self.assertIn('"/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerConnectionTest())', source)
+
+    def test_screener_ui_uses_simple_connect_and_connection_test_language(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn('id="session">Connect Screener</button>', html)
+        self.assertIn('Official Screener login is opening', html)
+        self.assertIn('Screener Access Denied (403)', html)
+        self.assertIn('Official Screener login is opening', html)
+
+    def test_screener_status_exposes_forbidden_state_to_ui(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        start = source.index("private fun screenerStatus()")
+        end = source.index("/**", start)
+        status = source[start:end]
+        self.assertIn('put("requestValidated", false)', status)
+        self.assertIn('"HTTP_403_FORBIDDEN"', status)
+        self.assertIn('put("httpStatus", if (blocked) 403', status)
+        self.assertIn('put("recommendedAction"', status)
+
+
+    def test_screener_request_uses_exact_host_cookie_not_merged_sessions(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        start = source.index("private fun get(url: String)")
+        end = source.index("private fun finite", start)
+        request = source[start:end]
+        self.assertIn("CookieManager.getInstance().getCookie(url)", request)
+        self.assertNotIn('manager.getCookie("https://screener.in")', request)
+        self.assertIn("avoid stale duplicate cookies", request)
+
+
+    def test_screener_status_uses_one_canonical_cookie_jar(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        helper = source[source.index("private fun screenerCookieHeader()"):source.index("private fun screenerLoggedIn()")]
+        self.assertIn('getCookie("https://www.screener.in/company/INFY/")', helper)
+        self.assertNotIn('getCookie("https://screener.in")', helper)
+        self.assertIn("Never combine", helper)
+
+    def test_unconfigured_gateway_never_claims_live_provider_coverage(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn('else "NOT_CONFIGURED"', source)
+        self.assertIn('AUTHORIZED_NSE_FEED_NOT_CONFIGURED', source)
+        self.assertIn('Corporate events unavailable: configure an authorized HTTPS provider gateway', source)
+
+
+    def test_gateway_configuration_is_not_mislabeled_as_health_verified(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("GATEWAY_URL_CONFIGURED_SCREENER_VALIDATED_GATEWAY_HEALTH_UNVERIFIED", source)
+        self.assertIn("GATEWAY_URL_CONFIGURED_NOT_HEALTH_CHECKED", source)
+        self.assertNotIn('"GATEWAY_CONFIGURED_AND_SCREENER_VALIDATED"', source)
+
+    def test_index_snapshot_rejects_empty_duplicate_and_invalid_rows(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("Index feed returned no index rows; snapshot rejected", source)
+        self.assertIn("Index feed contains duplicate index name", source)
+        self.assertIn("has invalid value/changePct; snapshot rejected", source)
+
+
+    def test_screener_login_opens_official_page_before_probing_and_stops_after_403(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        handler_start = html.index("$('session').onclick=async()=>{")
+        handler_end = html.index("window.refreshScreenerStatus=refreshScreenerStatus;", handler_start)
+        handler = html[handler_start:handler_end]
+        self.assertLess(handler.index("api('/api/screener/status'"), handler.index("api('/api/screener/connect'"))
+        self.assertLess(handler.index("if(!current.cookieDetected)"), handler.index("api('/api/screener/connect'"))
+        self.assertIn("https://www.screener.in/login/", handler)
+        self.assertIn("Screener Access Denied (403)", handler)
+        self.assertIn("Re-login once", handler)
+        self.assertIn("use permitted CSV import or authorized access", handler)
+        self.assertIn("Refusing an unexpected login URL", handler)
+
+    def test_provider_validator_supports_every_gateway_payload_type(self):
+        import subprocess
+        import sys
+        validator = ROOT / "tools/validate_provider_payloads.py"
+        result = subprocess.run([sys.executable, str(validator), "--help"], capture_output=True, text=True, check=True)
+        for kind in ("quote", "history", "events", "indices", "dividends"):
+            self.assertIn(kind, result.stdout)
+
+    def test_manual_release_mode_requires_verified_provider_gateway(self):
+        workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
+        self.assertIn("require_live_data:", workflow)
+        self.assertIn("REQUIRE_LIVE_DATA_INPUT", workflow)
+        self.assertIn('if [ "$require_gateway" = "true" ]; then', workflow)
+
+    def test_manual_workflow_defaults_to_live_data_release_gate(self):
+        workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
+        dispatch = workflow.split("workflow_dispatch:", 1)[1].split("  # Feature-branch commits", 1)[0]
+        self.assertIn("require_live_data:", dispatch)
+        self.assertIn("default: false", dispatch)
+        self.assertIn("LIVE DATA NOT VERIFIED", workflow)
+        self.assertIn("does not qualify as a live-data release", workflow)
+
+    def test_gateway_workflow_checks_requested_symbol_and_dividend_status(self):
+        workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
+        self.assertIn("quote /tmp/psi-provider/quote.json --expected-symbol INFY", workflow)
+        self.assertIn("history /tmp/psi-provider/history.json --expected-symbol INFY", workflow)
+        self.assertIn('Dividend payload missing valid marketDataStatus', workflow)
+
+
+    def test_52_week_range_only_derived_from_sufficient_ohlcv_history(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("Derive 52-week range only from sufficiently complete daily history", html)
+        self.assertIn("rows.length>=200&&spanMs>=300*86400000", html)
+        self.assertIn("Math.max(...highs)", html)
+        self.assertIn("Math.min(...lows)", html)
+        self.assertIn("range52Source", html)
+
+    def test_release_gate_is_opt_in_for_development_but_available_for_release(self):
+        workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
+        dispatch = workflow.split("workflow_dispatch:", 1)[1].split("  # Feature-branch commits", 1)[0]
+        self.assertIn("default: false", dispatch)
+        self.assertIn("REQUIRE_LIVE_PROVIDER_GATEWAY", workflow)
+        self.assertIn("does not qualify as a live-data release", workflow)
+
+    def test_imported_event_csv_fallback_is_explicit_and_source_aware(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("psiEventCsvParse", html)
+        self.assertIn("psi_imported_corporate_events_v1", html)
+        self.assertIn("eventCsvImportBtn", html)
+        self.assertIn("Imported CSV snapshot", html)
+        self.assertIn("an empty list does not mean no events exist", html)
+        self.assertIn("financial-results", html)
+
+    def test_screener_reference_price_is_visible_but_never_mislabelled_live(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("const livePrice=hasUsablePrice(q.price)?Number(q.price):null;", html)
+        self.assertIn("const referencePrice=livePrice==null&&hasUsablePrice(q.screenerReferencePrice)?Number(q.screenerReferencePrice):null;", html)
+        self.assertIn("Screener reference price only — not live or exchange-verified", html)
+        self.assertIn("q.dayChangePct==null?'—'", html)
+        self.assertIn("const displayedPrice=livePrice??referencePrice;", html)
+
+    def test_imported_price_only_fills_non_live_reference_field(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("d.market.screenerReferencePrice=numeric", html)
+        self.assertIn("!hasUsablePrice(d.market.price)&&!hasUsablePrice(d.market.screenerReferencePrice)", html)
+        self.assertIn("referenceOnly:true", html)
+        self.assertIn("continue;}if(excluded.has(key)", html)
+
+    def test_52_week_range_is_derived_only_from_sufficient_ohlcv_history(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("function derive52WeekRange(rows)", html)
+        self.assertIn("if(cleaned.length<200)return null;", html)
+        self.assertIn("lastTime-firstTime<300*dayMs", html)
+        self.assertIn("const cutoff=lastTime-365*dayMs;", html)
+        self.assertIn("trailing.map(r=>r.high)", html)
+        self.assertIn("trailing.map(r=>r.low)", html)
+        self.assertIn("sync52WeekRange(rows);", html)
+        self.assertIn("historical only, not exchange-verified", html)
+        self.assertIn("$('levelHigh52').textContent=money(valid52?.high)", html)
+        self.assertNotIn("money(Math.max(...closes.slice(-252)))", html)
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_screener_financial_section_parser_handles_nested_div_containers(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("Locate the matching close tag for the exact id-bearing container", source)
+        self.assertIn("var depth = 1", source)
+        self.assertIn("for (m in token.findAll(html, open.range.last + 1))", source)
+        self.assertNotIn('html.indexOf("</div>", start)', source)

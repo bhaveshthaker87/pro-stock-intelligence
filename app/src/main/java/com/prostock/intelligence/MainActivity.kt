@@ -394,19 +394,21 @@ private class NativeProvider {
     }
 
     private fun sectionTableRows(html: String, sectionId: String): List<List<String>> {
-        val idRegex = Regex("(?is)<section\\b[^>]*id=[\"']" + Regex.escape(sectionId) + "[\"'][^>]*>")
-        val sectionMatch = idRegex.find(html)
-        val section = if (sectionMatch != null) {
-            val start = sectionMatch.range.last + 1
-            val end = html.indexOf("</section>", start).let { if (it >= 0) it else html.length }
-            html.substring(start, end)
-        } else {
-            val divRegex = Regex("(?is)<div\\b[^>]*id=[\"']" + Regex.escape(sectionId) + "[\"'][^>]*>")
-            val divMatch = divRegex.find(html) ?: return emptyList()
-            val start = divMatch.range.last + 1
-            val end = html.indexOf("</div>", start).let { if (it >= 0) it else html.length }
-            html.substring(start, end)
+        // Screener sections are commonly nested divs. Stopping at the first </div>
+        // truncates the section before its table and made quarterly/P&L/ownership look empty.
+        // Locate the matching close tag for the exact id-bearing container instead.
+        val open = Regex("(?is)<(section|div)\\b(?=[^>]*\\bid=[\"']" + Regex.escape(sectionId) + "[\"'])[^>]*>").find(html)
+            ?: return emptyList()
+        val tag = Regex("(?is)^<(section|div)\\b").find(open.value)?.groupValues?.getOrNull(1)?.lowercase(Locale.ROOT)
+            ?: return emptyList()
+        val token = Regex("(?is)</?"+tag+"\\b[^>]*>")
+        var depth = 1
+        var end = html.length
+        for (m in token.findAll(html, open.range.last + 1)) {
+            if (m.value.startsWith("</")) depth-- else if (!m.value.endsWith("/>")) depth++
+            if (depth == 0) { end = m.range.first; break }
         }
+        val section = html.substring(open.range.last + 1, end)
         val table = Regex("(?is)<table\\b[^>]*>(.*?)</table>").find(section)?.groupValues?.getOrNull(1) ?: return emptyList()
         return Regex("(?is)<tr\\b[^>]*>(.*?)</tr>").findAll(table).mapNotNull { row ->
             val cells = Regex("(?is)<t[hd]\\b[^>]*>(.*?)</t[hd]>").findAll(row.groupValues[1]).map { cleanText(it.groupValues[1]) }.toList()
@@ -701,6 +703,9 @@ private class NativeProvider {
 
     private fun screenerConnectionTest(): JSONObject {
         return try {
+            // A public company page can load without an account. Never report a valid
+            // session unless the session cookie exists before the protected-page probe.
+            if (!screenerLoggedIn()) throw IOException("LOGIN_REQUIRED: no Screener session cookie detected. Open the official login page, sign in, return, and test again.")
             // Use the same company-page path and parser as normal fundamentals retrieval.
             val sample = screener("INFY")
             val status = screenerStatus()
@@ -1109,7 +1114,7 @@ private class NativeProvider {
         val s = canonical(raw)
         return try {
             when (p) {
-                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.80 AUTHORIZED GATEWAY + SCREENER FUNDAMENTALS").put("data", JSONObject().put("ok", true).put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
+                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.81 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK").put("data", JSONObject().put("ok", true).put("providerGatewayConfigured", gatewayConfigured()).put("quoteStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_FEED_NOT_CONFIGURED").put("historyStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_HISTORY_NOT_CONFIGURED").put("indicesStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_INDEX_FEED_NOT_CONFIGURED").put("eventsStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_EVENTS_FEED_NOT_CONFIGURED").put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
                 "/api/providers/status" -> JSONObject().put("ok", true).put("data", providerStatus(raw)).toString()
                 "/api/screener/status" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
                 "/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerConnectionTest()).toString()
