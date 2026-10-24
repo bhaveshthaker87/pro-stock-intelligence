@@ -153,11 +153,12 @@ jobs:
           p = json.loads((root / "dividends.json").read_text(encoding="utf-8"))
           if not isinstance(p.get("source"), str) or not p["source"].strip(): raise SystemExit("Dividend payload missing source")
           if not isinstance(p.get("asOf"), str) or not p["asOf"].strip(): raise SystemExit("Dividend payload missing asOf timestamp")
-          if not isinstance(p.get("rows"), list): raise SystemExit("Dividend payload rows must be an array")
+          if p.get("marketDataStatus") not in {"REALTIME", "DELAYED", "EOD"}: raise SystemExit("Dividend payload missing valid marketDataStatus")
+if not isinstance(p.get("rows"), list): raise SystemExit("Dividend payload rows must be an array")
           print("Index/dividend payload contracts valid.")
           PY
-          python3 tools/validate_provider_payloads.py quote /tmp/psi-provider/quote.json
-          python3 tools/validate_provider_payloads.py history /tmp/psi-provider/history.json
+          python3 tools/validate_provider_payloads.py quote /tmp/psi-provider/quote.json --expected-symbol INFY
+          python3 tools/validate_provider_payloads.py history /tmp/psi-provider/history.json --expected-symbol INFY
           python3 tools/validate_provider_payloads.py events /tmp/psi-provider/events.json
           python3 tools/validate_provider_payloads.py indices /tmp/psi-provider/indices.json
           python3 tools/validate_provider_payloads.py dividends /tmp/psi-provider/dividends.json
