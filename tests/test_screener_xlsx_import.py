@@ -30,7 +30,7 @@ class ScreenerXlsxImportTests(unittest.TestCase):
     def test_screener_workbook_imports_quarterly_results_into_dashboard(self):
         parser = (ROOT / "app/src/main/assets/xlsx-import.js").read_text(encoding="utf-8")
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
-        for marker in ("function excelDate", "function quarterLabel", "const quarterlyRows=[]",
+        for marker in ("const excelDate=x=>", "const quarterLabel=x=>", "const quarterlyRows=[]",
                        "operating_profit", "profit_before_tax", "quarterlyRows,quarterlySummary"):
             self.assertIn(marker, parser)
         self.assertIn("r.quarterlyRows", html)
