@@ -447,6 +447,19 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("referenceOnly:true", html)
         self.assertIn("continue;}if(excluded.has(key)", html)
 
+    def test_52_week_range_is_derived_only_from_sufficient_ohlcv_history(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("function derive52WeekRange(rows)", html)
+        self.assertIn("if(cleaned.length<200)return null;", html)
+        self.assertIn("lastTime-firstTime<300*dayMs", html)
+        self.assertIn("const cutoff=lastTime-365*dayMs;", html)
+        self.assertIn("trailing.map(r=>r.high)", html)
+        self.assertIn("trailing.map(r=>r.low)", html)
+        self.assertIn("sync52WeekRange(rows);", html)
+        self.assertIn("historical only, not exchange-verified", html)
+        self.assertIn("$('levelHigh52').textContent=money(valid52?.high)", html)
+        self.assertNotIn("money(Math.max(...closes.slice(-252)))", html)
+
 if __name__ == "__main__":
     unittest.main()
 
