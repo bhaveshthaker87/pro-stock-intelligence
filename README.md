@@ -186,3 +186,9 @@ This source package has static checks only. Do not rate it 10/10 or call it prod
 - To prove live data, configure a licensed/authorized HTTPS gateway and ensure quote, historical candles, events, dividends and indices payload checks pass. Secrets must remain server-side.
 - Screener access uses the official login flow and must not bypass an HTTP 403. A detected browser cookie is not proof that protected company data can be fetched.
 - The latest verified Actions run at review time is run #443 on PR #19 (not merged to `main`). It built V40.80 APK, lint report and emulator screenshot; the provider E2E step may have passed by skipping if the gateway URL was absent. Check its run summary for the explicit configuration notice before treating it as a live-data validation.
+
+
+## V40.81 provider-validation and release-gate work
+- CI validates quote, history, events, indices and dividends payloads, including symbol identity, timestamps, freshness, OHLC consistency, index uniqueness and dividend fields.
+- Manual workflow dispatch can require live-provider validation before a run is considered release-ready.
+- **External dependency remains:** live quotes/candles/indices/events are not verified until `PROVIDER_GATEWAY_BASE_URL` points to a deployed HTTPS adapter backed by a provider authorized for the intended use. A successful APK build is not evidence of live-data correctness.
