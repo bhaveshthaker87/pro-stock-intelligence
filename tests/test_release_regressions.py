@@ -397,7 +397,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
         dispatch = workflow.split("workflow_dispatch:", 1)[1].split("  # Feature-branch commits", 1)[0]
         self.assertIn("require_live_data:", dispatch)
-        self.assertIn("default: true", dispatch)
+        self.assertIn("default: false", dispatch)
         self.assertIn("LIVE DATA NOT VERIFIED", workflow)
         self.assertIn("does not qualify as a live-data release", workflow)
 
@@ -407,6 +407,21 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("history /tmp/psi-provider/history.json --expected-symbol INFY", workflow)
         self.assertIn('Dividend payload missing valid marketDataStatus', workflow)
 
+
+    def test_52_week_range_only_derived_from_sufficient_ohlcv_history(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("Derive 52-week range only from sufficiently complete daily history", html)
+        self.assertIn("rows.length>=200&&spanMs>=300*86400000", html)
+        self.assertIn("Math.max(...highs)", html)
+        self.assertIn("Math.min(...lows)", html)
+        self.assertIn("range52Source", html)
+
+    def test_release_gate_is_opt_in_for_development_but_available_for_release(self):
+        workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
+        dispatch = workflow.split("workflow_dispatch:", 1)[1].split("  # Feature-branch commits", 1)[0]
+        self.assertIn("default: false", dispatch)
+        self.assertIn("REQUIRE_LIVE_PROVIDER_GATEWAY", workflow)
+        self.assertIn("does not qualify as a live-data release", workflow)
 
 if __name__ == "__main__":
     unittest.main()
