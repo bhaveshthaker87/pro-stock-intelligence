@@ -2,7 +2,7 @@
 'use strict';
 const MAX_BYTES=5*1024*1024,MAX_ENTRIES=2000;
 function xmlText(s){return String(s||'').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,'&');}
-function attr(s,k){const m=String(s||'').match(new RegExp('(?:^|\\\\s)'+k+'="([^"]*)"'));return m?xmlText(m[1]):'';}
+function attr(s,k){const m=String(s||'').match(new RegExp('(?:^|\\s)'+k+'="([^"]*)"'));return m?xmlText(m[1]):'';}
 function colIndex(ref){const m=String(ref||'').match(/^([A-Z]+)/);if(!m)return 0;let n=0;for(const c of m[1])n=n*26+c.charCodeAt(0)-64;return n-1;}
 async function unzip(buf){
  const u=new Uint8Array(buf),v=new DataView(buf);let eocd=-1;
