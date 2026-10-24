@@ -196,7 +196,7 @@ def validate_dividends(payload):
             raise ValueError(f"rows[{i}].amount must be a positive finite number when present")
         if amount is not None and (not isinstance(row.get("currency"), str) or not row["currency"].strip()):
             raise ValueError(f"rows[{i}].currency is required when amount is present")
-    return {"kind": "dividends", "dividendsReturned": len(rows), "absenceVerified": False}
+    return {"kind": "dividends", "status": status, "ageSeconds": age, "dividendsReturned": len(rows), "absenceVerified": False}
 
 
 def main():
