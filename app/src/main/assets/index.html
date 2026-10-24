@@ -1209,7 +1209,12 @@ async function loadChart(range, options={}){
         }
       }
     }
-    if(!rows.length)throw Error('No usable chart history was returned by the configured source.');
+    if(!rows.length && $('useImportedCsv')?.checked){
+      const symbol=window.PSICsvImport?.symbolNorm(window.sym||$('search')?.value||'')||String(window.sym||$('search')?.value||'').trim().toUpperCase().replace(/\\.(NS|BO)$/,'');
+      const imported=currentImportedRows(symbol).find(r=>Array.isArray(r.historyRows)&&r.historyRows.length>=2);
+      if(imported){rows=cleanRows(imported.historyRows);d={...d,provider:imported.source+' • user-imported OHLCV',chartMode:'OHLCV',historyWarning:'Imported file period/freshness not independently verified'};}
+    }
+    if(!rows.length)throw Error('No usable chart history was returned by the configured source or permitted CSV import.');
     if(!chartRangeSufficient(rows,range)&&rows.length<20)throw Error(chartCoverageMessage(rows,range));
     const oldView=window.chartView||{};
     const visibleCount=Math.max(1,(Number(oldView.end)||0)-(Number(oldView.start)||0)+1);
