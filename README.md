@@ -178,3 +178,11 @@ This source package has static checks only. Do not rate it 10/10 or call it prod
 - Added a native Android launcher icon and referenced it from the application manifest.
 - Updated UI/native engine version handshake, Android versionName to 40.65 and versionCode to 64, plus CI artifact labels.
 - The supplied mockup is a visual target, not a claim that every screen has been rebuilt pixel-for-pixel. Existing dashboard functionality and data-source limitations remain unchanged.
+
+## V40.81 release/data verification note
+
+- GitHub Actions build success proves the project tests, Android compilation/lint and emulator smoke script passed for the specific commit; it does **not** prove the app has live market data.
+- The authorized-provider gateway check now prints a visible **LIVE DATA NOT VERIFIED** warning and writes the status into the Actions job summary when `PROVIDER_GATEWAY_BASE_URL` is absent. For a release workflow that must reject missing live data, set repository variable `REQUIRE_LIVE_PROVIDER_GATEWAY=true`.
+- To prove live data, configure a licensed/authorized HTTPS gateway and ensure quote, historical candles, events, dividends and indices payload checks pass. Secrets must remain server-side.
+- Screener access uses the official login flow and must not bypass an HTTP 403. A detected browser cookie is not proof that protected company data can be fetched.
+- The latest verified Actions run at review time is run #443 on PR #19 (not merged to `main`). It built V40.80 APK, lint report and emulator screenshot; the provider E2E step may have passed by skipping if the gateway URL was absent. Check its run summary for the explicit configuration notice before treating it as a live-data validation.
