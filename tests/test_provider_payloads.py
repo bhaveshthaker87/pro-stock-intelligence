@@ -7,6 +7,7 @@ p=Path(__file__).parents[1]/'tools'/'validate_provider_payloads.py'
 spec=importlib.util.spec_from_file_location('provider_validator',p)
 m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 NOW=datetime(2026,10,11,4,0,tzinfo=timezone.utc)
+HISTORY_NOW=datetime(2026,10,11,5,0,tzinfo=timezone.utc)
 
 class ProviderPayloadTests(unittest.TestCase):
     def quote(self, **overrides):
@@ -41,19 +42,29 @@ class ProviderPayloadTests(unittest.TestCase):
         h={"symbol":"INFY","source":"Vendor","asOf":"2026-10-11T09:25:00+05:30","interval":"1d","rows":[row,row.copy()]}
         with self.assertRaisesRegex(ValueError,"strictly increasing"):
             m.validate_history(h, now=HISTORY_NOW)
+    def test_history_rejects_stale_snapshot(self):
+        h={"symbol":"INFY","source":"Vendor","asOf":"2026-10-01T09:25:00+05:30","interval":"1d","rows":[
+            {"time":"2026-09-29T10:00:00+05:30","open":100,"high":102,"low":98,"close":99,"volume":10},
+            {"time":"2026-09-30T10:00:00+05:30","open":100,"high":102,"low":98,"close":101,"volume":12}]}
+        with self.assertRaisesRegex(ValueError,"history snapshot is stale"):
+            m.validate_history(h,now=HISTORY_NOW)
     def test_history_rejects_wrong_symbol(self):
         h={"symbol":"INFY","source":"Vendor","asOf":"2026-10-11T09:25:00+05:30","interval":"1d","rows":[
             {"time":"2026-10-09T10:00:00+05:30","open":100,"high":102,"low":98,"close":99,"volume":10},
             {"time":"2026-10-10T10:00:00+05:30","open":100,"high":102,"low":98,"close":101,"volume":12}]}
         with self.assertRaisesRegex(ValueError,"symbol mismatch"):
             m.validate_history(h, expected_symbol="TCS", now=HISTORY_NOW)
+    def test_events_reject_stale_snapshot(self):
+        e={"symbol":"INFY","source":"Vendor","asOf":"2026-10-01T09:25:00+05:30","rows":[]}
+        with self.assertRaisesRegex(ValueError,"events snapshot is stale"):
+            m.validate_events(e,now=NOW)
     def test_empty_events_do_not_claim_absence_verified(self):
         e={"symbol":"INFY","source":"Vendor","asOf":"2026-10-11T09:25:00+05:30","rows":[]}
-        self.assertFalse(m.validate_events(e)["absenceVerified"])
+        self.assertFalse(m.validate_events(e,now=NOW)["absenceVerified"])
     def test_event_requires_announcement_timestamp(self):
         e={"symbol":"INFY","source":"Vendor","asOf":"2026-10-11T09:25:00+05:30","rows":[{"symbol":"INFY","eventType":"RESULTS","title":"Quarterly results","announcedAt":"2026-10-10","eventDate":"2026-10-20"}]}
         with self.assertRaisesRegex(ValueError,"timezone"):
-            m.validate_events(e)
+            m.validate_events(e,now=NOW)
     def test_valid_indices_payload(self):
         p={"source":"Licensed vendor","asOf":"2026-10-11T09:25:00+05:30","marketDataStatus":"REALTIME",
            "rows":[{"symbol":"NIFTY 50","value":25000.5,"previousClose":24900.0,"changePct":0.4},

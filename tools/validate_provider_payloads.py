@@ -185,8 +185,9 @@ def validate_indices(payload, now=None):
     return {"kind": "indices", "status": status, "ageSeconds": age, "indicesReturned": len(rows)}
 
 
-def validate_dividends(payload):
+def validate_dividends(payload, now=None):
     base(payload, require_symbol=False)
+    status, age = validate_status_freshness(payload, now)
     rows = payload.get("rows")
     if not isinstance(rows, list):
         raise ValueError("dividends.rows must be an array; empty rows do not verify absence of dividends")
