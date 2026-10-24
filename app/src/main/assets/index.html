@@ -1099,11 +1099,18 @@ function esc(x){return safename(x)}
 function applyQuote(q,name,sym){
   q=q||{}; $('clogo').textContent=String(sym||q.symbol||'—').slice(0,4);$('company').textContent=name||q.name||sym||'Stock Analysis';
   const listing=String(q.exchange||'NSE/BSE availability not verified'); $('chips').innerHTML=[''+(sym||q.symbol||'—'),listing,q.industry||''].filter(Boolean).map(x=>`<span class="chip">${esc(x)}</span>`).join('');
-  $('price').textContent=money(q.price); $('high52').textContent=money(q.high52); $('low52').textContent=money(q.low52);$('high52').title=q.range52Source?(q.range52Source+' • as of '+(q.range52AsOf||'history timestamp')):'52-week high from provider/imported snapshot; period may differ';$('low52').title=$('high52').title;$('mcap').textContent=money(q.marketCap);
+  // Show Screener's displayed price as a clearly labelled reference when the authorized quote feed is unavailable. Never label it live or infer daily change from it.
+  const livePrice=hasUsablePrice(q.price)?Number(q.price):null;
+  const referencePrice=livePrice==null&&hasUsablePrice(q.screenerReferencePrice)?Number(q.screenerReferencePrice):null;
+  const displayedPrice=livePrice??referencePrice;
+  $('price').textContent=displayedPrice==null?'—':money(displayedPrice);
+  $('price').title=livePrice!=null?'Provider quote; verify source and timestamp':'Screener reference price only — not live or exchange-verified';
+  $('price').style.color=referencePrice!=null?'#b45309':'';
+  $('high52').textContent=money(q.high52); $('low52').textContent=money(q.low52);$('high52').title=q.range52Source?(q.range52Source+' • as of '+(q.range52AsOf||'history timestamp')):'52-week high from provider/imported snapshot; period may differ';$('low52').title=$('high52').title;$('mcap').textContent=money(q.marketCap);
   $('change').textContent=q.dayChangePct==null?'—':(q.dayChangePct>=0?'+':'')+fmt(q.dayChangePct)+'%';$('change').style.color=q.dayChangePct!=null&&q.dayChangePct<0?'#ef3340':'#09a66d';
   const quoteAsOf=q.quoteTimestamp||q.priceTimestamp; const quoteAge=quoteAsOf?Math.max(0,Math.floor(Date.now()/1000-Number(quoteAsOf))):null; const quoteQuality=String(q.quoteTimestampStatus||q.quoteQuality||'UNVERIFIED_NO_PROVIDER_QUOTE_TIMESTAMP'); $('date').textContent=quoteAsOf?'Provider quote • as of '+new Date(Number(quoteAsOf)*1000).toLocaleString('en-IN')+' • '+(quoteAge<=300?'timestamp within 5 min; not a real-time guarantee':'older timestamp / market may be closed'):(q.screenerReferencePrice!=null?'Screener reference price only • live NSE quote unavailable':'Provider quote timestamp unavailable — response time is not quote time'); $('date').title=quoteQuality;
-  $('fromhigh').textContent=q.price!=null&&q.high52?((q.price/q.high52-1)*100).toFixed(1)+'%':'—';
-  $('fromlow').textContent=q.price!=null&&q.low52?((q.price/q.low52-1)*100).toFixed(1)+'%':'—';
+  $('fromhigh').textContent=displayedPrice!=null&&hasUsablePrice(q.high52)?((displayedPrice/Number(q.high52)-1)*100).toFixed(1)+'%':'—';
+  $('fromlow').textContent=displayedPrice!=null&&hasUsablePrice(q.low52)?((displayedPrice/Number(q.low52)-1)*100).toFixed(1)+'%':'—';
   $('sourceLinks').textContent='Sources vary by field • quote freshness is not guaranteed • exchange listing must be verified • historical bars may use third-party fallback';if($('tvSymbol'))$('tvSymbol').textContent=sym||q.symbol||'—';if($('tvChartTitle'))$('tvChartTitle').textContent=(name||q.name||sym||'Stock')+' · Candles';
 }
 function updateTechnicalFromRows(rows){
