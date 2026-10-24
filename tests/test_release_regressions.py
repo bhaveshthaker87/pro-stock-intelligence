@@ -393,6 +393,14 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("REQUIRE_LIVE_DATA_INPUT", workflow)
         self.assertIn('if [ "$require_gateway" = "true" ]; then', workflow)
 
+    def test_manual_workflow_defaults_to_live_data_release_gate(self):
+        workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
+        dispatch = workflow.split("workflow_dispatch:", 1)[1].split("  # Feature-branch commits", 1)[0]
+        self.assertIn("require_live_data:", dispatch)
+        self.assertIn("default: true", dispatch)
+        self.assertIn("LIVE DATA NOT VERIFIED", workflow)
+        self.assertIn("does not qualify as a live-data release", workflow)
+
     def test_gateway_workflow_checks_requested_symbol_and_dividend_status(self):
         workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
         self.assertIn("quote /tmp/psi-provider/quote.json --expected-symbol INFY", workflow)
