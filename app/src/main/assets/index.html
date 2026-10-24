@@ -1103,10 +1103,11 @@ function applyQuote(q,name,sym){
   const livePrice=hasUsablePrice(q.price)?Number(q.price):null;
   const referencePrice=livePrice==null&&hasUsablePrice(q.screenerReferencePrice)?Number(q.screenerReferencePrice):null;
   const displayedPrice=livePrice??referencePrice;
+  window.lastDisplayedPrice={symbol:symbolKey,price:displayedPrice};
   $('price').textContent=displayedPrice==null?'—':money(displayedPrice);
   $('price').title=livePrice!=null?'Provider quote; verify source and timestamp':'Screener reference price only — not live or exchange-verified';
   $('price').style.color=referencePrice!=null?'#b45309':'';
-  const symbolKey=String(sym||q.symbol||window.sym||'').trim().toUpperCase().replace(/\\.(NS|BO)$/,'');
+  const symbolKey=String(sym||q.symbol||window.sym||'').trim().toUpperCase().replace(/\.(NS|BO)$/,'');
   const derived52=window.chart52Week&&window.chart52Week.symbol===symbolKey?window.chart52Week:null;
   const high52=hasUsablePrice(q.high52)?Number(q.high52):(derived52?.high??null);
   const low52=hasUsablePrice(q.low52)?Number(q.low52):(derived52?.low??null);
@@ -1131,7 +1132,7 @@ function derive52WeekRange(rows){
   const high=Math.max(...trailing.map(r=>r.high)),low=Math.min(...trailing.map(r=>r.low));
   if(!Number.isFinite(high)||!Number.isFinite(low)||high<=0||low<=0||high<low)return null;
   const meta=window.chartHistoryMeta||{};
-  return {symbol:String(meta.symbol||window.sym||'').trim().toUpperCase().replace(/\\.(NS|BO)$/,''),high,low,asOf:lastTime,source:String(meta.source||'Loaded OHLCV history')};
+  return {symbol:String(meta.symbol||window.sym||'').trim().toUpperCase().replace(/\.(NS|BO)$/,''),high,low,asOf:lastTime,source:String(meta.source||'Loaded OHLCV history')};
 }
 function sync52WeekRange(rows){
   const range=derive52WeekRange(rows);
@@ -1141,7 +1142,8 @@ function sync52WeekRange(rows){
   const title='Derived from '+range.source+' • '+new Date(range.asOf).toLocaleString('en-IN')+' • trailing 365-day OHLCV range; historical only, not exchange-verified';
   $('high52').title=title;$('low52').title=title;
   $('levelHigh52').textContent=money(range.high);$('levelLow52').textContent=money(range.low);
-  const price=hasUsablePrice($('price').textContent?.replace(/[^0-9.]/g,''))?Number($('price').textContent.replace(/[^0-9.]/g,'')):null;
+  const priceState=window.lastDisplayedPrice&&window.lastDisplayedPrice.symbol===range.symbol?window.lastDisplayedPrice:null;
+  const price=priceState&&hasUsablePrice(priceState.price)?Number(priceState.price):null;
   $('fromhigh').textContent=price!=null?((price/range.high-1)*100).toFixed(1)+'%':'—';
   $('fromlow').textContent=price!=null?((price/range.low-1)*100).toFixed(1)+'%':'—';
   return true;
@@ -1155,7 +1157,7 @@ function updateTechnicalFromRows(rows){
   if(sorted.length){const q=(p)=>sorted[Math.max(0,Math.min(sorted.length-1,Math.floor((sorted.length-1)*p)))];f.support1=q(.15);f.support2=q(.07);f.resistance1=q(.85);f.resistance2=q(.93)}
   $('levelPrice').textContent=money(f.price);$('levelDma50').textContent=money(f.dma50);$('levelDma200').textContent=money(f.dma200);$('rsival').textContent=fmt(f.rsi14);$('rsiText').textContent=f.rsi14==null?'—':`${fmt(f.rsi14)} — ${f.rsi14>=70?'Overbought':f.rsi14<=30?'Oversold':f.rsi14>=50?'Neutral / Bullish':'Neutral / Bearish'} momentum`;
   $('sma50Val').textContent=money(f.dma50);$('sma200Val').textContent=money(f.dma200);$('support1').textContent=money(f.support1);$('support2').textContent=money(f.support2);$('resistance1').textContent=money(f.resistance1);$('resistance2').textContent=money(f.resistance2);
-  const valid52=window.chart52Week&&window.chart52Week.symbol===String(window.sym||'').trim().toUpperCase().replace(/\\.(NS|BO)$/,'')?window.chart52Week:null;
+  const valid52=window.chart52Week&&window.chart52Week.symbol===String(window.sym||'').trim().toUpperCase().replace(/\.(NS|BO)$/,'')?window.chart52Week:null;
   $('levelHigh52').textContent=money(valid52?.high);$('levelLow52').textContent=money(valid52?.low);
   $('levelNwBasis').textContent=money(last.nwBasis);$('levelNwBands').textContent=`${money(last.nwLower)} / ${money(last.nwUpper)}`;$('nwSignalBadge').textContent='NW Signal: '+(last.nwSignal||'NEUTRAL');
   return f;
@@ -1252,7 +1254,7 @@ async function loadChart(range, options={}){
       }
     }
     if(!rows.length && $('useImportedCsv')?.checked){
-      const symbol=window.PSICsvImport?.symbolNorm(window.sym||$('search')?.value||'')||String(window.sym||$('search')?.value||'').trim().toUpperCase().replace(/\\.(NS|BO)$/,'');
+      const symbol=window.PSICsvImport?.symbolNorm(window.sym||$('search')?.value||'')||String(window.sym||$('search')?.value||'').trim().toUpperCase().replace(/\.(NS|BO)$/,'');
       const imported=currentImportedRows(symbol).find(r=>Array.isArray(r.historyRows)&&r.historyRows.length>=2);
       if(imported){rows=cleanRows(imported.historyRows);d={...d,provider:imported.source+' • user-imported OHLCV',chartMode:'OHLCV',historyWarning:'Imported file period/freshness not independently verified'};}
     }
@@ -1263,7 +1265,7 @@ async function loadChart(range, options={}){
     const end=rows.length-1;
     const start=options.preserveView?Math.max(0,end-visibleCount+1):0;
     window.chartRows=rows;
-    const historyLast=rows[rows.length-1];window.chartHistoryMeta={symbol:String(window.sym||$('search').value||'').trim().toUpperCase().replace(/\\.(NS|BO)$/,''),source:String(d.provider||'Unknown history source')};
+    const historyLast=rows[rows.length-1];window.chartHistoryMeta={symbol:String(window.sym||$('search').value||'').trim().toUpperCase().replace(/\.(NS|BO)$/,''),source:String(d.provider||'Unknown history source')};
     window.chartView={start,end, crosshair:null,showVolume:oldView.showVolume!==false,showSma:oldView.showSma!==false,showNw:oldView.showNw!==false,showRsi:oldView.showRsi!==false};
     ['tvVolBtn','tvSmaBtn','tvNwBtn','tvRsiBtn'].forEach(id=>$(id)?.classList.toggle('active',window.chartView[id==='tvVolBtn'?'showVolume':id==='tvSmaBtn'?'showSma':id==='tvNwBtn'?'showNw':'showRsi']));
     drawPriceChart(rows);drawRSI(rows);updateTechnicalFromRows(rows);
