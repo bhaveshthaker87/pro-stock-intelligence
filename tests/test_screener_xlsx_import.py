@@ -25,7 +25,7 @@ class ScreenerXlsxImportTests(unittest.TestCase):
                        "not a live quote", "does not create OHLCV candles"):
             self.assertIn(marker, source)
         self.assertIn("DecompressionStream('deflate-raw')", source)
-        self.assertIn("Workbook has no", source)
+        self.assertIn("workbook has no", source)
 
     def test_xlsx_import_does_not_claim_quarterly_financials_are_candles(self):
         source = (ROOT / "app/src/main/assets/xlsx-import.js").read_text(encoding="utf-8")
