@@ -402,3 +402,10 @@ class ReleaseRegressionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_screener_financial_section_parser_handles_nested_div_containers(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("Locate the matching close tag for the exact id-bearing container", source)
+        self.assertIn("var depth = 1", source)
+        self.assertIn("for (m in token.findAll(html, open.range.last + 1))", source)
+        self.assertNotIn('html.indexOf("</div>", start)', source)
