@@ -1100,6 +1100,7 @@ function applyQuote(q,name,sym){
   q=q||{}; $('clogo').textContent=String(sym||q.symbol||'—').slice(0,4);$('company').textContent=name||q.name||sym||'Stock Analysis';
   const listing=String(q.exchange||'NSE/BSE availability not verified'); $('chips').innerHTML=[''+(sym||q.symbol||'—'),listing,q.industry||''].filter(Boolean).map(x=>`<span class="chip">${esc(x)}</span>`).join('');
   // Show Screener's displayed price as a clearly labelled reference when the authorized quote feed is unavailable. Never label it live or infer daily change from it.
+  const symbolKey=String(sym||q.symbol||window.sym||'').trim().toUpperCase().replace(/\.(NS|BO)$/,'');
   const livePrice=hasUsablePrice(q.price)?Number(q.price):null;
   const referencePrice=livePrice==null&&hasUsablePrice(q.screenerReferencePrice)?Number(q.screenerReferencePrice):null;
   const displayedPrice=livePrice??referencePrice;
@@ -1107,7 +1108,6 @@ function applyQuote(q,name,sym){
   $('price').textContent=displayedPrice==null?'—':money(displayedPrice);
   $('price').title=livePrice!=null?'Provider quote; verify source and timestamp':'Screener reference price only — not live or exchange-verified';
   $('price').style.color=referencePrice!=null?'#b45309':'';
-  const symbolKey=String(sym||q.symbol||window.sym||'').trim().toUpperCase().replace(/\.(NS|BO)$/,'');
   const derived52=window.chart52Week&&window.chart52Week.symbol===symbolKey?window.chart52Week:null;
   const high52=hasUsablePrice(q.high52)?Number(q.high52):(derived52?.high??null);
   const low52=hasUsablePrice(q.low52)?Number(q.low52):(derived52?.low??null);
