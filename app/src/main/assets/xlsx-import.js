@@ -45,17 +45,20 @@ async function parseWorkbook(buffer,opts){
  function put(key,val,unit,period,header){if(val===null||!Number.isFinite(val))return;fields[key]=val;meta[key]={source,header,unit,period:period||'UNSPECIFIED_IN_EXPORT'};}
  const price=num(get('Current Price')),cap=num(get('Market Capitalization')),shares=num(get('Adjusted Equity Shares in Cr',10));
  const findRow=(label,start,end)=>{for(let i=start;i<Math.min(end,rows.length);i++)if(String(rows[i][0]||'').trim().toLowerCase()===label.toLowerCase())return rows[i];return [];};
- const annualDates=findRow('Report Date',15,40),annualSales=findRow('Sales',15,40),annualProfit=findRow('Net profit',15,40),annualOP=findRow('Operating Profit',15,40);
+ const annualDates=findRow('Report Date',15,40),annualSales=findRow('Sales',15,40),annualProfit=findRow('Net profit',15,40);
  const latestAnnualCol=10;const latestAnnualDate=String(annualDates[latestAnnualCol]||'').slice(0,10)||'LATEST_ANNUAL_PERIOD_IN_EXPORT';
  const quarterDates=findRow('Report Date',40,55),quarterSales=findRow('Sales',40,55),quarterProfit=findRow('Net profit',40,55);
  const latestQuarterCol=10,qSales=num(quarterSales[latestQuarterCol]),qNet=num(quarterProfit[latestQuarterCol]);
+ const annualComponent=(label)=>findRow(label,15,40);const rawMaterial=annualComponent('Raw Material Cost'),changeInventory=annualComponent('Change in Inventory'),powerFuel=annualComponent('Power and Fuel'),otherMfr=annualComponent('Other Mfr. Exp'),employeeCost=annualComponent('Employee Cost'),sellingAdmin=annualComponent('Selling and admin'),otherExpenses=annualComponent('Other Expenses');
+ const componentValues=[rawMaterial,changeInventory,powerFuel,otherMfr,employeeCost,sellingAdmin,otherExpenses].map(r=>num(r[latestAnnualCol]));
+ const annualOPValue=componentValues.every(v=>v!==null)&&num(annualSales[latestAnnualCol])!==null?num(annualSales[latestAnnualCol])-(componentValues[0]+componentValues[2]+componentValues[3]+componentValues[4]+componentValues[5]+componentValues[6]-componentValues[1]):null;
  put('price',price,'INR_PER_SHARE','WORKBOOK_META','Current Price');
  put('marketCap',cap,'INR_CRORE','WORKBOOK_META','Market Capitalization');
  const eps=(num(annualProfit[latestAnnualCol])!==null&&shares>0)?num(annualProfit[latestAnnualCol])/shares:null;
  put('eps',eps,'INR_PER_SHARE',latestAnnualDate,'Derived: latest annual net profit / adjusted equity shares');
  put('netProfit',num(annualProfit[latestAnnualCol]),'INR_CRORE',latestAnnualDate,'Net profit');
- put('operatingProfit',num(annualOP[latestAnnualCol]),'INR_CRORE',latestAnnualDate,'Operating Profit');
- const sales=num(annualSales[latestAnnualCol]),op=num(annualOP[latestAnnualCol]);
+ put('operatingProfit',annualOPValue,'INR_CRORE',latestAnnualDate,'Derived from Screener Data Sheet expense components');
+ const sales=num(annualSales[latestAnnualCol]),op=annualOPValue;
  put('opm',sales>0&&op!==null?op/sales*100:null,'PERCENT',latestAnnualDate,'Derived: operating profit / sales');
  put('pe',price>0&&eps>0?price/eps:null,'RATIO',latestAnnualDate,'Derived: workbook current price / latest annual EPS');
  // Include the latest quarterly snapshot as explicitly labelled metadata; do not treat it as live market data.
