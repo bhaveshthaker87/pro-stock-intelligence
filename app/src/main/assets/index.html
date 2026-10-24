@@ -1106,22 +1106,57 @@ function applyQuote(q,name,sym){
   $('price').textContent=displayedPrice==null?'—':money(displayedPrice);
   $('price').title=livePrice!=null?'Provider quote; verify source and timestamp':'Screener reference price only — not live or exchange-verified';
   $('price').style.color=referencePrice!=null?'#b45309':'';
-  $('high52').textContent=money(q.high52); $('low52').textContent=money(q.low52);$('high52').title=q.range52Source?(q.range52Source+' • as of '+(q.range52AsOf||'history timestamp')):'52-week high from provider/imported snapshot; period may differ';$('low52').title=$('high52').title;$('mcap').textContent=money(q.marketCap);
+  const symbolKey=String(sym||q.symbol||window.sym||'').trim().toUpperCase().replace(/\\.(NS|BO)$/,'');
+  const derived52=window.chart52Week&&window.chart52Week.symbol===symbolKey?window.chart52Week:null;
+  const high52=hasUsablePrice(q.high52)?Number(q.high52):(derived52?.high??null);
+  const low52=hasUsablePrice(q.low52)?Number(q.low52):(derived52?.low??null);
+  $('high52').textContent=money(high52); $('low52').textContent=money(low52);
+  const rangeTitle=q.range52Source?(q.range52Source+' • as of '+(q.range52AsOf||'history timestamp')):(derived52?('Derived from '+derived52.source+' • as of '+new Date(derived52.asOf).toLocaleString('en-IN')+' • historical only, not exchange-verified'):'52-week range requires a validated full-year OHLCV history or sourced provider value');
+  $('high52').title=rangeTitle;$('low52').title=rangeTitle;$('mcap').textContent=money(q.marketCap);
   $('change').textContent=q.dayChangePct==null?'—':(q.dayChangePct>=0?'+':'')+fmt(q.dayChangePct)+'%';$('change').style.color=q.dayChangePct!=null&&q.dayChangePct<0?'#ef3340':'#09a66d';
   const quoteAsOf=q.quoteTimestamp||q.priceTimestamp; const quoteAge=quoteAsOf?Math.max(0,Math.floor(Date.now()/1000-Number(quoteAsOf))):null; const quoteQuality=String(q.quoteTimestampStatus||q.quoteQuality||'UNVERIFIED_NO_PROVIDER_QUOTE_TIMESTAMP'); $('date').textContent=quoteAsOf?'Provider quote • as of '+new Date(Number(quoteAsOf)*1000).toLocaleString('en-IN')+' • '+(quoteAge<=300?'timestamp within 5 min; not a real-time guarantee':'older timestamp / market may be closed'):(q.screenerReferencePrice!=null?'Screener reference price only • live NSE quote unavailable':'Provider quote timestamp unavailable — response time is not quote time'); $('date').title=quoteQuality;
-  $('fromhigh').textContent=displayedPrice!=null&&hasUsablePrice(q.high52)?((displayedPrice/Number(q.high52)-1)*100).toFixed(1)+'%':'—';
-  $('fromlow').textContent=displayedPrice!=null&&hasUsablePrice(q.low52)?((displayedPrice/Number(q.low52)-1)*100).toFixed(1)+'%':'—';
+  $('fromhigh').textContent=displayedPrice!=null&&hasUsablePrice(high52)?((displayedPrice/Number(high52)-1)*100).toFixed(1)+'%':'—';
+  $('fromlow').textContent=displayedPrice!=null&&hasUsablePrice(low52)?((displayedPrice/Number(low52)-1)*100).toFixed(1)+'%':'—';
   $('sourceLinks').textContent='Sources vary by field • quote freshness is not guaranteed • exchange listing must be verified • historical bars may use third-party fallback';if($('tvSymbol'))$('tvSymbol').textContent=sym||q.symbol||'—';if($('tvChartTitle'))$('tvChartTitle').textContent=(name||q.name||sym||'Stock')+' · Candles';
+}
+function derive52WeekRange(rows){
+  const cleaned=cleanRows(rows);
+  if(cleaned.length<200)return null;
+  const firstTime=Number(cleaned[0]?.time),lastTime=Number(cleaned[cleaned.length-1]?.time);
+  const dayMs=86400000;
+  if(!Number.isFinite(firstTime)||!Number.isFinite(lastTime)||lastTime-firstTime<300*dayMs)return null;
+  const cutoff=lastTime-365*dayMs;
+  const trailing=cleaned.filter(r=>Number(r.time)>=cutoff&&finite(r.high)&&finite(r.low)&&r.low>0&&r.high>=r.low);
+  if(trailing.length<200)return null;
+  const high=Math.max(...trailing.map(r=>r.high)),low=Math.min(...trailing.map(r=>r.low));
+  if(!Number.isFinite(high)||!Number.isFinite(low)||high<=0||low<=0||high<low)return null;
+  const meta=window.chartHistoryMeta||{};
+  return {symbol:String(meta.symbol||window.sym||'').trim().toUpperCase().replace(/\\.(NS|BO)$/,''),high,low,asOf:lastTime,source:String(meta.source||'Loaded OHLCV history')};
+}
+function sync52WeekRange(rows){
+  const range=derive52WeekRange(rows);
+  if(!range)return false;
+  window.chart52Week=range;
+  $('high52').textContent=money(range.high);$('low52').textContent=money(range.low);
+  const title='Derived from '+range.source+' • '+new Date(range.asOf).toLocaleString('en-IN')+' • trailing 365-day OHLCV range; historical only, not exchange-verified';
+  $('high52').title=title;$('low52').title=title;
+  $('levelHigh52').textContent=money(range.high);$('levelLow52').textContent=money(range.low);
+  const price=hasUsablePrice($('price').textContent?.replace(/[^0-9.]/g,''))?Number($('price').textContent.replace(/[^0-9.]/g,'')):null;
+  $('fromhigh').textContent=price!=null?((price/range.high-1)*100).toFixed(1)+'%':'—';
+  $('fromlow').textContent=price!=null?((price/range.low-1)*100).toFixed(1)+'%':'—';
+  return true;
 }
 function updateTechnicalFromRows(rows){
   rows=cleanRows(rows); if(!rows.length)return;
+  sync52WeekRange(rows);
   const last=rows[rows.length-1];
   const f={price:last.close,dma50:last.dma50,dma200:last.dma200,rsi14:last.rsi14,support1:null,support2:null,resistance1:null,resistance2:null};
   const closes=rows.map(r=>r.close).filter(v=>v!=null); const sorted=[...closes].sort((a,b)=>a-b);
   if(sorted.length){const q=(p)=>sorted[Math.max(0,Math.min(sorted.length-1,Math.floor((sorted.length-1)*p)))];f.support1=q(.15);f.support2=q(.07);f.resistance1=q(.85);f.resistance2=q(.93)}
   $('levelPrice').textContent=money(f.price);$('levelDma50').textContent=money(f.dma50);$('levelDma200').textContent=money(f.dma200);$('rsival').textContent=fmt(f.rsi14);$('rsiText').textContent=f.rsi14==null?'—':`${fmt(f.rsi14)} — ${f.rsi14>=70?'Overbought':f.rsi14<=30?'Oversold':f.rsi14>=50?'Neutral / Bullish':'Neutral / Bearish'} momentum`;
   $('sma50Val').textContent=money(f.dma50);$('sma200Val').textContent=money(f.dma200);$('support1').textContent=money(f.support1);$('support2').textContent=money(f.support2);$('resistance1').textContent=money(f.resistance1);$('resistance2').textContent=money(f.resistance2);
-  $('levelHigh52').textContent=money(Math.max(...closes.slice(-252)));$('levelLow52').textContent=money(Math.min(...closes.slice(-252)));
+  const valid52=window.chart52Week&&window.chart52Week.symbol===String(window.sym||'').trim().toUpperCase().replace(/\\.(NS|BO)$/,'')?window.chart52Week:null;
+  $('levelHigh52').textContent=money(valid52?.high);$('levelLow52').textContent=money(valid52?.low);
   $('levelNwBasis').textContent=money(last.nwBasis);$('levelNwBands').textContent=`${money(last.nwLower)} / ${money(last.nwUpper)}`;$('nwSignalBadge').textContent='NW Signal: '+(last.nwSignal||'NEUTRAL');
   return f;
 }
@@ -1228,6 +1263,7 @@ async function loadChart(range, options={}){
     const end=rows.length-1;
     const start=options.preserveView?Math.max(0,end-visibleCount+1):0;
     window.chartRows=rows;
+    const historyLast=rows[rows.length-1];window.chartHistoryMeta={symbol:String(window.sym||$('search').value||'').trim().toUpperCase().replace(/\\.(NS|BO)$/,''),source:String(d.provider||'Unknown history source')};
     window.chartView={start,end, crosshair:null,showVolume:oldView.showVolume!==false,showSma:oldView.showSma!==false,showNw:oldView.showNw!==false,showRsi:oldView.showRsi!==false};
     ['tvVolBtn','tvSmaBtn','tvNwBtn','tvRsiBtn'].forEach(id=>$(id)?.classList.toggle('active',window.chartView[id==='tvVolBtn'?'showVolume':id==='tvSmaBtn'?'showSma':id==='tvNwBtn'?'showNw':'showRsi']));
     drawPriceChart(rows);drawRSI(rows);updateTechnicalFromRows(rows);
