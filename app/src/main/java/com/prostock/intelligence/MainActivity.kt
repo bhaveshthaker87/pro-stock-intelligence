@@ -1184,7 +1184,7 @@ private class NativeProvider {
                         .put("method", "Peer prices and technical metrics require verified historical candles.")
                         .put("statusText", "Peer comparison is unavailable until an authorized NSE historical-data feed is configured. No third-party price history is used.")).toString()
                 "/api/news" -> {
-                    val news = try { unavailableNews(raw) } catch (e: Exception) { JSONObject().put("symbol", s).put("news", JSONArray()).put("statusText", "Authorized news source unavailable: ${e.message ?: "provider error"}").put("provider", "Unavailable") }
+                    val news = yahooNews(raw)
                     JSONObject().put("ok", true).put("data", news).toString()
                 }
                 "/api/company-events" -> {
