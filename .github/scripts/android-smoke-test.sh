@@ -73,7 +73,10 @@ done
 adb logcat -d -t 3000 > app/build/outputs/psi-emulator-logcat.txt || true
 if [[ "$dashboard_ready" -ne 1 ]]; then
   echo "Dashboard readiness failed: WebView did not confirm the app root DOM. Refusing to publish screenshot as a successful smoke test."
-  grep -E "PSI_STARTUP|PSI_WEB|FATAL EXCEPTION|AndroidRuntime" app/build/outputs/psi-emulator-logcat.txt || true
+  echo "--- Relevant Android logcat ---"
+  grep -E "PSI_STARTUP|PSI_WEB|FATAL EXCEPTION|AndroidRuntime|chromium|WebView|net::ERR" app/build/outputs/psi-emulator-logcat.txt | tail -n 250 || true
+  echo "--- Last 250 logcat lines ---"
+  tail -n 250 app/build/outputs/psi-emulator-logcat.txt || true
   exit 1
 fi
 adb exec-out screencap -p > app/build/outputs/psi-emulator.png
