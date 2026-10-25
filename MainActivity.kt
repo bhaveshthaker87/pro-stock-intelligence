@@ -496,60 +496,19 @@ private class NativeProvider {
     }
 
     private fun technicalScan(kind: String): JSONObject {
-        val executor = Executors.newFixedThreadPool(8)
-        val completion = java.util.concurrent.ExecutorCompletionService<JSONObject>(executor)
-        val submittedAt = System.nanoTime()
-        val jobs: List<java.util.concurrent.Future<JSONObject>> = stocks.map { stock -> completion.submit<JSONObject> {
-            val y = yahoo(stock.symbol, "1y")
-            val arr = y.optJSONArray("rows") ?: JSONArray()
-            val closes = (0 until arr.length()).mapNotNull { i ->
-                val v = arr.optJSONObject(i)?.optDouble("close", Double.NaN) ?: Double.NaN
-                if (finite(v) && v > 0) v else null
-            }
-            val out = JSONObject().put("symbol", stock.symbol).put("Company", stock.name)
-            if (closes.size >= 2) {
-                val last = closes.last(); val prev = closes[closes.lastIndex - 1]
-                val change = (last / prev - 1.0) * 100.0
-                putFinite(out, "CMP Rs.", last); putFinite(out, "Day Change %", change)
-                if (closes.size >= 15) {
-                    // Wilder RSI(14), aligned with the dashboard chart calculation.
-                    var avgGain = 0.0; var avgLoss = 0.0
-                    for (i in 1..14) { val delta = closes[i] - closes[i - 1]; avgGain += maxOf(delta, 0.0); avgLoss += maxOf(-delta, 0.0) }
-                    avgGain /= 14.0; avgLoss /= 14.0
-                    for (i in 15 until closes.size) { val delta = closes[i] - closes[i - 1]; avgGain = (avgGain * 13.0 + maxOf(delta, 0.0)) / 14.0; avgLoss = (avgLoss * 13.0 + maxOf(-delta, 0.0)) / 14.0 }
-                    val rsi = when { avgLoss == 0.0 && avgGain > 0 -> 100.0; avgLoss == 0.0 -> 50.0; else -> 100.0 - (100.0 / (1.0 + avgGain / avgLoss)) }
-                    putFinite(out, "RSI(14)", rsi)
-                }
-                out.put("Data Date", java.text.SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH).format(java.util.Date(arr.getJSONObject(arr.length()-1).optLong("time", 0L))))
-                out.put("Provider", "Yahoo Finance third-party daily-bar data; latest bar may be partial during market hours")
-            }
-            out
-        } }
-        val found = mutableListOf<JSONObject>()
-        var completed = 0
-        try {
-            while (completed < jobs.size && (System.nanoTime() - submittedAt) < TimeUnit.SECONDS.toNanos(24)) {
-                val future = completion.poll(250, TimeUnit.MILLISECONDS) ?: continue
-                completed++
-                try {
-                    val row = future.get()
-                    val hasPrice = row.has("CMP Rs.")
-                    if (!hasPrice) continue
-                    val match = if (kind == "oversold") row.optDouble("RSI(14)", Double.NaN).let { finite(it) && it <= 30.0 }
-                        else row.optDouble("Day Change %", Double.NaN).let { finite(it) && it <= -5.0 }
-                    if (match) found.add(row)
-                } catch (_: Exception) { }
-            }
-        } finally { jobs.forEach { it.cancel(true) }; executor.shutdownNow() }
-        found.sortBy { if (kind == "oversold") it.optDouble("RSI(14)", 100.0) else it.optDouble("Day Change %", 0.0) }
-        val rows = JSONArray().apply { found.forEachIndexed { i, row -> row.put("S.No.", i + 1); put(row) } }
-        val columns = JSONArray(listOf("S.No.", "Company", "CMP Rs.", "RSI(14)", "Day Change %", "Data Date", "Provider"))
-        val elapsed = TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - submittedAt)
-        val criteria = if (kind == "oversold") "RSI(14) ≤ 30" else "latest daily-bar change ≤ -5%"
-        return JSONObject().put("columns", columns).put("rows", rows).put("count", rows.length())
-            .put("provider", "Yahoo Finance third-party daily data").put("pagesFetched", 1).put("allResultsLoaded", completed == jobs.size)
-            .put("scanUniverse", stocks.size).put("symbolsChecked", completed).put("elapsedSeconds", elapsed)
-            .put("statusText", "$criteria; $completed/${stocks.size} tracked symbols checked. Daily-bar data can be delayed or partial during market hours; this is not a whole-market scan.")
+        // Technical screens require validated daily OHLCV; never substitute Yahoo-based data.
+        val label = if (kind == "oversold") "RSI(14) ≤ 30" else "daily-bar change ≤ -5%"
+        return JSONObject()
+            .put("columns", JSONArray(listOf("S.No.", "Company", "CMP Rs.", "RSI(14)", "Day Change %", "Data Date", "Provider")))
+            .put("rows", JSONArray())
+            .put("count", 0)
+            .put("provider", "UNAVAILABLE — authorized market-data gateway not configured")
+            .put("pagesFetched", 0)
+            .put("allResultsLoaded", false)
+            .put("scanUniverse", stocks.size)
+            .put("symbolsChecked", 0)
+            .put("statusText", "$label cannot be computed until validated OHLCV history from an authorized provider is configured. No placeholder prices are used.")
+            .put("marketDataStatus", "UNAVAILABLE")
     }
 
     private fun yahooNews(raw: String): JSONObject {
