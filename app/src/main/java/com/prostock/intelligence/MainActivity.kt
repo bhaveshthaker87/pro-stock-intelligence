@@ -126,6 +126,16 @@ class MainActivity : Activity() {
                 }
                 if (url.startsWith("https://appassets.androidplatform.net/assets/index.html")) {
                     CookieManager.getInstance().flush()
+                    Log.i("PSI_STARTUP", "INDEX_PAGE_FINISHED")
+                    view.evaluateJavascript(
+                        "(()=>({ready:document.readyState,root:!!document.querySelector('.app'),title:document.title}))()"
+                    ) { value ->
+                        if (!value.isNullOrBlank() && value.contains("\\"root\\":true")) {
+                            Log.i("PSI_STARTUP", "PSI_DASHBOARD_DOM_READY $value")
+                        } else {
+                            Log.e("PSI_STARTUP", "DASHBOARD_DOM_NOT_READY $value")
+                        }
+                    }
                     view.evaluateJavascript("window.refreshScreenerStatus && window.refreshScreenerStatus()", null)
                 }
             }
