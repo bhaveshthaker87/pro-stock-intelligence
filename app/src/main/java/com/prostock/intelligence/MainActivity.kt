@@ -965,14 +965,12 @@ private class NativeProvider {
     }
 
     private fun yahooNews(raw: String): JSONObject {
-        val symbol = canonical(raw)
-        return JSONObject().put("symbol", symbol).put("news", JSONArray())
-            .put("provider", "Unavailable")
-            .put("statusText", "News is unavailable because no authorized NSE/Screener news endpoint is configured.")
+        return JSONObject().put("symbol", canonical(raw))
+            .put("news", JSONArray())
+            .put("provider", "UNAVAILABLE — permitted company-news provider not configured")
+            .put("statusText", "News is unavailable until a permitted provider is configured. The app does not substitute Yahoo-derived news.")
+            .put("marketDataStatus", "UNAVAILABLE")
     }
-
-    /** No automated scraping of NSE public website endpoints without an authorized feed contract. */
-    private fun nseIndexSnapshot(): Map<String, JSONObject> = emptyMap()
 
     private fun marketIndices(): JSONObject {
         val specs = linkedMapOf(
