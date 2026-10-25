@@ -192,12 +192,22 @@ def _event_rows(symbol: str, event_type: str) -> list[dict[str, Any]]:
         ("OTHER", "/corporates-announcements"),
     ]
     result: list[dict[str, Any]] = []
-    seen: set[tuple[str, str, str]] = set()
+    seen: set[tuple[str, str, str, str]] = set()
     for kind, path in paths:
         if event_type not in ("ALL", kind):
             continue
-        raw = _nse(path, {"index": "equities", "symbol": symbol})
+        params = {"index": "equities"}
+        if symbol:
+            params["symbol"] = symbol
+        raw = _nse(path, params)
         for row in _items(raw):
+            row_symbol = str(_first(row, "symbol", "symbolName", "sm_symbol", "ticker") or symbol).strip().upper()
+            if not row_symbol or (symbol and row_symbol != symbol):
+                continue
+            try:
+                row_symbol = _symbol(row_symbol)
+            except HTTPException:
+                continue
             title = str(_first(row, "subject", "purpose", "desc", "description", "bm_desc", "meetingPurpose", "companyName") or "").strip()
             date = _as_iso_date(_first(row, "exDate", "exDate1", "recordDate", "meetingDate", "bm_date", "broadcastDate", "date", "resultDate", "attchmntFileDate"))
             if not title or not date:
@@ -213,12 +223,12 @@ def _event_rows(symbol: str, event_type: str) -> list[dict[str, Any]]:
             if event_type not in ("ALL", normalized_kind):
                 continue
             announced = _as_iso_time(_first(row, "broadcastDate", "announcementDate", "date", "bm_date", "attchmntFileDate"), now)
-            key = (normalized_kind, date, title)
+            key = (row_symbol, normalized_kind, date, title)
             if key in seen: continue
             seen.add(key)
             result.append({
-                "symbol": symbol,
-                "company": str(_first(row, "companyName", "company", "sm_name") or symbol),
+                "symbol": row_symbol,
+                "company": str(_first(row, "companyName", "company", "sm_name") or row_symbol),
                 "eventType": normalized_kind,
                 "title": title,
                 "eventDate": date,
@@ -236,25 +246,23 @@ def android_events(eventType: str = Query("ALL"), symbol: str = Query("")) -> di
     allowed = {"ALL", "RESULTS", "DIVIDEND", "SPLIT", "BONUS", "RIGHTS", "BOARD_MEETING", "OTHER"}
     if kind not in allowed:
         raise HTTPException(status_code=400, detail="Unsupported eventType.")
-    if symbol.strip():
-        symbols = [_symbol(symbol)]
-    else:
-        # A broad market-wide feed is not fabricated. NSE corporate APIs require symbol-scoped queries.
-        raise HTTPException(status_code=400, detail="symbol is required for the NSE public corporate endpoint; use a symbol-scoped event query.")
-    rows = _event_rows(symbols[0], kind)
+    sym = _symbol(symbol) if symbol.strip() else ""
+    rows = _event_rows(sym, kind)
     return {"ok": True, "data": {"source": "NSE public website (unofficial endpoint)", "marketDataStatus": "EOD", "asOf": datetime.now(timezone.utc).isoformat(), "rows": rows, "live_data_verified": False}}
 
 @app.get("/v1/dividends")
-def android_dividends(symbol: str = Query("")) -> dict[str, Any]:
-    if not symbol.strip():
-        raise HTTPException(status_code=400, detail="symbol is required for the NSE public corporate endpoint.")
-    sym = _symbol(symbol)
-    raw = _nse("/corporates-corporateActions", {"index": "equities", "symbol": sym})
+def android_dividends() -> dict[str, Any]:
     now = datetime.now(timezone.utc).isoformat()
+    raw = _nse("/corporates-corporateActions", {"index": "equities"})
     rows = []
     for row in _items(raw):
         title = str(_first(row, "subject", "purpose", "desc", "description") or "").strip()
-        if "dividend" not in title.lower():
+        sym = str(_first(row, "symbol", "symbolName", "sm_symbol", "ticker") or "").strip().upper()
+        if "dividend" not in title.lower() or not sym:
+            continue
+        try:
+            sym = _symbol(sym)
+        except HTTPException:
             continue
         event_date = _as_iso_date(_first(row, "exDate", "exDate1", "recordDate", "date"))
         if not event_date:
