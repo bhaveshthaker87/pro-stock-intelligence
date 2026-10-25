@@ -130,7 +130,7 @@ class MainActivity : Activity() {
                     view.evaluateJavascript(
                         "(()=>({ready:document.readyState,root:!!document.querySelector('.app'),title:document.title}))()"
                     ) { value ->
-                        if (!value.isNullOrBlank() && value.contains("\\"root\\":true")) {
+                        if (!value.isNullOrBlank() && value.contains("\"root\":true")) {
                             Log.i("PSI_STARTUP", "PSI_DASHBOARD_DOM_READY $value")
                         } else {
                             Log.e("PSI_STARTUP", "DASHBOARD_DOM_NOT_READY $value")
