@@ -590,76 +590,12 @@ private class NativeProvider {
                     JSONObject().put("ok", true).put("data", data).toString()
                 }
                 "/api/resolve-stock" -> JSONObject().put("ok", true).put("data", JSONObject().put("symbol", s).put("name", stockName(s)).put("sector", stockSector(s))).toString()
-                "/api/peers" -> {
-                    val candidates = mapOf(
-                        "TCS" to listOf("INFY", "HCLTECH", "WIPRO", "TECHM", "LTIM"),
-                        "INFY" to listOf("TCS", "HCLTECH", "WIPRO", "TECHM", "LTIM"),
-                        "HCLTECH" to listOf("TCS", "INFY", "WIPRO", "TECHM", "LTIM"),
-                        "WIPRO" to listOf("TCS", "INFY", "HCLTECH", "TECHM", "LTIM"),
-                        "TECHM" to listOf("TCS", "INFY", "HCLTECH", "WIPRO", "LTIM"),
-                        "RELIANCE" to listOf("ONGC", "IOC", "BPCL", "ADANIENT", "COALINDIA"),
-                        "HDFCBANK" to listOf("ICICIBANK", "KOTAKBANK", "AXISBANK", "SBIN", "INDUSINDBK"),
-                        "ICICIBANK" to listOf("HDFCBANK", "KOTAKBANK", "AXISBANK", "SBIN", "INDUSINDBK"),
-                        "ITC" to listOf("HINDUNILVR", "NESTLEIND", "BRITANNIA", "DABUR", "MARICO"),
-                        "SUNPHARMA" to listOf("CIPLA", "DRREDDY", "DIVISLAB", "TORNTPHARM", "LUPIN"),
-                        "MARUTI" to listOf("M&M", "TATAMOTORS", "HEROMOTOCO", "EICHERMOT", "BAJAJ-AUTO")
-                    )
-                    val names = candidates[s] ?: emptyList()
-                    val executor = Executors.newFixedThreadPool(4)
-                    val tasks = names.map { symbol -> executor.submit<JSONObject?> {
-                        try {
-                            val f = screener(symbol)
-                            val y = yahoo(symbol, "1y")
-                            val rows = y.optJSONArray("rows") ?: JSONArray()
-                            val closes = (0 until rows.length()).mapNotNull { i -> rows.optJSONObject(i)?.optDouble("close", Double.NaN)?.takeIf { finite(it) && it > 0 } }
-                            if (closes.isEmpty()) return@submit null
-                            val item = JSONObject().put("symbol", symbol).put("name", f.optString("name", stockName(symbol)))
-                                .put("sector", f.optString("sector", stockSector(symbol))).put("dataStatus", "PARTIAL_PROVIDER_VALIDATED")
-                                .put("provider", "Screener.in fundamentals + Yahoo Finance price history")
-                            putFinite(item, "price", y.optDouble("price", closes.last()))
-                            putFinite(item, "marketCap", f.optDouble("marketCap", Double.NaN))
-                            putFinite(item, "pe", f.optDouble("pe", Double.NaN))
-                            putFinite(item, "roce", f.optDouble("roce", Double.NaN))
-                            putFinite(item, "roe", f.optDouble("roe", Double.NaN))
-                            putFinite(item, "qProfit", f.optDouble("qProfit", Double.NaN))
-                            putFinite(item, "high52", y.optDouble("high52", Double.NaN))
-                            putFinite(item, "low52", y.optDouble("low52", Double.NaN))
-                            // Peer trend metrics need daily history, not the five-day quote window.
-                            if (closes.size >= 50) putFinite(item, "dma50", closes.takeLast(50).average())
-                            if (closes.size >= 200) putFinite(item, "dma200", closes.takeLast(200).average())
-                            if (closes.size >= 15) {
-                                var avgGain = 0.0; var avgLoss = 0.0
-                                for (i in 1..14) { val d = closes[i] - closes[i - 1]; avgGain += maxOf(d, 0.0); avgLoss += maxOf(-d, 0.0) }
-                                avgGain /= 14.0; avgLoss /= 14.0
-                                for (i in 15 until closes.size) {
-                                    val d = closes[i] - closes[i - 1]
-                                    avgGain = (avgGain * 13.0 + maxOf(d, 0.0)) / 14.0
-                                    avgLoss = (avgLoss * 13.0 + maxOf(-d, 0.0)) / 14.0
-                                }
-                                putFinite(item, "rsi14", when { avgLoss == 0.0 && avgGain > 0 -> 100.0; avgLoss == 0.0 -> 50.0; else -> 100.0 - 100.0 / (1.0 + avgGain / avgLoss) })
-                            }
-                            // Require at least a price and two independent fundamental fields; otherwise do not present the row as validated.
-                            val core = listOf("marketCap", "pe", "roce", "roe").count { item.has(it) && !item.isNull(it) }
-                            if (core < 2) null else item
-                        } catch (_: Exception) { null }
-                    } }
-                    val peers = JSONArray()
-                    try {
-                        tasks.forEach { task ->
-                            try {
-                                val item = task.get(7, TimeUnit.SECONDS)
-                                if (item != null) peers.put(item)
-                            } catch (_: Exception) { }
-                        }
-                    } finally {
-                        tasks.forEach { it.cancel(true) }
-                        executor.shutdownNow()
-                    }
-                    JSONObject().put("ok", true).put("data", JSONObject().put("symbol", s).put("industry", stockSector(s)).put("peers", peers)
-                        .put("candidateCount", names.size).put("validatedCount", peers.length())
-                        .put("method", "Curated same-industry candidates; returned rows require live price history and at least two available fundamental fields. This validates data presence, not an exchange-certified industry classification.")
-                        .put("partial", peers.length() < names.size).put("statusText", "${peers.length()}/${names.size} peer candidates passed live data-completeness checks. Missing metrics are left blank; candidates are not a fully validated industry universe.")).toString()
-                }
+                "/api/peers" -> JSONObject().put("ok", true).put("data", JSONObject()
+                    .put("symbol", s).put("industry", stockSector(s)).put("peers", JSONArray())
+                    .put("candidateCount", 0).put("validatedCount", 0).put("partial", true)
+                    .put("method", "Peer comparison requires authorized price history and validated fundamentals.")
+                    .put("statusText", "Peer comparison is unavailable until authorized OHLCV history is configured. No Yahoo-derived prices are used.")
+                    .put("provider", "UNAVAILABLE")).toString()
                 "/api/news" -> {
                     val news = try { yahooNews(raw) } catch (e: Exception) { JSONObject().put("symbol", s).put("news", JSONArray()).put("statusText", "Yahoo Finance news unavailable: ${e.message ?: "provider error"}").put("provider", "Unavailable") }
                     JSONObject().put("ok", true).put("data", news).toString()
