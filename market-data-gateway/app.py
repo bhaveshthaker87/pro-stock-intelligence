@@ -157,7 +157,7 @@ def android_quote(symbol: str = Query(...)) -> dict[str, Any]:
             as_of = datetime.strptime(str(as_of_date)[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc).isoformat()
         except ValueError as exc:
             raise HTTPException(status_code=502, detail="BharatStock returned an invalid source date.") from exc
-        return {"ok": True, "data": {"symbol": symbol, "price": value, "currency": "INR", "source": "BharatStock EOD API", "marketDataStatus": "EOD", "asOf": as_of, "company": ratios.get("company_name") or ratios.get("company") or symbol, "yearHigh": ratios.get("week_52_high"), "yearLow": ratios.get("week_52_low"), "pe": ratios.get("pe_ratio"), "eps": (stock.get("latest_financials") or {}).get("eps"), "live_data_verified": False}}
+        return {"ok": True, "data": {"symbol": symbol, "price": value, "currency": "INR", "source": "BharatStock EOD API", "marketDataStatus": "EOD", "asOf": as_of, "company": ratios.get("company_name") or ratios.get("company") or symbol, "yearHigh": ratios.get("week_52_high"), "yearLow": ratios.get("week_52_low"), "pe": ratios.get("pe_ratio"), "eps": ratios.get("eps"), "live_data_verified": False}}
     raw = _nse("/quote-equity", {"symbol": symbol})
     price, info = raw.get("priceInfo") or {}, raw.get("info") or {}
     value = price.get("lastPrice")
