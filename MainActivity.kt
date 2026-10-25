@@ -173,79 +173,18 @@ private class NativeProvider {
     private fun finite(n: Double): Boolean = !n.isNaN() && !n.isInfinite()
     private fun putFinite(o: JSONObject, key: String, n: Double) { if (finite(n)) o.put(key, n) }
 
+    // V40.82 policy guard: external Yahoo-based fallbacks are disabled.
+    // Do not silently substitute an unapproved source for NSE live/historical data.
     private fun yahoo(raw: String, range: String = "1y"): JSONObject {
         val symbol = canonical(raw)
-        if (symbol.isBlank()) throw IOException("Enter a valid NSE/BSE symbol, e.g. INFY or TCS")
-        val isIndex = symbol.startsWith("^") || symbol.endsWith("=F")
-        val suffixes = if (isIndex) listOf("") else if (raw.trim().uppercase(Locale.ROOT).endsWith(".BO")) listOf(".BO", ".NS") else listOf(".NS", ".BO")
-        val errors = mutableListOf<String>()
-        for (host in listOf("query1.finance.yahoo.com", "query2.finance.yahoo.com")) {
-            for (suffix in suffixes) {
-                try {
-                    val ticker = if (isIndex || symbol.endsWith("=F")) symbol else symbol + suffix
-                    val yahooRange = when (range.lowercase(Locale.ROOT)) {
-                        "1d" -> "1d"; "1w" -> "5d"; "3y" -> "5y"; "all" -> "max"; else -> range
-                    }
-                    val interval = when (range.lowercase(Locale.ROOT)) { "1d" -> "5m"; "1w" -> "30m"; else -> "1d" }
-                    val url = "https://$host/v8/finance/chart/${Uri.encode(ticker)}?range=${Uri.encode(yahooRange)}&interval=$interval&events=div,splits"
-                    val root = JSONObject(get(url))
-                    val chart = root.optJSONObject("chart") ?: throw IOException("Yahoo response missing chart data")
-                    val err = chart.optJSONObject("error")
-                    if (err != null) throw IOException(err.optString("description", "Yahoo Finance rejected $ticker"))
-                    val results = chart.optJSONArray("result") ?: throw IOException("No quote result for $ticker")
-                    if (results.length() == 0) throw IOException("No price history found for $ticker")
-                    val r = results.getJSONObject(0)
-                    val meta = r.optJSONObject("meta") ?: JSONObject(); val q = r.getJSONObject("indicators").getJSONArray("quote").getJSONObject(0); val ts = r.optJSONArray("timestamp") ?: JSONArray()
-                    val opens = q.optJSONArray("open"); val highs = q.optJSONArray("high"); val lows = q.optJSONArray("low"); val closes = q.optJSONArray("close"); val volumes = q.optJSONArray("volume")
-                    val rows = JSONArray()
-                    for (i in 0 until ts.length()) {
-                        val close = closes?.optDouble(i, Double.NaN) ?: Double.NaN
-                        if (!finite(close) || close <= 0.0) continue
-                        val time = ts.optLong(i) * 1000L
-                        val row = JSONObject().put("time", time).put("date", time).put("close", close)
-                        val open = opens?.optDouble(i, Double.NaN) ?: Double.NaN
-                        val high = highs?.optDouble(i, Double.NaN) ?: Double.NaN
-                        val low = lows?.optDouble(i, Double.NaN) ?: Double.NaN
-                        if (finite(open)) row.put("open", open) else row.put("open", JSONObject.NULL)
-                        if (finite(high)) row.put("high", high) else row.put("high", JSONObject.NULL)
-                        if (finite(low)) row.put("low", low) else row.put("low", JSONObject.NULL)
-                        row.put("volume", volumes?.optLong(i, 0L) ?: 0L)
-                        rows.put(row)
-                    }
-                    if (rows.length() == 0) throw IOException("No usable closing prices for $ticker")
-                    val lastClose = rows.getJSONObject(rows.length() - 1).optDouble("close", Double.NaN)
-                    val price = meta.optDouble("regularMarketPrice", Double.NaN).let { if (finite(it) && it > 0) it else lastClose }
-                    val prev = meta.optDouble("chartPreviousClose", meta.optDouble("previousClose", Double.NaN))
-                    val out = JSONObject().put("symbol", symbol).put("resolvedSymbol", ticker).put("currency", meta.optString("currency", "INR"))
-                        .put("rows", rows).put("provider", "Yahoo Finance")
-                        .put("quoteStatus", "THIRD_PARTY_PROVIDER_DATA_DELAY_NOT_GUARANTEED")
-                    if (meta.has("regularMarketTime") && !meta.isNull("regularMarketTime")) out.put("quoteTimestamp", meta.optLong("regularMarketTime"))
-                    val eventRows = JSONArray()
-                    val events = r.optJSONObject("events")
-                    listOf("dividends", "splits").forEach { eventType ->
-                        val group = events?.optJSONObject(eventType) ?: return@forEach
-                        val keys = group.keys()
-                        while (keys.hasNext()) {
-                            val ev = group.optJSONObject(keys.next()) ?: continue
-                            val epoch = ev.optLong("date", 0L)
-                            val dateText = if (epoch > 0) java.text.SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH).format(java.util.Date(epoch * 1000L)) else "Date unavailable"
-                            val item = JSONObject().put("date", dateText).put("type", if (eventType == "dividends") "Dividend" else "Stock Split")
-                                .put("event", if (eventType == "dividends") "Cash dividend" else "Stock split")
-                            if (eventType == "dividends") putFinite(item, "dividend", ev.optDouble("amount", Double.NaN))
-                            else item.put("ratio", "${ev.optInt("numerator", 0)}:${ev.optInt("denominator", 0)}")
-                            eventRows.put(item)
-                        }
-                    }
-                    out.put("events", eventRows)
-                    putFinite(out, "price", price); putFinite(out, "previousClose", prev)
-                    if (finite(prev) && prev > 0 && finite(price)) putFinite(out, "dayChangePct", (price / prev - 1.0) * 100.0)
-                    putFinite(out, "high52", meta.optDouble("fiftyTwoWeekHigh", Double.NaN))
-                    putFinite(out, "low52", meta.optDouble("fiftyTwoWeekLow", Double.NaN))
-                    return out
-                } catch (e: Exception) { errors.add("$host $suffix: ${e.message ?: "provider error"}") }
-            }
-        }
-        throw IOException("Yahoo Finance data unavailable for ${stockName(symbol)} ($symbol). ${errors.takeLast(3).joinToString(" | ")}")
+        return JSONObject()
+            .put("symbol", symbol)
+            .put("rows", JSONArray())
+            .put("events", JSONArray())
+            .put("provider", "UNAVAILABLE — authorized market-data gateway not configured")
+            .put("marketDataStatus", "UNAVAILABLE")
+            .put("providerError", "Yahoo Finance fallback is disabled by app policy. Configure an authorized provider gateway for quote/history/events.")
+            .put("requestedRange", range)
     }
 
     private fun sectionTableRows(html: String, sectionId: String): List<List<String>> {
