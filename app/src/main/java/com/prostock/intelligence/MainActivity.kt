@@ -320,6 +320,154 @@ private class NativeProvider {
 
     private fun gatewayConfigured(): Boolean = gatewayBaseUrl().startsWith("https://", ignoreCase = true)
 
+
+    // Public Downstox endpoints are a supplemental snapshot source only. They are not
+    // treated as an authorized real-time quote feed, and no credentials are sent.
+    private val downstoxCache = mutableMapOf<String, Pair<Long, String>>()
+
+    private fun downstoxGet(path: String, params: Map<String, String> = emptyMap(), ttlMs: Long = 300_000L): JSONObject {
+        if (!path.startsWith("/api/")) throw IOException("Downstox path is not an allowed public API path")
+        val query = if (params.isEmpty()) "" else params.entries.joinToString("&", "?") {
+            URLEncoder.encode(it.key, "UTF-8") + "=" + URLEncoder.encode(it.value, "UTF-8")
+        }
+        val key = path + query
+        val now = System.currentTimeMillis()
+        val cachedBody = synchronized(downstoxCache) {
+            val cached = downstoxCache[key]
+            if (cached != null && now >= cached.first && now - cached.first < ttlMs) cached.second
+            else {
+                downstoxCache.remove(key)
+                null
+            }
+        }
+        if (cachedBody != null) return JSONObject(cachedBody)
+
+        val c = URL("https://downstox.com" + path + query).openConnection() as HttpURLConnection
+        c.connectTimeout = 5000
+        c.readTimeout = 8000
+        c.requestMethod = "GET"
+        c.setRequestProperty("Accept", "application/json")
+        c.setRequestProperty("User-Agent", "PRO-STOCK-INTELLIGENCE/40.81 (Android public market-data supplement)")
+        c.setRequestProperty("Cache-Control", "no-cache")
+        try {
+            val code = c.responseCode
+            if (code !in 200..299) throw IOException("Downstox public API returned HTTP " + code + ". The snapshot may be unavailable or rate-limited.")
+            val body = c.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            if (body.length > 2_000_000) throw IOException("Downstox response exceeded the 2 MB safety limit")
+            val root = JSONObject(body)
+            if (!root.optBoolean("success", false)) throw IOException(root.optString("error", "Downstox public API did not report success"))
+            synchronized(downstoxCache) { downstoxCache[key] = Pair(now, root.toString()) }
+            return root
+        } finally {
+            c.disconnect()
+        }
+    }
+
+    private fun downstoxFundamentals(raw: String): JSONObject {
+        if (raw.trim().uppercase(Locale.ROOT).endsWith(".BO")) {
+            throw IOException("Downstox public stock endpoint is documented for NSE symbols; BSE-selected symbols are not remapped.")
+        }
+        val symbol = canonical(raw)
+        if (symbol.isBlank() || !symbol.matches(Regex("[A-Z0-9&_-]{1,25}"))) throw IOException("Invalid NSE symbol for Downstox lookup")
+        val root = downstoxGet("/api/stocks/" + URLEncoder.encode(symbol, "UTF-8"), ttlMs = 900_000L)
+        val stock = root.optJSONObject("stock") ?: throw IOException("Downstox stock payload is missing its stock object")
+        if (canonical(stock.optString("symbol")) != symbol) throw IOException("Downstox returned a different symbol; supplemental fields rejected")
+        val values = root.optJSONObject("fundamentals") ?: throw IOException("Downstox stock payload is missing fundamentals")
+        val out = JSONObject()
+            .put("symbol", symbol)
+            .put("provider", "Downstox public fundamentals snapshot")
+            .put("supplementProvider", "Downstox public API")
+            .put("supplementStatus", "PARTIAL_PUBLIC_SNAPSHOT")
+            .put("supplementTimestampStatus", "PER_STOCK_TIMESTAMP_NOT_SUPPLIED_BY_DOCUMENTED_SCHEMA")
+            .put("sourceUrl", "https://downstox.com/api/stocks/" + symbol)
+            .put("referencePriceSource", "Downstox public CMP reference (per-stock timestamp unavailable)")
+            .put("referencePriceStatus", "PUBLIC_REFERENCE_NOT_LIVE_VERIFIED")
+        val companyName = stock.optString("name").trim()
+        if (companyName.isNotBlank()) out.put("name", companyName)
+        val sector = root.optString("sector").trim()
+        if (sector.isNotBlank()) out.put("sector", sector)
+
+        val mappings = linkedMapOf(
+            "pe" to "pe",
+            "roe" to "roe",
+            "roce" to "roce",
+            "dividendYield" to "divYield",
+            "bookValue" to "bookValue",
+            "pb" to "priceToBook"
+        )
+        for ((target, source) in mappings) {
+            val value = values.optDouble(source, Double.NaN)
+            if (finite(value) && value > 0.0) out.put(target, value)
+        }
+        val cmp = values.optDouble("cmp", Double.NaN)
+        if (finite(cmp) && cmp > 0.0) out.put("price", cmp)
+        val fScore = values.optDouble("fScore", Double.NaN)
+        if (finite(fScore) && fScore >= 0.0 && fScore <= 8.0) out.put("piotroski", fScore.toInt())
+        // The public schema does not declare mcap units, quarterly/annual statement
+        // periods, EPS, dividends by ex-date, or OHLCV history. Never infer those fields.
+        return out
+    }
+
+    private fun fundamentalsWithDownstox(raw: String): JSONObject {
+        val symbol = canonical(raw)
+        val base = try {
+            screener(raw)
+        } catch (e: Exception) {
+            JSONObject().put("symbol", symbol).put("name", stockName(symbol))
+                .put("providerError", e.message ?: "Screener.in unavailable")
+                .put("provider", "Screener.in unavailable")
+        }
+        if (raw.trim().uppercase(Locale.ROOT).endsWith(".BO")) return base
+
+        val missingFields = listOf("pe", "roe", "roce", "dividendYield", "bookValue", "pb", "piotroski", "price")
+            .any { !base.has(it) || base.isNull(it) }
+        if (!missingFields) {
+            if (base.has("price") && !base.has("referencePriceSource")) base.put("referencePriceSource", "Screener.in")
+            return base
+        }
+
+        val fallback = try {
+            downstoxFundamentals(raw)
+        } catch (e: Exception) {
+            base.put("downstoxSupplementError", e.message ?: "Downstox public supplement unavailable")
+            if (base.has("price") && !base.has("referencePriceSource")) base.put("referencePriceSource", "Screener.in")
+            return base
+        }
+        val out = JSONObject(base.toString())
+        val mappings = listOf("name", "sector", "pe", "roe", "roce", "dividendYield", "bookValue", "pb", "piotroski", "price")
+        var copied = 0
+        for (key in mappings) {
+            if ((!out.has(key) || out.isNull(key) || (key == "name" && out.optString(key).isBlank())) &&
+                fallback.has(key) && !fallback.isNull(key)) {
+                out.put(key, fallback.get(key))
+                copied++
+            }
+        }
+        out.put("supplementProvider", "Downstox public API")
+            .put("supplementStatus", "PARTIAL_PUBLIC_SNAPSHOT")
+            .put("supplementTimestampStatus", fallback.optString("supplementTimestampStatus", "PER_STOCK_TIMESTAMP_NOT_SUPPLIED_BY_DOCUMENTED_SCHEMA"))
+            .put("supplementSourceUrl", fallback.optString("sourceUrl", "https://downstox.com/api/stocks/" + symbol))
+        if (out.has("price")) {
+            if (base.has("price")) {
+                if (!out.has("referencePriceSource")) out.put("referencePriceSource", "Screener.in")
+            } else {
+                out.put("referencePriceSource", fallback.optString("referencePriceSource", "Downstox public CMP reference"))
+                out.put("referencePriceStatus", "PUBLIC_REFERENCE_NOT_LIVE_VERIFIED")
+            }
+        }
+        if (base.has("providerError")) {
+            val err = base.optString("providerError")
+            out.put("screenerProviderError", err)
+            if (copied > 0) out.remove("providerError")
+        }
+        if (copied > 0) out.put("provider", if (out.has("screenerProviderError")) "Downstox public fundamentals fallback" else "Screener.in + Downstox field-level supplement")
+        if (copied == 0 && fallback.optString("name").isBlank()) {
+            out.put("downstoxSupplementError", "Downstox returned no usable supplemental fields")
+        }
+        return out
+    }
+
+
     /**
      * Client for the documented, normalized server-side provider gateway.
      * Vendor secrets stay on that server; no API keys/cookies are embedded in this APK.
@@ -827,9 +975,7 @@ private class NativeProvider {
             }
         }
         val fundamentalFuture = executor.submit<JSONObject> {
-            try { screener(s) } catch (e: Exception) {
-                JSONObject().put("symbol", s).put("name", stockName(s)).put("providerError", e.message ?: "Screener unavailable")
-            }
+            fundamentalsWithDownstox(raw)
         }
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(11)
         fun result(future: java.util.concurrent.Future<JSONObject>, fallback: JSONObject): JSONObject {
@@ -855,7 +1001,11 @@ private class NativeProvider {
                 // Never promote Screener's displayed/last-close price into an exchange-live quote.
                 // Preserve it separately as a reference value so the UI cannot label it as CMP/live.
                 if (k == "price") {
-                    if (!quote.has("price") && !f.isNull(k)) market.put("screenerReferencePrice", f.get(k))
+                    if (!quote.has("price") && !f.isNull(k)) {
+                        market.put("screenerReferencePrice", f.get(k))
+                        market.put("referencePriceSource", f.optString("referencePriceSource", f.optString("provider", "Screener.in")))
+                        market.put("referencePriceStatus", f.optString("referencePriceStatus", "REFERENCE_ONLY_NOT_LIVE"))
+                    }
                 } else if (k != "providerError") {
                     market.put(k, f.get(k))
                 }
@@ -874,11 +1024,22 @@ private class NativeProvider {
                 .put("History", quote.optString("historyProvider", "Unavailable"))
                 .put("Moneycontrol", "NOT INTEGRATED — NO VERIFIED ACCESS/FEED CONFIGURED")
                 .put("NSE", if (quote.optString("provider").startsWith("NSE")) "PUBLIC WEBSITE ENDPOINT (NOT LICENSED FEED)" else quote.optString("nseProviderWarning", "UNAVAILABLE"))
-                .put("Screener.in", if (f.has("providerError")) "UNAVAILABLE: " + f.optString("providerError") else "Screener.in page parsed; field freshness/accuracy still requires verification"))
+                .put("Screener.in", when {
+                    f.has("screenerProviderError") -> "Unavailable/partial: " + f.optString("screenerProviderError")
+                    f.has("providerError") -> "UNAVAILABLE: " + f.optString("providerError")
+                    else -> "Screener.in page parsed; field freshness/accuracy still requires verification"
+                })
+                .put("Downstox", when {
+                    f.has("supplementProvider") -> "Public fundamentals snapshot; timestamp and field completeness unverified"
+                    f.has("downstoxSupplementError") -> "Supplement unavailable: " + f.optString("downstoxSupplementError")
+                    else -> "Not used; Screener coverage sufficient or NSE/BSE selection unsupported"
+                }))
             .put("quoteQuality", quote.optString("quoteQuality", "UNVERIFIED")).put("quoteTimestampStatus", quote.optString("quoteTimestampStatus", "UNVERIFIED_NO_PROVIDER_QUOTE_TIMESTAMP")).put("fundamentalCoverage", coreCoverage(f))
         val warnings = JSONArray()
         if (quote.has("providerError")) warnings.put(quote.optString("providerError"))
         if (f.has("providerError")) warnings.put(f.optString("providerError"))
+        if (f.has("screenerProviderError")) warnings.put("Screener.in partial/unavailable: " + f.optString("screenerProviderError"))
+        if (f.has("downstoxSupplementError")) warnings.put("Downstox supplement unavailable: " + f.optString("downstoxSupplementError"))
         if (warnings.length() > 0) data.put("providerWarnings", warnings)
         return data
     }
@@ -964,12 +1125,143 @@ private class NativeProvider {
             .put("marketDataStatus", "UNAVAILABLE")
     }
 
+
+    private fun downstoxAnnouncements(raw: String): JSONObject {
+        if (raw.trim().uppercase(Locale.ROOT).endsWith(".BO")) {
+            throw IOException("Company announcement lookup for a BSE-selected symbol is not inferred from a numeric BSE code.")
+        }
+        val symbol = canonical(raw)
+        if (symbol.isBlank()) throw IOException("Select a valid company symbol before loading announcements")
+        val root = downstoxGet("/api/announcements/", mapOf("symbol" to symbol, "limit" to "50"), 300_000L)
+        val rows = root.optJSONArray("announcements") ?: throw IOException("Downstox announcements payload is missing its announcements array")
+        val news = JSONArray()
+        for (i in 0 until rows.length()) {
+            val row = rows.optJSONObject(i) ?: continue
+            val title = row.optString("subject").trim()
+            val publishedAt = row.optString("publishedAt").trim()
+            if (title.isBlank() || publishedAt.isBlank()) continue
+            try { parseGatewayTime(publishedAt) } catch (_: Exception) { continue }
+            val link = row.optString("pdfUrl").trim()
+            if (!link.startsWith("https://", ignoreCase = true) && !link.startsWith("http://", ignoreCase = true)) continue
+            news.put(JSONObject()
+                .put("title", title)
+                .put("link", link)
+                .put("publisher", row.optString("exchange", "NSE/BSE") + " corporate filing via Downstox")
+                .put("time", publishedAt)
+                .put("symbol", row.optString("symbol", symbol))
+                .put("category", row.optString("category", "Corporate announcement")))
+        }
+        return JSONObject().put("symbol", symbol).put("news", news)
+            .put("provider", "Downstox public NSE/BSE corporate announcements")
+            .put("marketDataStatus", "CORPORATE_ANNOUNCEMENTS_NOT_FULL_NEWS_OR_EVENT_CALENDAR")
+            .put("statusText", "Corporate filing announcements only. This is not a full news feed, upcoming results calendar, or dividend ex-date calendar. Only returned rows are shown.")
+    }
+
     private fun yahooNews(raw: String): JSONObject {
         return JSONObject().put("symbol", canonical(raw))
             .put("news", JSONArray())
             .put("provider", "UNAVAILABLE — permitted company-news provider not configured")
             .put("statusText", "News is unavailable until a permitted provider is configured. The app does not substitute Yahoo-derived news.")
             .put("marketDataStatus", "UNAVAILABLE")
+    }
+
+
+    private fun downstoxMarketIndices(specs: Map<String, String>): JSONObject {
+        val root = downstoxGet("/api/india-markets/overview", ttlMs = 60_000L)
+        val asOfText = root.optString("timestamp").trim()
+        if (asOfText.isBlank()) throw IOException("Downstox index snapshot timestamp is missing")
+        val asOf = parseGatewayTime(asOfText)
+        val ageMs = System.currentTimeMillis() - asOf
+        if (ageMs < -60_000L || ageMs > 24L * 60L * 60L * 1000L) throw IOException("Downstox index snapshot timestamp is in the future or older than 24 hours")
+        val indices = root.optJSONObject("indices") ?: JSONObject()
+        val cached = root.optBoolean("cached", true)
+        val out = JSONObject()
+        for (label in specs.keys) {
+            out.put(label, JSONObject()
+                .put("value", JSONObject.NULL).put("changePct", JSONObject.NULL)
+                .put("status", "PUBLIC_SNAPSHOT_NOT_RETURNED").put("priceSource", "NONE")
+                .put("provider", "Downstox public snapshot")
+                .put("sourceType", "NO_DATA").put("quoteTimestamp", asOf / 1000L)
+                .put("isExchangeCertifiedRealtime", false)
+                .put("marketDataDisclaimer", "Downstox did not return this index in its public snapshot; no value is inferred."))
+        }
+        val direct = mapOf(
+            "NIFTY 50" to indices.optJSONObject("nse"),
+            "SENSEX" to indices.optJSONObject("bse")
+        )
+        val rows = mutableListOf<JSONObject>()
+        for (key in listOf("sectors", "extras")) {
+            val arr = root.optJSONArray(key) ?: continue
+            for (i in 0 until arr.length()) {
+                val row = arr.optJSONObject(i) ?: continue
+                rows.add(row)
+            }
+        }
+        val tickerAliases = mapOf(
+            "NIFTY BANK" to setOf("^NSEBANK", "NSEBANK"),
+            "NIFTY MIDCAP 100" to setOf("^CRSMID", "CRSMID"),
+            "NIFTY SMALLCAP 100" to setOf("^CRSSML", "CRSSML"),
+            "NIFTY IT" to setOf("^CNXIT", "CNXIT"),
+            "NIFTY AUTO" to setOf("^CNXAUTO", "CNXAUTO"),
+            "NIFTY FMCG" to setOf("^CNXFMCG", "CNXFMCG"),
+            "NIFTY PHARMA" to setOf("^CNXPHARMA", "CNXPHARMA"),
+            "NIFTY METAL" to setOf("^CNXMETAL", "CNXMETAL"),
+            "NIFTY PSU BANK" to setOf("^CNXPSUBANK", "CNXPSUBANK"),
+            "NIFTY PRIVATE BANK" to setOf("^NIFTYPVTBANK", "NIFTYPVTBANK"),
+            "NIFTY ENERGY" to setOf("^CNXENERGY", "CNXENERGY"),
+            "NIFTY INFRA" to setOf("^CNXINFRA", "CNXINFRA"),
+            "NIFTY FIN SERVICE" to setOf("^CNXFINANCE", "CNXFINANCE")
+        )
+        val nameAliases = mapOf(
+            "NIFTY BANK" to setOf("bank nifty", "nifty bank"),
+            "NIFTY MIDCAP 100" to setOf("nifty midcap 100", "midcap 100"),
+            "NIFTY SMALLCAP 100" to setOf("nifty smallcap 100", "smallcap 100"),
+            "NIFTY IT" to setOf("nifty it", "nifty information technology"),
+            "NIFTY AUTO" to setOf("nifty auto", "nifty automobile"),
+            "NIFTY FMCG" to setOf("nifty fmcg"),
+            "NIFTY PHARMA" to setOf("nifty pharma"),
+            "NIFTY METAL" to setOf("nifty metal"),
+            "NIFTY PSU BANK" to setOf("nifty psu bank", "psu bank"),
+            "NIFTY PRIVATE BANK" to setOf("nifty private bank", "private bank"),
+            "NIFTY ENERGY" to setOf("nifty energy"),
+            "NIFTY INFRA" to setOf("nifty infrastructure", "nifty infra"),
+            "NIFTY FIN SERVICE" to setOf("nifty financial services", "nifty fin service", "financial services")
+        )
+        fun normalized(value: String): String = value.lowercase(Locale.ROOT).replace(Regex("[^a-z0-9]+"), " ").trim()
+        fun makeSnapshot(row: JSONObject?, label: String): JSONObject? {
+            if (row == null) return null
+            val price = row.optDouble("price", Double.NaN)
+            if (!finite(price) || price <= 0.0) return null
+            val change = row.optDouble("change", Double.NaN)
+            val liveFlag = row.optBoolean("isLive", false)
+            return JSONObject().put("value", price)
+                .put("changePct", if (finite(change)) change else JSONObject.NULL)
+                .put("status", "PUBLIC_SNAPSHOT").put("priceSource", "DOWNSTOX_PUBLIC_SNAPSHOT")
+                .put("provider", "Downstox public API snapshot")
+                .put("sourceType", "PUBLIC_SNAPSHOT").put("quoteTimestamp", asOf / 1000L)
+                .put("quoteAsOf", asOfText).put("isExchangeCertifiedRealtime", false)
+                .put("marketDataDisclaimer", "Public cached snapshot; " +
+                    (if (cached) "API says cached; " else "") +
+                    (if (!liveFlag) "API does not assert this tile is live; " else "") +
+                    "not an exchange-certified live feed • " + label + " • as of " + asOfText)
+        }
+        for ((label, directRow) in direct) {
+            val snap = makeSnapshot(directRow, label)
+            if (snap != null) out.put(label, snap)
+        }
+        for (label in specs.keys) {
+            if (direct.containsKey(label)) continue
+            val tickers = tickerAliases[label] ?: emptySet()
+            val names = nameAliases[label] ?: emptySet()
+            val found = rows.firstOrNull { row ->
+                val ticker = row.optString("ticker").uppercase(Locale.ROOT).trim()
+                val name = normalized(row.optString("name"))
+                tickers.contains(ticker) || names.contains(name)
+            }
+            val snap = makeSnapshot(found, label)
+            if (snap != null) out.put(label, snap)
+        }
+        return out
     }
 
     private fun marketIndices(): JSONObject {
@@ -991,10 +1283,15 @@ private class NativeProvider {
             }
             return out
         }
-        if (!gatewayConfigured()) return unavailable(
-            "AUTHORIZED_NSE_FEED_NOT_CONFIGURED",
-            "No authorized HTTPS provider gateway is configured. Live index values are unavailable; no third-party fallback is used."
-        )
+        if (!gatewayConfigured()) {
+            return try {
+                downstoxMarketIndices(specs)
+            } catch (e: Exception) {
+                unavailable("DOWNSTOX_PUBLIC_SNAPSHOT_UNAVAILABLE",
+                    "No authorized live index gateway is configured and Downstox public snapshot could not be validated: " +
+                        (e.message ?: "unknown error") + ". No other price-source fallback is used.")
+            }
+        }
         return try {
             val data = gatewayGet("/v1/indices")
             val source = data.optString("source").trim()
@@ -1184,8 +1481,17 @@ private class NativeProvider {
                         .put("method", "Peer prices and technical metrics require verified historical candles.")
                         .put("statusText", "Peer comparison is unavailable until an authorized NSE historical-data feed is configured. No third-party price history is used.")).toString()
                 "/api/news" -> {
-                    val news = yahooNews(raw)
-                    JSONObject().put("ok", true).put("data", news).toString()
+                    try {
+                        JSONObject().put("ok", true).put("data", downstoxAnnouncements(raw)).toString()
+                    } catch (e: Exception) {
+                        JSONObject().put("ok", true).put("data",
+                            JSONObject().put("symbol", s).put("news", JSONArray())
+                                .put("provider", "Downstox announcements unavailable")
+                                .put("marketDataStatus", "UNAVAILABLE")
+                                .put("providerError", e.message ?: "Downstox announcement feed failed")
+                                .put("statusText", "No corporate announcements could be validated. This does not mean no company events exist.")
+                        ).toString()
+                    }
                 }
                 "/api/company-events" -> {
                     if (gatewayConfigured()) {

@@ -460,6 +460,42 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("$('levelHigh52').textContent=money(valid52?.high)", html)
         self.assertNotIn("money(Math.max(...closes.slice(-252)))", html)
 
+
+    def test_downstox_is_limited_to_supplemental_fundamentals_snapshot(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn('URL("https://downstox.com" + path + query)', source)
+        self.assertIn("private fun fundamentalsWithDownstox(raw: String)", source)
+        self.assertIn("PER_STOCK_TIMESTAMP_NOT_SUPPLIED_BY_DOCUMENTED_SCHEMA", source)
+        self.assertIn("PUBLIC_REFERENCE_NOT_LIVE_VERIFIED", source)
+        self.assertIn("No authorized NSE/vendor gateway is configured. Live price is unavailable; no website scraping or third-party fallback is used.", source)
+        self.assertIn("referencePriceSource+' reference price only — not live or exchange-verified'", html)
+        self.assertIn("delete f.price;", html)
+
+    def test_downstox_index_snapshots_are_timestamped_and_never_labelled_live(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("private fun downstoxMarketIndices(specs: Map<String, String>)", source)
+        self.assertIn("Downstox index snapshot timestamp is in the future or older than 24 hours", source)
+        self.assertIn('"status", "PUBLIC_SNAPSHOT"', source)
+        self.assertIn('"priceSource", "DOWNSTOX_PUBLIC_SNAPSHOT"', source)
+        self.assertIn("PUBLIC SNAPSHOT • NOT LIVE", html)
+        self.assertIn("STALE PUBLIC SNAPSHOT • NOT LIVE", html)
+
+    def test_company_announcement_feed_is_not_a_results_or_dividend_calendar(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("private fun downstoxAnnouncements(raw: String)", source)
+        self.assertIn('downstoxGet("/api/announcements/"', source)
+        self.assertIn("CORPORATE_ANNOUNCEMENTS_NOT_FULL_NEWS_OR_EVENT_CALENDAR", source)
+        self.assertIn("Downstox announcements unavailable", source)
+
+    def test_screener_price_is_not_repromoted_to_live_during_full_data_merge(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("if(!hasUsablePrice(dm.price)&&hasUsablePrice(rf.price))", html)
+        self.assertIn("if(!hasUsablePrice(rm.price)||!rm.quoteTimestamp)delete f.price;", html)
+        self.assertIn("Historical OHLCV reference only", html)
+        self.assertIn("Screener reference price only — not live or exchange-verified", html)
+
 if __name__ == "__main__":
     unittest.main()
 
