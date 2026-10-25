@@ -600,11 +600,10 @@ private class NativeProvider {
                     val news = try { yahooNews(raw) } catch (e: Exception) { JSONObject().put("symbol", s).put("news", JSONArray()).put("statusText", "Yahoo Finance news unavailable: ${e.message ?: "provider error"}").put("provider", "Unavailable") }
                     JSONObject().put("ok", true).put("data", news).toString()
                 }
-                "/api/company-events" -> {
-                    val y = try { yahoo(raw, "5y") } catch (e: Exception) { JSONObject().put("symbol", s).put("rows", JSONArray()).put("statusText", "Corporate event provider unavailable: ${e.message ?: "provider error"}").put("provider", "Unavailable") }
-                    val events = y.optJSONArray("events") ?: JSONArray()
-                    JSONObject().put("ok", true).put("data", JSONObject().put("symbol", s).put("name", stockName(s)).put("rows", events).put("statusText", if (events.length() > 0) "Verified dividend and split events from Yahoo Finance" else "No dividend or split events returned by Yahoo Finance").put("provider", y.optString("provider", "Yahoo Finance"))).toString()
-                }
+                "/api/company-events" -> JSONObject().put("ok", true).put("data", JSONObject()
+                    .put("symbol", s).put("name", stockName(s)).put("rows", JSONArray())
+                    .put("statusText", "No corporate-event feed is configured. An empty response does not mean no events exist; verify the official NSE/BSE corporate announcements.")
+                    .put("provider", "UNAVAILABLE").put("liveData", false)).toString()
                 "/api/dividend-stocks" -> {
                     val d = runScreenerQuery("Market Capitalization > 1000 AND Dividend yield > 1 AND Return on capital employed > 10")
                     val rows = d.optJSONArray("rows") ?: JSONArray()
