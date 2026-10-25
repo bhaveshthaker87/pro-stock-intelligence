@@ -119,6 +119,10 @@ class MainActivity : Activity() {
                 val uri = Uri.parse(url)
                 return api(uri) ?: assetLoader.shouldInterceptRequest(uri)
             }
+            override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                Log.i("PSI_STARTUP", "PAGE_STARTED $url")
+            }
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
                 if (url.startsWith("https://www.screener.in/")) {
