@@ -37,6 +37,9 @@ class MainActivity : Activity() {
         CookieManager.getInstance().setAcceptCookie(true)
         web = WebView(this)
         web.setBackgroundColor(Color.rgb(237, 245, 251))
+        // GitHub's headless Android emulator has unstable WebView GPU buffers; use software rendering
+        // for deterministic startup instead of crashing the Chromium renderer before DOM readiness.
+        web.setLayerType(android.view.View.LAYER_TYPE_SOFTWARE, null)
         web.settings.javaScriptEnabled = true
         web.settings.javaScriptCanOpenWindowsAutomatically = false
         web.settings.safeBrowsingEnabled = true
