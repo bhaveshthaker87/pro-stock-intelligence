@@ -1823,3 +1823,15 @@ $('clearImportedCsv')?.addEventListener('click',()=>{try{localStorage.removeItem
 $('useImportedCsv')?.addEventListener('change',()=>{refreshCsvModalStatus();if(window.sym){toast($('useImportedCsv').checked?'CSV fallback enabled; applying imported data…':'CSV fallback disabled; refreshing provider data…');runAnalysis().then(()=>loadChart(activeRange||'1y'));}});refreshCsvModalStatus();
 
 </script>
+
+<style id="v4081-header-hit-target-fix">
+/* Keep the sticky header from sitting on top of market-panel controls after
+   Playwright (or a user) scrolls #indicesRefreshBtn into view. */
+.top{z-index:20;isolation:isolate}
+#indices{position:relative;z-index:1;scroll-margin-top:calc(84px + env(safe-area-inset-top))}
+#indices .market-head{position:relative;z-index:1}
+#indices .market-refresh{position:relative;z-index:1}
+@media(min-width:761px){
+  .top{min-height:72px}
+}
+</style>
