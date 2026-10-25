@@ -512,22 +512,11 @@ private class NativeProvider {
     }
 
     private fun yahooNews(raw: String): JSONObject {
-        val symbol = canonical(raw)
-        val q = URLEncoder.encode(symbol, "UTF-8")
-        val root = JSONObject(get("https://query1.finance.yahoo.com/v1/finance/search?q=$q&quotesCount=0&newsCount=12"))
-        val items = root.optJSONArray("news") ?: JSONArray()
-        val out = JSONArray()
-        for (i in 0 until items.length()) {
-            val n = items.optJSONObject(i) ?: continue
-            val title = n.optString("title", "").trim()
-            if (title.isBlank()) continue
-            val item = JSONObject().put("title", title).put("publisher", n.optString("publisher", "Yahoo Finance"))
-                .put("link", n.optString("link", "")).put("time", n.optLong("providerPublishTime", 0L))
-                .put("provider", "Yahoo Finance")
-            out.put(item)
-        }
-        return JSONObject().put("symbol", symbol).put("news", out).put("provider", "Yahoo Finance")
-            .put("statusText", if (out.length() > 0) "Latest available company news" else "No news returned by Yahoo Finance")
+        return JSONObject().put("symbol", canonical(raw))
+            .put("news", JSONArray())
+            .put("provider", "UNAVAILABLE — authorized news provider not configured")
+            .put("statusText", "Company news is unavailable until a permitted news feed is configured. No third-party Yahoo-derived news is shown.")
+            .put("marketDataStatus", "UNAVAILABLE")
     }
 
     private fun marketIndices(): JSONObject {
