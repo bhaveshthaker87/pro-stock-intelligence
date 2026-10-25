@@ -121,7 +121,7 @@ class MainActivity : Activity() {
             }
             override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
-                Log.i("PSI_STARTUP", "PAGE_STARTED $url")
+                Log.e("PSI_STARTUP", "PAGE_STARTED $url")
             }
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
@@ -130,12 +130,12 @@ class MainActivity : Activity() {
                 }
                 if (url.startsWith("https://appassets.androidplatform.net/assets/index.html")) {
                     CookieManager.getInstance().flush()
-                    Log.i("PSI_STARTUP", "INDEX_PAGE_FINISHED")
+                    Log.e("PSI_STARTUP", "INDEX_PAGE_FINISHED")
                     view.evaluateJavascript(
                         "(()=>({ready:document.readyState,root:!!document.querySelector('.app'),title:document.title}))()"
                     ) { value ->
                         if (!value.isNullOrBlank() && value.contains("\"root\":true")) {
-                            Log.i("PSI_STARTUP", "PSI_DASHBOARD_DOM_READY $value")
+                            Log.e("PSI_STARTUP", "PSI_DASHBOARD_DOM_READY $value")
                         } else {
                             Log.e("PSI_STARTUP", "DASHBOARD_DOM_NOT_READY $value")
                         }
