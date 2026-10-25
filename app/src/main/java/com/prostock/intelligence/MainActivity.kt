@@ -950,19 +950,18 @@ private class NativeProvider {
     }
 
     private fun technicalScan(kind: String): JSONObject {
-        return JSONObject().put("rows", JSONArray())
-            .put("provider", "Unavailable")
-            .put("queryId", kind)
-            .put("partial", true)
-            .put("statusText", "Technical scans are unavailable until an authorized NSE historical-data feed supplies verified candles. RSI, moving averages and signals are not fabricated.")
-            .put("historyStatus", "AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED")
-    }
-
-    private fun unavailableNews(raw: String): JSONObject {
-        val symbol = canonical(raw)
-        return JSONObject().put("symbol", symbol).put("news", JSONArray())
-            .put("provider", "Unavailable")
-            .put("statusText", "News is unavailable until an authorized NSE/company-filings source is configured. No third-party news fallback is used.")
+        val label = if (kind == "oversold") "RSI(14) ≤ 30" else "daily-bar change ≤ -5%"
+        return JSONObject()
+            .put("columns", JSONArray(listOf("S.No.", "Company", "CMP Rs.", "RSI(14)", "Day Change %", "Data Date", "Provider")))
+            .put("rows", JSONArray())
+            .put("count", 0)
+            .put("provider", "UNAVAILABLE — authorized OHLCV gateway not configured")
+            .put("pagesFetched", 0)
+            .put("allResultsLoaded", false)
+            .put("scanUniverse", stocks.size)
+            .put("symbolsChecked", 0)
+            .put("statusText", "$label requires validated historical data from an authorized provider. No third-party price series is substituted.")
+            .put("marketDataStatus", "UNAVAILABLE")
     }
 
     private fun yahooNews(raw: String): JSONObject {
