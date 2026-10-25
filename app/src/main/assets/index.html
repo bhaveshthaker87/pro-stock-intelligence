@@ -1835,3 +1835,12 @@ $('useImportedCsv')?.addEventListener('change',()=>{refreshCsvModalStatus();if(w
   .top{min-height:72px}
 }
 </style>
+
+<style id="v4081-header-hit-target-fix">
+/* Keep the sticky header from covering the market panel's interactive controls. */
+.top{z-index:20;isolation:isolate}
+#indices{position:relative;z-index:1;scroll-margin-top:calc(84px + env(safe-area-inset-top))}
+#indices .market-head{position:relative;z-index:1}
+#indices .market-refresh{position:relative;z-index:1}
+@media(min-width:761px){.top{min-height:72px}}
+</style>
