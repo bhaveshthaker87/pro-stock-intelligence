@@ -38,6 +38,7 @@ if [[ "$installed" -ne 1 ]]; then echo "APK installation failed after 4 attempts
 
 service_check package
 adb shell am force-stop "$PACKAGE" || true
+adb logcat -c
 adb shell am start -W -n "$ACTIVITY"
 
 # Verify the requested Activity actually becomes foreground; a successful am start
@@ -59,11 +60,25 @@ if [[ "$foreground" -ne 1 ]]; then
   exit 1
 fi
 
-sleep 8
-adb logcat -d -t 1200 > app/build/outputs/psi-emulator-logcat.txt || true
+# Foreground Activity is not enough: require the local dashboard DOM to finish loading.
+# This catches splash-only launches and WebView/asset-loader failures that a valid PNG misses.
+dashboard_ready=0
+for attempt in $(seq 1 30); do
+  if adb logcat -d -t 3000 | grep -Fq "PSI_DASHBOARD_DOM_READY"; then
+    dashboard_ready=1
+    break
+  fi
+  sleep 2
+done
+adb logcat -d -t 3000 > app/build/outputs/psi-emulator-logcat.txt || true
+if [[ "$dashboard_ready" -ne 1 ]]; then
+  echo "Dashboard readiness failed: WebView did not confirm the app root DOM. Refusing to publish screenshot as a successful smoke test."
+  grep -E "PSI_STARTUP|PSI_WEB|FATAL EXCEPTION|AndroidRuntime" app/build/outputs/psi-emulator-logcat.txt || true
+  exit 1
+fi
 adb exec-out screencap -p > app/build/outputs/psi-emulator.png
 if ! xxd -p -l 8 app/build/outputs/psi-emulator.png | grep -qi "^89504e470d0a1a0a$"; then
   echo "Valid emulator screenshot check failed: invalid PNG"
   exit 1
 fi
-echo "Valid emulator screenshot: app Activity reached foreground and PNG signature verified"
+echo "Valid emulator screenshot: Activity foreground + dashboard DOM ready + PNG signature verified"
