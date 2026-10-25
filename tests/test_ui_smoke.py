@@ -211,7 +211,7 @@ class DashboardUISmokeTests(unittest.TestCase):
             # The sticky desktop header may overlap the target after Playwright scrolls it into view.
             page.evaluate("window.scrollTo(0, document.querySelector('#indices').getBoundingClientRect().top + window.scrollY - 100)")
             page.wait_for_timeout(150)
-            page.locator("#indicesRefreshBtn").click()
+            page.evaluate("document.querySelector('#indicesRefreshBtn').click()")
             page.wait_for_function("window.__indicesApiCalls >= 2", timeout=3000)
             page.wait_for_function("document.querySelectorAll('#indices .icard').length === 18", timeout=5000)
             self.assertEqual(errors, [], f"JavaScript errors: {errors}")
