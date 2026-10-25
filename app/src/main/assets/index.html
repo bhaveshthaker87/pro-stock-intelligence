@@ -234,6 +234,15 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
  h1,h2,h3,h4{overflow-wrap:anywhere}
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition:none!important;animation:none!important}}
+
+/* V40.83 regression fix: keep desktop stock actions visible and avoid sticky-header click interception */
+.top{position:relative!important;top:auto!important;z-index:20!important}
+.actions{display:flex!important;flex-direction:column;align-items:flex-end;gap:7px;min-width:104px}
+.actions .btn{display:inline-flex!important;align-items:center;justify-content:center;min-height:34px;height:auto!important;white-space:normal;line-height:1.25;padding:8px 11px!important}
+@media(min-width:1251px){.stocktop{grid-template-columns:minmax(260px,1fr) minmax(145px,.5fr) minmax(280px,1.35fr) minmax(110px,.45fr)!important}.actions{display:flex!important}}
+@media(max-width:1250px){.actions{display:flex!important;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:flex-start;grid-column:1/-1;min-width:0}.stocktop{grid-template-columns:minmax(0,1fr) minmax(140px,.55fr)!important}}
+@media(max-width:760px){.actions{display:flex!important;flex-direction:row;flex-wrap:wrap;grid-column:1/-1}.actions .btn{flex:1 1 auto;min-width:0}}
+.querySectionHead,.intelHead{position:static!important;top:auto!important}
 </style>
 <style id="v40-7-query-polish">
 .querySection{border-radius:14px;padding:14px;background:linear-gradient(180deg,#fff,#f8fbff)}
