@@ -559,10 +559,14 @@ private class NativeProvider {
                     JSONObject().put("ok", true).put("data", arr).toString()
                 }
                 "/api/quote", "/api/fast" -> {
-                    val q = screenerQuote(s)
+                    val q = try { screenerQuote(s) } catch (e: Exception) {
+                        JSONObject().put("symbol", s).put("provider", "UNAVAILABLE")
+                            .put("marketDataStatus", "UNAVAILABLE").put("rows", JSONArray())
+                            .put("providerError", e.message ?: "Screener snapshot unavailable")
+                    }
                     val data = JSONObject().put("symbol", s).put("name", q.optString("name", stockName(s)))
-                        .put("quote", q).put("provider", q.optString("provider"))
-                        .put("marketDataStatus", q.optString("marketDataStatus"))
+                        .put("quote", q).put("provider", q.optString("provider", "UNAVAILABLE"))
+                        .put("marketDataStatus", q.optString("marketDataStatus", "UNAVAILABLE"))
                         .put("rows", JSONArray())
                     JSONObject().put("ok", true).put("data", data).toString()
                 }
