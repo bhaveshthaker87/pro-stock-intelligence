@@ -208,6 +208,9 @@ class DashboardUISmokeTests(unittest.TestCase):
             self.assertIn("STALE • LAST AVAILABLE PRICE", text)
             self.assertIn("Mock", text)
             self.assertGreaterEqual(page.evaluate("window.__indicesApiCalls"), 1, "Index API must load at startup")
+            # The sticky desktop header may overlap the target after Playwright scrolls it into view.
+            page.evaluate("window.scrollTo(0, document.querySelector('#indices').getBoundingClientRect().top + window.scrollY - 100)")
+            page.wait_for_timeout(150)
             page.locator("#indicesRefreshBtn").click()
             page.wait_for_function("window.__indicesApiCalls >= 2", timeout=3000)
             page.wait_for_function("document.querySelectorAll('#indices .icard').length === 18", timeout=5000)
