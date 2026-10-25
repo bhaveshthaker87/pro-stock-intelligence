@@ -141,3 +141,155 @@ def android_history(symbol: str = Query(...), range: str = Query("1y")) -> dict[
     if len(rows) < 2:
         raise HTTPException(status_code=503, detail="NSE historical endpoint returned fewer than two valid daily candles.")
     return {"ok": True, "data": {"symbol": symbol, "source": "NSE public website (unofficial endpoint)", "asOf": datetime.now(timezone.utc).isoformat(), "interval": "1d", "rows": rows, "live_data_verified": False}}
+
+
+# Android V40.81 corporate-event and index contract routes.
+def _as_iso_date(value: Any) -> str:
+    text = str(value or "").strip()
+    for fmt in ("%d-%b-%Y", "%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(text[:10], fmt).date().isoformat()
+        except ValueError:
+            continue
+    return ""
+
+def _as_iso_time(value: Any, fallback: str) -> str:
+    text = str(value or "").strip()
+    for fmt in ("%d-%b-%Y %H:%M:%S", "%d-%b-%Y %H:%M", "%d-%m-%Y %H:%M:%S", "%Y-%m-%dT%H:%M:%S"):
+        try:
+            parsed = datetime.strptime(text, fmt).replace(tzinfo=timezone.utc)
+            return parsed.isoformat()
+        except ValueError:
+            continue
+    return fallback
+
+def _items(raw: Any) -> list[dict[str, Any]]:
+    if isinstance(raw, list):
+        return [x for x in raw if isinstance(x, dict)]
+    if isinstance(raw, dict):
+        for key in ("data", "rows", "items", "corporateActions", "announcements"):
+            val = raw.get(key)
+            if isinstance(val, list):
+                return [x for x in val if isinstance(x, dict)]
+    return []
+
+def _first(row: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        value = row.get(key)
+        if value not in (None, ""):
+            return value
+    return None
+
+def _event_rows(symbol: str, event_type: str) -> list[dict[str, Any]]:
+    now = datetime.now(timezone.utc).isoformat()
+    paths = [
+        ("DIVIDEND", "/corporates-corporateActions"),
+        ("SPLIT", "/corporates-corporateActions"),
+        ("BONUS", "/corporates-corporateActions"),
+        ("RIGHTS", "/corporates-corporateActions"),
+        ("BOARD_MEETING", "/corporates-board-meetings"),
+        ("RESULTS", "/corporates-financial-results"),
+        ("OTHER", "/corporates-announcements"),
+    ]
+    result: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for kind, path in paths:
+        if event_type not in ("ALL", kind):
+            continue
+        raw = _nse(path, {"index": "equities", "symbol": symbol})
+        for row in _items(raw):
+            title = str(_first(row, "subject", "purpose", "desc", "description", "bm_desc", "meetingPurpose", "companyName") or "").strip()
+            date = _as_iso_date(_first(row, "exDate", "exDate1", "recordDate", "meetingDate", "bm_date", "broadcastDate", "date", "resultDate", "attchmntFileDate"))
+            if not title or not date:
+                continue
+            normalized_kind = kind
+            lower = title.lower()
+            if kind in ("DIVIDEND", "SPLIT", "BONUS", "RIGHTS"):
+                if "dividend" in lower: normalized_kind = "DIVIDEND"
+                elif "split" in lower: normalized_kind = "SPLIT"
+                elif "bonus" in lower: normalized_kind = "BONUS"
+                elif "right" in lower: normalized_kind = "RIGHTS"
+                else: continue
+            if event_type not in ("ALL", normalized_kind):
+                continue
+            announced = _as_iso_time(_first(row, "broadcastDate", "announcementDate", "date", "bm_date", "attchmntFileDate"), now)
+            key = (normalized_kind, date, title)
+            if key in seen: continue
+            seen.add(key)
+            result.append({
+                "symbol": symbol,
+                "company": str(_first(row, "companyName", "company", "sm_name") or symbol),
+                "eventType": normalized_kind,
+                "title": title,
+                "eventDate": date,
+                "announcedAt": announced,
+                "recordDate": _as_iso_date(_first(row, "recordDate")) or "",
+                "dividend": _first(row, "dividend"),
+                "ratio": _first(row, "ratio"),
+            })
+    result.sort(key=lambda x: (x["eventDate"], x["symbol"]))
+    return result
+
+@app.get("/v1/events")
+def android_events(eventType: str = Query("ALL"), symbol: str = Query("")) -> dict[str, Any]:
+    kind = eventType.strip().upper()
+    allowed = {"ALL", "RESULTS", "DIVIDEND", "SPLIT", "BONUS", "RIGHTS", "BOARD_MEETING", "OTHER"}
+    if kind not in allowed:
+        raise HTTPException(status_code=400, detail="Unsupported eventType.")
+    if symbol.strip():
+        symbols = [_symbol(symbol)]
+    else:
+        # A broad market-wide feed is not fabricated. NSE corporate APIs require symbol-scoped queries.
+        raise HTTPException(status_code=400, detail="symbol is required for the NSE public corporate endpoint; use a symbol-scoped event query.")
+    rows = _event_rows(symbols[0], kind)
+    return {"ok": True, "data": {"source": "NSE public website (unofficial endpoint)", "marketDataStatus": "EOD", "asOf": datetime.now(timezone.utc).isoformat(), "rows": rows, "live_data_verified": False}}
+
+@app.get("/v1/dividends")
+def android_dividends(symbol: str = Query("")) -> dict[str, Any]:
+    if not symbol.strip():
+        raise HTTPException(status_code=400, detail="symbol is required for the NSE public corporate endpoint.")
+    sym = _symbol(symbol)
+    raw = _nse("/corporates-corporateActions", {"index": "equities", "symbol": sym})
+    now = datetime.now(timezone.utc).isoformat()
+    rows = []
+    for row in _items(raw):
+        title = str(_first(row, "subject", "purpose", "desc", "description") or "").strip()
+        if "dividend" not in title.lower():
+            continue
+        event_date = _as_iso_date(_first(row, "exDate", "exDate1", "recordDate", "date"))
+        if not event_date:
+            continue
+        rows.append({"symbol": sym, "title": title, "eventType": "DIVIDEND", "date": event_date, "eventDate": event_date, "announcedAt": _as_iso_time(_first(row, "broadcastDate", "announcementDate", "date"), now), "recordDate": _as_iso_date(_first(row, "recordDate")) or "", "amount": _first(row, "dividend", "amount")})
+    return {"ok": True, "data": {"source": "NSE public website (unofficial endpoint)", "marketDataStatus": "EOD", "asOf": now, "rows": rows, "live_data_verified": False}}
+
+@app.get("/v1/indices")
+def android_indices() -> dict[str, Any]:
+    raw = _nse("/allIndices")
+    now = datetime.now(timezone.utc).isoformat()
+    candidates = _items(raw)
+    rows = []
+    aliases = {
+        "NIFTY 50": ("NIFTY 50", "NIFTY 50"),
+        "NIFTY BANK": ("NIFTY BANK", "NIFTY BANK"),
+        "NIFTY IT": ("NIFTY IT", "NIFTY IT"),
+        "NIFTY NEXT 50": ("NIFTY NEXT 50", "NIFTY NEXT 50"),
+        "NIFTY MIDCAP 100": ("NIFTY MIDCAP 100", "NIFTY MIDCAP 100"),
+        "NIFTY SMALLCAP 100": ("NIFTY SMALLCAP 100", "NIFTY SMALLCAP 100"),
+    }
+    for row in candidates:
+        name = str(_first(row, "index", "indexName", "name") or "").strip()
+        if not name:
+            continue
+        value = _first(row, "last", "lastPrice", "indexValue", "value")
+        pct = _first(row, "percentChange", "pChange", "changePct")
+        try:
+            number = float(str(value).replace(",", ""))
+            change = float(str(pct).replace(",", ""))
+        except (TypeError, ValueError):
+            continue
+        if number <= 0:
+            continue
+        rows.append({"name": name, "value": number, "changePct": change})
+    if not rows:
+        raise HTTPException(status_code=503, detail="NSE /allIndices returned no parseable index rows; no index values were fabricated.")
+    return {"ok": True, "data": {"source": "NSE public website (unofficial endpoint)", "marketDataStatus": "EOD", "asOf": now, "rows": rows, "live_data_verified": False}}
