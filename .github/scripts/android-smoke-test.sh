@@ -64,13 +64,13 @@ fi
 # This catches splash-only launches and WebView/asset-loader failures that a valid PNG misses.
 dashboard_ready=0
 for attempt in $(seq 1 30); do
-  if adb logcat -d -t 3000 | grep -Fq "PSI_DASHBOARD_DOM_READY"; then
+  if adb logcat -d -s PSI_STARTUP:E PSI_WEB:E AndroidRuntime:E | grep -Fq "PSI_DASHBOARD_DOM_READY"; then
     dashboard_ready=1
     break
   fi
   sleep 2
 done
-adb logcat -d -t 3000 > app/build/outputs/psi-emulator-logcat.txt || true
+adb logcat -d -s PSI_STARTUP:E PSI_WEB:E AndroidRuntime:E chromium:E WebView:E > app/build/outputs/psi-emulator-logcat.txt || true
 if [[ "$dashboard_ready" -ne 1 ]]; then
   echo "Dashboard readiness failed: WebView did not confirm the app root DOM. Refusing to publish screenshot as a successful smoke test."
   echo "--- Relevant Android logcat ---"
