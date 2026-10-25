@@ -369,7 +369,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn("Authorized NSE/vendor gateway is not configured.", source)
         html = HTML.read_text(encoding="utf-8")
         self.assertIn("Screener Reference Price (not live)", html)
-        self.assertIn("Screener reference price only • live NSE quote unavailable", html)
+        self.assertIn("referencePriceSource+' reference price only • live NSE quote unavailable'", html)
 
 
     def test_chart_refresh_and_source_links_are_present(self):

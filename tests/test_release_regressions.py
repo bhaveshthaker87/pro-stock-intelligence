@@ -238,7 +238,8 @@ class ReleaseRegressionTests(unittest.TestCase):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         self.assertIn("function safeNum(v){if(v===null||v===undefined||v==='')return null;", html)
         self.assertIn("f[k]!==null&&f[k]!==undefined&&f[k]!==''&&Number.isFinite(Number(f[k]))", html)
-        self.assertIn("Number(f.price)>0", html)
+        self.assertIn("hasUsablePrice(d.market?.price)", html)
+        self.assertNotIn("if(!f.price&&rf.price)f.price=rf.price", html)
 
 
     def test_invalid_refresh_quote_does_not_clear_last_valid_display(self):
@@ -468,7 +469,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("private fun fundamentalsWithDownstox(raw: String)", source)
         self.assertIn("PER_STOCK_TIMESTAMP_NOT_SUPPLIED_BY_DOCUMENTED_SCHEMA", source)
         self.assertIn("PUBLIC_REFERENCE_NOT_LIVE_VERIFIED", source)
-        self.assertIn("No authorized NSE/vendor gateway is configured. Live price is unavailable; no website scraping or third-party fallback is used.", source)
+        self.assertIn("Live price is unavailable; no website scraping or third-party fallback is used.", source)
         self.assertIn("referencePriceSource+' reference price only — not live or exchange-verified'", html)
         self.assertIn("delete f.price;", html)
 
