@@ -149,10 +149,8 @@ def android_quote(symbol: str = Query(...)) -> dict[str, Any]:
     symbol = _symbol(symbol)
     if _bharatstock_enabled():
         ratios = _bharatstock_get(f"/v1/stocks/{symbol}/ratios")
-        stock = _bharatstock_get(f"/v1/stocks/{symbol}")
-        latest = stock.get("latest_price") or {}
-        value = ratios.get("price") or latest.get("close")
-        as_of_date = ratios.get("as_of_date") or latest.get("trade_date")
+        value = ratios.get("price")
+        as_of_date = ratios.get("as_of_date")
         if not isinstance(value, (int, float)) or value <= 0 or not as_of_date:
             raise HTTPException(status_code=502, detail="BharatStock response missing a valid EOD price or source date.")
         try:
