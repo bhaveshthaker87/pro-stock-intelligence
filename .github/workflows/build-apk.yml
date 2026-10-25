@@ -4,19 +4,23 @@ permissions:
   contents: read
 
 concurrency:
+  # One active build per branch regardless of push/PR/manual trigger; avoid duplicate competing APK builds.
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 on:
   workflow_dispatch:
+    inputs:
+      require_live_data:
+        description: 'Require validated provider data before treating this run as release-ready'
+        required: false
+        type: boolean
+        default: false
+  # Feature-branch commits are validated by pull_request:synchronize below.
+  # Avoid duplicate push + PR runs cancelling each other on the same head.
   push:
     branches:
       - main
-      - expert-remediation-v40-67
-      - expert-pro-hardening-v40-66
-      - v40-78-nse-screener-only
-      - fix/v40-79-diamond-data-chart
-      - fix/v40-80-provider-gateway-validation
   pull_request:
     branches:
       - main
@@ -92,6 +96,7 @@ jobs:
             node --check "$file"
           done < <(find /tmp/psi-js -type f -name '*.js' -print0)
           node --check app/src/main/assets/csv-import.js
+          node --check app/src/main/assets/xlsx-import.js
 
       - name: Install browser-test dependencies
         shell: bash
@@ -109,19 +114,34 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tests -v
 
-      # Live validation runs only when an HTTPS gateway URL is explicitly configured.
-      # Vendor credentials belong on the gateway server and must never be GitHub build args or APK resources.
+      # A build without an authorized gateway is useful for development, but must not
+      # silently pass as a verified live-data release. Missing gateway is an explicit
+      # non-fatal CI status; set REQUIRE_LIVE_PROVIDER_GATEWAY=true to enforce release gating.
       - name: Validate configured authorized provider gateway
         shell: bash
         env:
           PROVIDER_GATEWAY_BASE_URL: ${{ vars.PROVIDER_GATEWAY_BASE_URL }}
+          REQUIRE_LIVE_PROVIDER_GATEWAY: ${{ vars.REQUIRE_LIVE_PROVIDER_GATEWAY }}
+          REQUIRE_LIVE_DATA_INPUT: ${{ inputs.require_live_data }}
         run: |
           set -euo pipefail
+          require_gateway="${REQUIRE_LIVE_PROVIDER_GATEWAY:-false}"
+          if [ "${REQUIRE_LIVE_DATA_INPUT:-false}" = "true" ]; then require_gateway=true; fi
           if [ -z "${PROVIDER_GATEWAY_BASE_URL:-}" ]; then
-            echo "::notice::Live provider E2E test skipped: repository variable PROVIDER_GATEWAY_BASE_URL is not configured. No live-feed pass is claimed."
+            if [ "$require_gateway" = "true" ]; then
+              echo "::error::Live provider validation is required but PROVIDER_GATEWAY_BASE_URL is not configured."
+              exit 1
+            fi
+            echo "::warning::LIVE DATA NOT VERIFIED: PROVIDER_GATEWAY_BASE_URL is not configured. No live-feed pass is claimed. APK build may continue for development, but this run does not qualify as a live-data release."
+            {
+              echo "## Live market-data validation"
+              echo "**Status: NOT VERIFIED**"
+              echo "No authorized HTTPS provider gateway is configured. Quote, historical-candle, index, dividend and event end-to-end tests were not run."
+              echo "Configure repository variable `PROVIDER_GATEWAY_BASE_URL` to test the authorized gateway. Set `REQUIRE_LIVE_PROVIDER_GATEWAY=true` to make this a blocking release gate."
+            } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          case "$PROVIDER_GATEWAY_BASE_URL" in https://*) ;; *) echo "Gateway URL must use HTTPS."; exit 1;; esac
+          case "$PROVIDER_GATEWAY_BASE_URL" in https://*) ;; *) echo "::error::Gateway URL must use HTTPS."; exit 1;; esac
           mkdir -p /tmp/psi-provider
           curl --fail --silent --show-error --max-time 15 "$PROVIDER_GATEWAY_BASE_URL/v1/quote?symbol=INFY" -o /tmp/psi-provider/quote.json
           curl --fail --silent --show-error --max-time 20 "$PROVIDER_GATEWAY_BASE_URL/v1/history?symbol=INFY&range=1y" -o /tmp/psi-provider/history.json
@@ -144,14 +164,56 @@ jobs:
           p = json.loads((root / "dividends.json").read_text(encoding="utf-8"))
           if not isinstance(p.get("source"), str) or not p["source"].strip(): raise SystemExit("Dividend payload missing source")
           if not isinstance(p.get("asOf"), str) or not p["asOf"].strip(): raise SystemExit("Dividend payload missing asOf timestamp")
+          if p.get("marketDataStatus") not in {"REALTIME", "DELAYED", "EOD"}: raise SystemExit("Dividend payload missing valid marketDataStatus")
           if not isinstance(p.get("rows"), list): raise SystemExit("Dividend payload rows must be an array")
           print("Index/dividend payload contracts valid.")
           PY
-          python3 tools/validate_provider_payloads.py quote /tmp/psi-provider/quote.json
-          python3 tools/validate_provider_payloads.py history /tmp/psi-provider/history.json
+          python3 tools/validate_provider_payloads.py quote /tmp/psi-provider/quote.json --expected-symbol INFY
+          python3 tools/validate_provider_payloads.py history /tmp/psi-provider/history.json --expected-symbol INFY
           python3 tools/validate_provider_payloads.py events /tmp/psi-provider/events.json
           python3 tools/validate_provider_payloads.py indices /tmp/psi-provider/indices.json
           python3 tools/validate_provider_payloads.py dividends /tmp/psi-provider/dividends.json
+          {
+            echo "## Live market-data validation"
+            echo "**Status: PASSED**"
+            echo "Authorized provider gateway responded successfully for quote, history, events, dividends and indices; normalized payload validators passed."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Check the supplied community API without treating it as a verified NSE feed.
+      # This API is documented as Yahoo Finance-backed and has no chart/calendar/news endpoints.
+      - name: Check community Indian stock API availability
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="http://65.0.104.9/"
+          if ! curl --fail --silent --show-error --max-time 8 "$url" -o /tmp/community-stock-api.json; then
+            echo "::warning::Community API endpoint unavailable at its published base URL; no live data integration is claimed."
+            {
+              echo "## Community stock API check"
+              echo "**Status: UNAVAILABLE**"
+              echo "The published base URL did not respond. Quote/chart/events/dividends/results/news cannot be marked fixed."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          python3 - <<'PY'
+          import json
+          p=json.load(open("/tmp/community-stock-api.json", encoding="utf-8"))
+          endpoints=p.get("endpoints", {})
+          required={"/stock", "/stock/list", "/search"}
+          missing=required-set(endpoints)
+          if missing:
+              raise SystemExit("Published API contract mismatch: missing "+", ".join(sorted(missing)))
+          print("API metadata reachable; version:", p.get("version"))
+          print("Disclosed endpoints:", ", ".join(sorted(endpoints)))
+          print("WARNING: this community API is documented as Yahoo Finance-backed, not an official NSE real-time feed.")
+          print("No documented historical chart, dividend-date, results-calendar, events-calendar, or full-news endpoints.")
+          PY
+          {
+            echo "## Community stock API check"
+            echo "**Status: METADATA CHECKED — NOT A LIVE-DATA RELEASE**"
+            echo "The repository describes this API as Yahoo Finance-backed. The documented endpoints are search and stock snapshots; no historical chart, dividend-date, results calendar, events calendar, or full-news endpoint is specified."
+            echo "A reachable HTTP endpoint is not proof of freshness, accuracy, authorization, or exchange certification."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # Publish the APK immediately after a successful build; emulator validation is intentionally separate so an unstable virtual device cannot block delivery.
       - name: Build debug APK
@@ -191,11 +253,20 @@ jobs:
         if: always() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-80-debug
+          name: PRO-STOCK-INTELLIGENCE-V40-81-debug
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/app-debug.apk.sha256
           if-no-files-found: error
+
+      - name: Test experimental NSE gateway
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv /tmp/psi-gateway-venv
+          /tmp/psi-gateway-venv/bin/python -m pip install --disable-pip-version-check -r market-data-gateway/requirements.txt
+          cd market-data-gateway
+          /tmp/psi-gateway-venv/bin/python -m pytest -q
 
       - name: Run Android lint
         shell: bash
@@ -218,7 +289,7 @@ jobs:
         if: always() && hashFiles('app/build/outputs/psi-emulator.png') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-80-emulator-screenshot
+          name: PRO-STOCK-INTELLIGENCE-V40-81-emulator-screenshot
           path: app/build/outputs/psi-emulator.png
           if-no-files-found: error
 
@@ -227,6 +298,6 @@ jobs:
         if: always() && hashFiles('app/build/reports/lint-results-debug.html') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-80-lint-report
+          name: PRO-STOCK-INTELLIGENCE-V40-81-lint-report
           path: app/build/reports/lint-results-debug.html
           if-no-files-found: warn
