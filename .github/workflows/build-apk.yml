@@ -259,6 +259,15 @@ jobs:
             app/build/outputs/apk/debug/app-debug.apk.sha256
           if-no-files-found: error
 
+      - name: Test experimental NSE gateway
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv /tmp/psi-gateway-venv
+          /tmp/psi-gateway-venv/bin/python -m pip install --disable-pip-version-check -r market-data-gateway/requirements.txt
+          cd market-data-gateway
+          /tmp/psi-gateway-venv/bin/python -m pytest -q
+
       - name: Run Android lint
         shell: bash
         run: |
