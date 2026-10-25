@@ -9,12 +9,14 @@ class LiveDataReleaseGateTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.main_activity = (ROOT / "MainActivity.kt").read_text(encoding="utf-8")
+        cls.main_activity = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         cls.workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
         cls.provider_contract = (ROOT / "PROVIDER_GATEWAY.md").read_text(encoding="utf-8")
 
     def test_yahoo_fallback_remains_disabled(self):
-        self.assertIn("Yahoo Finance fallback is disabled by app policy", self.main_activity)
+        self.assertIn("Authorized NSE/vendor gateway is not configured", self.main_activity)
+        self.assertIn("The app does not substitute Yahoo-derived news", self.main_activity)
+        self.assertIn("Screener provides fundamentals here; it is not used as a quote or candle provider.", self.main_activity)
 
     def test_missing_gateway_is_explicitly_not_verified(self):
         self.assertIn("LIVE DATA NOT VERIFIED", self.workflow)
