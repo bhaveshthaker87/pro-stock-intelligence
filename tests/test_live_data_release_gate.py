@@ -37,7 +37,7 @@ class LiveDataReleaseGateTests(unittest.TestCase):
 
     def test_empty_events_are_not_proof_of_no_events(self):
         self.assertIn("Empty events means", self.provider_contract)
-        self.assertIn("not proof that no events exist", self.provider_contract)
+        self.assertIn("never treated as proof of no events", self.provider_contract)
 
 
 if __name__ == "__main__":
