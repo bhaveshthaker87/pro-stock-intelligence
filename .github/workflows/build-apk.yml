@@ -179,6 +179,42 @@ jobs:
             echo "Authorized provider gateway responded successfully for quote, history, events, dividends and indices; normalized payload validators passed."
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # Check the supplied community API without treating it as a verified NSE feed.
+      # This API is documented as Yahoo Finance-backed and has no chart/calendar/news endpoints.
+      - name: Check community Indian stock API availability
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="http://65.0.104.9/"
+          if ! curl --fail --silent --show-error --max-time 8 "$url" -o /tmp/community-stock-api.json; then
+            echo "::warning::Community API endpoint unavailable at its published base URL; no live data integration is claimed."
+            {
+              echo "## Community stock API check"
+              echo "**Status: UNAVAILABLE**"
+              echo "The published base URL did not respond. Quote/chart/events/dividends/results/news cannot be marked fixed."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          python3 - <<'PY'
+          import json
+          p=json.load(open("/tmp/community-stock-api.json", encoding="utf-8"))
+          endpoints=p.get("endpoints", {})
+          required={"/stock", "/stock/list", "/search"}
+          missing=required-set(endpoints)
+          if missing:
+              raise SystemExit("Published API contract mismatch: missing "+", ".join(sorted(missing)))
+          print("API metadata reachable; version:", p.get("version"))
+          print("Disclosed endpoints:", ", ".join(sorted(endpoints)))
+          print("WARNING: this community API is documented as Yahoo Finance-backed, not an official NSE real-time feed.")
+          print("No documented historical chart, dividend-date, results-calendar, events-calendar, or full-news endpoints.")
+          PY
+          {
+            echo "## Community stock API check"
+            echo "**Status: METADATA CHECKED — NOT A LIVE-DATA RELEASE**"
+            echo "The repository describes this API as Yahoo Finance-backed. The documented endpoints are search and stock snapshots; no historical chart, dividend-date, results calendar, events calendar, or full-news endpoint is specified."
+            echo "A reachable HTTP endpoint is not proof of freshness, accuracy, authorization, or exchange certification."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       # Publish the APK immediately after a successful build; emulator validation is intentionally separate so an unstable virtual device cannot block delivery.
       - name: Build debug APK
         shell: bash
