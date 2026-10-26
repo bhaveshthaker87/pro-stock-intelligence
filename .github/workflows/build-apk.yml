@@ -253,7 +253,7 @@ jobs:
         if: always() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-81-debug
+          name: PRO-STOCK-INTELLIGENCE-V40-82-debug
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/app-debug.apk.sha256
@@ -277,7 +277,7 @@ jobs:
       - name: Run Android emulator smoke test and capture screenshot
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
+          api-level: 35
           target: google_apis
           arch: x86_64
           profile: pixel_2
@@ -289,7 +289,7 @@ jobs:
         if: always() && hashFiles('app/build/outputs/psi-emulator-logcat.txt') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-81-emulator-diagnostics
+          name: PRO-STOCK-INTELLIGENCE-V40-82-emulator-diagnostics
           path: |
             app/build/outputs/psi-emulator-logcat.txt
             app/build/outputs/psi-activity-dump.txt
@@ -299,7 +299,7 @@ jobs:
         if: always() && hashFiles('app/build/outputs/psi-emulator.png') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-81-emulator-screenshot
+          name: PRO-STOCK-INTELLIGENCE-V40-82-emulator-screenshot
           path: app/build/outputs/psi-emulator.png
           if-no-files-found: error
 
@@ -308,6 +308,6 @@ jobs:
         if: always() && hashFiles('app/build/reports/lint-results-debug.html') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-81-lint-report
+          name: PRO-STOCK-INTELLIGENCE-V40-82-lint-report
           path: app/build/reports/lint-results-debug.html
           if-no-files-found: warn
