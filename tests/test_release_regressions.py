@@ -39,8 +39,8 @@ class ReleaseRegressionTests(unittest.TestCase):
     def test_ui_and_native_engine_versions_match(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn("V40.81 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", html)
-        self.assertIn('"engine", "V40.81 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK"', source)
+        self.assertIn("V40.82 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", html)
+        self.assertIn('"engine", "V40.82 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK"', source)
 
     def test_fundamental_parser_fails_closed_instead_of_guessing_nearby_number(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
@@ -53,14 +53,14 @@ class ReleaseRegressionTests(unittest.TestCase):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("V40.81 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", html)
-        self.assertIn('"engine", "V40.81 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK"', source)
-        self.assertIn("versionCode 80; versionName '40.81'", gradle)
-        self.assertIn("DASHBOARD_VERSION='V40.81'", html)
-        self.assertIn("window.__PSI_BOOT_VERSION='V40.81'", html)
+        self.assertIn("V40.82 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", html)
+        self.assertIn('"engine", "V40.82 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK"', source)
+        self.assertIn("versionCode 81; versionName '40.82'", gradle)
+        self.assertIn("DASHBOARD_VERSION='V40.82'", html)
+        self.assertIn("window.__PSI_BOOT_VERSION='V40.82'", html)
         self.assertNotIn("DASHBOARD_VERSION='V40.75'", html)
         self.assertNotIn("window.__PSI_BOOT_VERSION='V40.75'", html)
-        self.assertIn(".researchRibbon:after{content:'V40.81'", html)
+        self.assertIn(".researchRibbon:after{content:'V40.82'", html)
 
 
     def test_screener_session_cookie_checks_both_hosts_and_surfaces_parse_error(self):
