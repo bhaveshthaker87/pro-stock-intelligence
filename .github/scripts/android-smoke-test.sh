@@ -25,6 +25,14 @@ service_check() {
 }
 
 service_check activity
+# Wake and dismiss the emulator lock screen before launching the dashboard.
+# Some headless AVD snapshots report the Activity as resumed while the keyguard
+# is still showing, which makes the DOM smoke test a false failure.
+adb shell input keyevent KEYCODE_WAKEUP || true
+adb shell wm dismiss-keyguard || true
+adb shell input keyevent 82 || true
+adb shell settings put system screen_off_timeout 600000 || true
+sleep 2
 adb shell settings put global window_animation_scale 0 || true
 adb shell settings put global transition_animation_scale 0 || true
 adb shell settings put global animator_duration_scale 0 || true
@@ -70,7 +78,7 @@ for attempt in $(seq 1 30); do
   fi
   sleep 2
 done
-adb logcat -d -s PSI_STARTUP:E PSI_WEB:E AndroidRuntime:E chromium:E WebView:E > app/build/outputs/psi-emulator-logcat.txt || true
+adb logcat -d -t 4000 > app/build/outputs/psi-emulator-logcat.txt || true
 if [[ "$dashboard_ready" -ne 1 ]]; then
   echo "Dashboard readiness failed: WebView did not confirm the app root DOM. Refusing to publish screenshot as a successful smoke test."
   echo "--- Relevant Android logcat ---"
