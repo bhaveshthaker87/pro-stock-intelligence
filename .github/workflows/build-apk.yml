@@ -21,6 +21,7 @@ on:
   push:
     branches:
       - main
+      - fix/v40-82-dashboard-readiness
   pull_request:
     branches:
       - main
