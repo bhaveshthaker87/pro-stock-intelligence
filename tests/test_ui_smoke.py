@@ -358,7 +358,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn("adb exec-out screencap -p", script)
         self.assertIn("Valid emulator screenshot", script)
         self.assertIn("Upload APK and checksum", workflow)
-        self.assertIn("api-level: 35", workflow)
+        self.assertIn("api-level: 34", workflow)
         self.assertIn("emulator-boot-timeout: 900", workflow)
         self.assertIn("disable-animations: true", workflow)
         self.assertIn("-gpu swiftshader_indirect", workflow)
