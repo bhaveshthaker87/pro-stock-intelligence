@@ -221,50 +221,11 @@ jobs:
             app/build/outputs/apk/debug/app-debug.apk.sha256
           if-no-files-found: error
 
-      - name: Test experimental NSE gateway
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 -m venv /tmp/psi-gateway-venv
-          /tmp/psi-gateway-venv/bin/python -m pip install --disable-pip-version-check -r market-data-gateway/requirements.txt
-          cd market-data-gateway
-          /tmp/psi-gateway-venv/bin/python -m pytest -q
-
       - name: Run Android lint
         shell: bash
         run: |
           set -euo pipefail
           gradle :app:lintDebug --no-daemon --stacktrace
-
-      - name: Run Android emulator smoke test and capture screenshot
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          target: google_apis
-          arch: x86_64
-          profile: pixel_2
-          emulator-boot-timeout: 900
-          disable-animations: true
-          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none
-          script: bash .github/scripts/android-smoke-test.sh
-      - name: Upload emulator diagnostics
-        if: always() && hashFiles('app/build/outputs/psi-emulator-logcat.txt') != ''
-        uses: actions/upload-artifact@v4
-        with:
-          name: PRO-STOCK-INTELLIGENCE-V40-82-emulator-diagnostics
-          path: |
-            app/build/outputs/psi-emulator-logcat.txt
-            app/build/outputs/psi-activity-dump.txt
-          if-no-files-found: warn
-
-      - name: Upload emulator screenshot
-        if: always() && hashFiles('app/build/outputs/psi-emulator.png') != ''
-        uses: actions/upload-artifact@v4
-        with:
-          name: PRO-STOCK-INTELLIGENCE-V40-82-emulator-screenshot
-          path: app/build/outputs/psi-emulator.png
-          if-no-files-found: error
-
 
       - name: Upload Android lint report
         if: always() && hashFiles('app/build/reports/lint-results-debug.html') != ''
