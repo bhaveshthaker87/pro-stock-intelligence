@@ -243,6 +243,33 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 @media(max-width:1250px){.actions{display:flex!important;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:flex-start;grid-column:1/-1;min-width:0}.stocktop{grid-template-columns:minmax(0,1fr) minmax(140px,.55fr)!important}}
 @media(max-width:760px){.actions{display:flex!important;flex-direction:row;flex-wrap:wrap;grid-column:1/-1}.actions .btn{flex:1 1 auto;min-width:0}}
 .querySectionHead,.intelHead{position:static!important;top:auto!important}
+
+/* V40.82 compact, consistent section headings and dashboard spacing */
+:root{--section-gap:10px}
+.container{padding:6px 16px 20px}
+.researchTitle,.summarySectionLabel,.querySectionHead,.intelHead{margin:8px 0 6px!important;gap:8px!important}
+.researchTitle{padding:10px 12px!important;line-height:1.3}
+.researchTitle b,.researchTitle strong{line-height:1.25}
+.researchTitle span{line-height:1.35}
+.aiCommandHead{margin:8px 0 6px!important;padding:10px 12px!important}
+.aiCommandTitle{gap:9px!important;line-height:1.3}
+.aiCommandTitle b,.aiExecTitle{line-height:1.25!important}
+.summarySectionLabel{padding:4px 0!important;line-height:1.25}
+.summarygrid,.factor,.lower,.bottom{margin-top:8px!important;gap:10px!important}
+.summarycard,.chartcard,.sidecard{padding:12px!important}
+.factorhead{margin-bottom:6px!important;line-height:1.25}
+.charttitle,.table h3,.detailcard h3{line-height:1.3!important;margin-top:0}
+.head{line-height:1.3;letter-spacing:.35px}
+h1,h2,h3,h4{line-height:1.28;margin-block:7px}
+.researchTitle>div,.summarySectionLabel>*,.querySectionHead>*,.intelHead>*{min-width:0}
+@media(max-width:760px){
+ .container{padding:8px 10px 20px!important}
+ .researchTitle,.aiCommandHead{padding:9px 10px!important}
+ .researchTitle,.summarySectionLabel,.querySectionHead,.intelHead{margin:7px 0 5px!important}
+ .summarygrid,.factor,.lower,.bottom{margin-top:7px!important;gap:8px!important}
+ .summarycard,.chartcard,.sidecard{padding:10px!important}
+ h1,h2,h3,h4{margin-block:6px}
+}
 </style>
 <style id="v40-7-query-polish">
 .querySection{border-radius:14px;padding:14px;background:linear-gradient(180deg,#fff,#f8fbff)}
