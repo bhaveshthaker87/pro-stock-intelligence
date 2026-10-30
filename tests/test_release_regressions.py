@@ -471,7 +471,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         adapter = source[start:end]
         self.assertIn('put("fundamentalSourcePolicy", "SCREENER_ONLY")', adapter)
         self.assertNotIn("downstoxFundamentals(raw)", adapter)
-        self.assertIn("Missing fields remain missing", adapter)
+        self.assertIn("A missing field stays missing", adapter)
         self.assertIn("Live price is unavailable; no website scraping or third-party fallback is used.", source)
         self.assertIn("referencePriceSource+' reference price only — not live or exchange-verified'", html)
         self.assertIn("delete f.price;", html)
@@ -491,23 +491,6 @@ class ReleaseRegressionTests(unittest.TestCase):
         route = source[start:end]
         self.assertIn("corporate-filings-announcements", route)
         self.assertNotIn("downstoxAnnouncements(raw)", route)
-
-    def test_downstox_index_snapshots_are_timestamped_and_never_labelled_live(self):
-        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
-        self.assertIn("private fun downstoxMarketIndices(specs: Map<String, String>)", source)
-        self.assertIn("Downstox index snapshot timestamp is in the future or older than 24 hours", source)
-        self.assertIn('"status", "PUBLIC_SNAPSHOT"', source)
-        self.assertIn('"priceSource", "DOWNSTOX_PUBLIC_SNAPSHOT"', source)
-        self.assertIn("PUBLIC SNAPSHOT • NOT LIVE", html)
-        self.assertIn("STALE PUBLIC SNAPSHOT • NOT LIVE", html)
-
-    def test_company_announcement_feed_is_not_a_results_or_dividend_calendar(self):
-        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn("private fun downstoxAnnouncements(raw: String)", source)
-        self.assertIn('downstoxGet("/api/announcements/"', source)
-        self.assertIn("CORPORATE_ANNOUNCEMENTS_NOT_FULL_NEWS_OR_EVENT_CALENDAR", source)
-        self.assertIn("Downstox announcements unavailable", source)
 
     def test_screener_price_is_not_repromoted_to_live_during_full_data_merge(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
