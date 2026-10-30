@@ -7,7 +7,7 @@ import android.webkit.*
 import android.net.Uri
 import android.util.Log
 import android.graphics.Color
-import androidx.webkit.WebViewAssetLoader
+import androidx.core.view.WindowCompat\nimport androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewClientCompat
 import org.json.JSONArray
 import org.json.JSONObject
