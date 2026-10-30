@@ -463,16 +463,34 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertNotIn("money(Math.max(...closes.slice(-252)))", html)
 
 
-    def test_downstox_is_limited_to_supplemental_fundamentals_snapshot(self):
+    def test_fundamentals_are_screener_only_and_missing_fields_are_not_filled_by_third_parties(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
-        self.assertIn('URL("https://downstox.com" + path + query)', source)
-        self.assertIn("private fun fundamentalsWithDownstox(raw: String)", source)
-        self.assertIn("PER_STOCK_TIMESTAMP_NOT_SUPPLIED_BY_DOCUMENTED_SCHEMA", source)
-        self.assertIn("PUBLIC_REFERENCE_NOT_LIVE_VERIFIED", source)
+        start = source.index("private fun fundamentalsWithDownstox(raw: String)")
+        end = source.index("\\n    private fun ", start)
+        adapter = source[start:end]
+        self.assertIn('put("fundamentalSourcePolicy", "SCREENER_ONLY")', adapter)
+        self.assertNotIn("downstoxFundamentals(raw)", adapter)
+        self.assertIn("Missing fields remain missing", adapter)
         self.assertIn("Live price is unavailable; no website scraping or third-party fallback is used.", source)
         self.assertIn("referencePriceSource+' reference price only — not live or exchange-verified'", html)
         self.assertIn("delete f.price;", html)
+
+    def test_indices_fail_closed_without_an_approved_nse_feed(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        start = source.index("private fun marketIndices(): JSONObject")
+        end = source.index("\\n    private fun ", start)
+        method = source[start:end]
+        self.assertIn("NSE_INDEX_FEED_NOT_CONFIGURED", method)
+        self.assertNotIn("downstoxMarketIndices(specs)", method)
+
+    def test_active_news_route_uses_only_official_nse_source_link(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        start = source.index('"/api/news" -> {')
+        end = source.index('"/api/company-events" -> {', start)
+        route = source[start:end]
+        self.assertIn("corporate-filings-announcements", route)
+        self.assertNotIn("downstoxAnnouncements(raw)", route)
 
     def test_downstox_index_snapshots_are_timestamped_and_never_labelled_live(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
