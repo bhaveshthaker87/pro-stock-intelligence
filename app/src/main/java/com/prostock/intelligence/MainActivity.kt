@@ -1256,13 +1256,8 @@ private class NativeProvider {
             return out
         }
         if (!gatewayConfigured()) {
-            return try {
-                downstoxMarketIndices(specs)
-            } catch (e: Exception) {
-                unavailable("DOWNSTOX_PUBLIC_SNAPSHOT_UNAVAILABLE",
-                    "No authorized live index gateway is configured and Downstox public snapshot could not be validated: " +
-                        (e.message ?: "unknown error") + ". No other price-source fallback is used.")
-            }
+            return unavailable("NSE_INDEX_FEED_NOT_CONFIGURED",
+                "No approved NSE index-data feed is configured. Public website pages are not treated as a documented API; no third-party index snapshot is used.")
         }
         return try {
             val data = gatewayGet("/v1/indices")
