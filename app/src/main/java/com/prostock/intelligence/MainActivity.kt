@@ -422,70 +422,28 @@ private class NativeProvider {
         return out
     }
 
+    /**
+     * NSE/Screener-only policy: Screener is the sole fundamentals source.
+     * Never enrich missing fields from an unrelated third-party provider.
+     * A missing field stays missing and retains the parser/source error.
+     */
     private fun fundamentalsWithDownstox(raw: String): JSONObject {
         val symbol = canonical(raw)
-        val base = try {
-            screener(raw)
+        return try {
+            screener(raw).apply {
+                put("symbol", symbol)
+                put("fundamentalSourcePolicy", "SCREENER_ONLY")
+            }
         } catch (e: Exception) {
-            JSONObject().put("symbol", symbol).put("name", stockName(symbol))
-                .put("providerError", e.message ?: "Screener.in unavailable")
+            JSONObject()
+                .put("symbol", symbol)
+                .put("name", stockName(symbol))
                 .put("provider", "Screener.in unavailable")
+                .put("providerError", e.message ?: "Screener.in unavailable")
+                .put("fundamentalSourcePolicy", "SCREENER_ONLY")
         }
-        if (raw.trim().uppercase(Locale.ROOT).endsWith(".BO")) return base
-
-        val missingFields = listOf("pe", "roe", "roce", "dividendYield", "bookValue", "pb", "piotroski", "price")
-            .any { !base.has(it) || base.isNull(it) }
-        if (!missingFields) {
-            if (base.has("price") && !base.has("referencePriceSource")) base.put("referencePriceSource", "Screener.in")
-            return base
-        }
-
-        val fallback = try {
-            downstoxFundamentals(raw)
-        } catch (e: Exception) {
-            base.put("downstoxSupplementError", e.message ?: "Downstox public supplement unavailable")
-            if (base.has("price") && !base.has("referencePriceSource")) base.put("referencePriceSource", "Screener.in")
-            return base
-        }
-        val out = JSONObject(base.toString())
-        val mappings = listOf("name", "sector", "pe", "roe", "roce", "dividendYield", "bookValue", "pb", "piotroski", "price")
-        var copied = 0
-        for (key in mappings) {
-            if ((!out.has(key) || out.isNull(key) || (key == "name" && out.optString(key).isBlank())) &&
-                fallback.has(key) && !fallback.isNull(key)) {
-                out.put(key, fallback.get(key))
-                copied++
-            }
-        }
-        out.put("supplementProvider", "Downstox public API")
-            .put("supplementStatus", "PARTIAL_PUBLIC_SNAPSHOT")
-            .put("supplementTimestampStatus", fallback.optString("supplementTimestampStatus", "PER_STOCK_TIMESTAMP_NOT_SUPPLIED_BY_DOCUMENTED_SCHEMA"))
-            .put("supplementSourceUrl", fallback.optString("sourceUrl", "https://downstox.com/api/stocks/" + symbol))
-        if (out.has("price")) {
-            if (base.has("price")) {
-                if (!out.has("referencePriceSource")) out.put("referencePriceSource", "Screener.in")
-            } else {
-                out.put("referencePriceSource", fallback.optString("referencePriceSource", "Downstox public CMP reference"))
-                out.put("referencePriceStatus", "PUBLIC_REFERENCE_NOT_LIVE_VERIFIED")
-            }
-        }
-        if (base.has("providerError")) {
-            val err = base.optString("providerError")
-            out.put("screenerProviderError", err)
-            if (copied > 0) out.remove("providerError")
-        }
-        if (copied > 0) out.put("provider", if (out.has("screenerProviderError")) "Downstox public fundamentals fallback" else "Screener.in + Downstox field-level supplement")
-        if (copied == 0 && fallback.optString("name").isBlank()) {
-            out.put("downstoxSupplementError", "Downstox returned no usable supplemental fields")
-        }
-        return out
     }
 
-
-    /**
-     * Client for the documented, normalized server-side provider gateway.
-     * Vendor secrets stay on that server; no API keys/cookies are embedded in this APK.
-     */
     private fun gatewayGet(path: String, params: Map<String, String> = emptyMap()): JSONObject {
         val base = gatewayBaseUrl()
         if (!base.startsWith("https://", ignoreCase = true)) {
@@ -1422,7 +1380,7 @@ private class NativeProvider {
         val s = canonical(raw)
         return try {
             when (p) {
-                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.82 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK").put("data", JSONObject().put("ok", true).put("providerGatewayConfigured", gatewayConfigured()).put("quoteStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_FEED_NOT_CONFIGURED").put("historyStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_HISTORY_NOT_CONFIGURED").put("indicesStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_INDEX_FEED_NOT_CONFIGURED").put("eventsStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_EVENTS_FEED_NOT_CONFIGURED").put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
+                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.83 NSE/Screener-only source policy").put("data", JSONObject().put("ok", true).put("providerGatewayConfigured", gatewayConfigured()).put("quoteStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_FEED_NOT_CONFIGURED").put("historyStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_HISTORY_NOT_CONFIGURED").put("indicesStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_INDEX_FEED_NOT_CONFIGURED").put("eventsStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_EVENTS_FEED_NOT_CONFIGURED").put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
                 "/api/providers/status" -> JSONObject().put("ok", true).put("data", providerStatus(raw)).toString()
                 "/api/screener/status" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
                 "/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerConnectionTest()).toString()
@@ -1495,17 +1453,16 @@ private class NativeProvider {
                         .put("method", "Peer prices and technical metrics require verified historical candles.")
                         .put("statusText", "Peer comparison is unavailable until an authorized NSE historical-data feed is configured. No third-party price history is used.")).toString()
                 "/api/news" -> {
-                    try {
-                        JSONObject().put("ok", true).put("data", downstoxAnnouncements(raw)).toString()
-                    } catch (e: Exception) {
-                        JSONObject().put("ok", true).put("data",
-                            JSONObject().put("symbol", s).put("news", JSONArray())
-                                .put("provider", "Downstox announcements unavailable")
-                                .put("marketDataStatus", "UNAVAILABLE")
-                                .put("providerError", e.message ?: "Downstox announcement feed failed")
-                                .put("statusText", "No corporate announcements could be validated. This does not mean no company events exist.")
-                        ).toString()
-                    }
+                    // Do not mix third-party announcement feeds into an NSE/Screener-only app.
+                    // NSE filings are linked as the authoritative source; no feed is claimed until
+                    // an approved, documented data-access method is implemented and validated.
+                    JSONObject().put("ok", true).put("data",
+                        JSONObject().put("symbol", s).put("news", JSONArray())
+                            .put("provider", "NSE official filings — source link")
+                            .put("marketDataStatus", "OFFICIAL_SOURCE_LINK_ONLY")
+                            .put("sourceUrl", "https://www.nseindia.com/companies-listing/corporate-filings-announcements")
+                            .put("statusText", "No embedded news feed is configured. Open the official NSE corporate announcements page to verify filings. No third-party news data is used.")
+                    ).toString()
                 }
                 "/api/company-events" -> {
                     if (gatewayConfigured()) {
