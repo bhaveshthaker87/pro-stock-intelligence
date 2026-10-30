@@ -428,6 +428,7 @@ private class NativeProvider {
      * A missing field stays missing and retains the parser/source error.
      */
     private fun fundamentalsWithDownstox(raw: String): JSONObject {
+        // A missing field stays missing; never fill it from an unrelated provider.
         val symbol = canonical(raw)
         return try {
             screener(raw).apply {
