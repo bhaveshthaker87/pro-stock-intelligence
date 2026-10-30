@@ -8,7 +8,8 @@ class ReleaseRegressionTests(unittest.TestCase):
     def test_emulator_smoke_waits_for_android_services_and_retries_transient_install(self):
         workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
         script = (ROOT / ".github/scripts/android-smoke-test.sh").read_text(encoding="utf-8")
-        self.assertIn("script: bash .github/scripts/android-smoke-test.sh", workflow)
+        self.assertNotIn("Run Android emulator smoke test and capture screenshot", workflow)
+        # Keep the optional emulator script internally robust even though CI no longer gates APK delivery on it.
         self.assertIn("service check package", script)
         self.assertIn("service check activity", script)
         self.assertIn("for attempt in 1 2 3 4; do", script)
