@@ -39,6 +39,9 @@ class MainActivity : Activity() {
         CookieManager.getInstance().setAcceptCookie(true)
         web = WebView(this)
         Log.e("PSI_STARTUP", "WEBVIEW_CREATED")
+        // CI AVDs use SwiftShader; force software composition for this dashboard WebView
+        // to avoid Chromium renderer traps in headless virtual-GPU environments.
+        web.setLayerType(android.view.View.LAYER_TYPE_SOFTWARE, null)
         web.setBackgroundColor(Color.rgb(237, 245, 251))
         web.settings.javaScriptEnabled = true
         web.settings.javaScriptCanOpenWindowsAutomatically = false
