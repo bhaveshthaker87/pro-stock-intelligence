@@ -35,8 +35,10 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.e("PSI_STARTUP", "ON_CREATE_BEGIN")
         CookieManager.getInstance().setAcceptCookie(true)
         web = WebView(this)
+        Log.e("PSI_STARTUP", "WEBVIEW_CREATED")
         web.setBackgroundColor(Color.rgb(237, 245, 251))
         web.settings.javaScriptEnabled = true
         web.settings.javaScriptCanOpenWindowsAutomatically = false
@@ -50,8 +52,10 @@ class MainActivity : Activity() {
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, false)
 
         val assetLoader = WebViewAssetLoader.Builder()
+            .setDomain("appassets.androidplatform.net")
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
             .build()
+        Log.e("PSI_STARTUP", "ASSET_LOADER_READY")
         web.webChromeClient = object : WebChromeClient() {
             override fun onShowFileChooser(webView: WebView, callback: ValueCallback<Array<Uri>>, fileChooserParams: FileChooserParams): Boolean {
                 filePathCallback?.onReceiveValue(null)
@@ -113,8 +117,10 @@ class MainActivity : Activity() {
                     jsonResponse(JSONObject().put("ok", false).put("error", e.message ?: "Provider error").toString())
                 }
             }
-            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
-                api(request.url) ?: assetLoader.shouldInterceptRequest(request.url)
+            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+                if (request.url.path == "/assets/index.html") Log.e("PSI_STARTUP", "INDEX_ASSET_REQUEST ${request.url}")
+                return api(request.url) ?: assetLoader.shouldInterceptRequest(request.url)
+            }
             @Suppress("DEPRECATION")
             override fun shouldInterceptRequest(view: WebView, url: String): WebResourceResponse? {
                 val uri = Uri.parse(url)
@@ -162,7 +168,9 @@ class MainActivity : Activity() {
             }
         }
         setContentView(web)
+        Log.e("PSI_STARTUP", "CONTENT_VIEW_SET")
         web.loadUrl("https://appassets.androidplatform.net/assets/index.html")
+        Log.e("PSI_STARTUP", "LOAD_URL_REQUESTED")
     }
 
     @Deprecated("Deprecated in Android API")
