@@ -245,13 +245,16 @@ jobs:
           emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader -memory 4096 -cores 4 -camera-back none
           script: bash .github/scripts/android-smoke-test.sh
 
-      - name: Upload emulator dashboard screenshot and logcat
+      - name: Upload emulator dashboard screenshot and diagnostics
         if: always() && hashFiles('app/build/outputs/psi-emulator-logcat.txt') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-83-emulator-dashboard
+          name: PRO-STOCK-INTELLIGENCE-V40-83-emulator-diagnostics
           path: |
             app/build/outputs/psi-emulator.png
             app/build/outputs/psi-emulator-logcat.txt
+            app/build/outputs/psi-emulator-crash-buffer.txt
+            app/build/outputs/psi-app-meminfo.txt
+            app/build/outputs/psi-webview-provider.txt
             app/build/outputs/psi-activity-dump.txt
-          if-no-files-found: error
+          if-no-files-found: warn
