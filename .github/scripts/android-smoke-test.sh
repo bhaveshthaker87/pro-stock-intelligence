@@ -4,6 +4,16 @@ APK="app/build/outputs/apk/debug/app-debug.apk"
 PACKAGE="com.prostock.intelligence"
 ACTIVITY="com.prostock.intelligence/.MainActivity"
 mkdir -p app/build/outputs
+
+# Always preserve diagnostics, including when the renderer crashes or the DOM check fails.
+capture_android_diagnostics() {
+  adb logcat -d -t 12000 > app/build/outputs/psi-emulator-logcat.txt 2>&1 || true
+  adb logcat -b crash -d > app/build/outputs/psi-emulator-crash-buffer.txt 2>&1 || true
+  adb shell dumpsys meminfo "$PACKAGE" > app/build/outputs/psi-app-meminfo.txt 2>&1 || true
+  adb shell dumpsys webviewupdate > app/build/outputs/psi-webview-provider.txt 2>&1 || true
+  adb shell dumpsys activity activities > app/build/outputs/psi-activity-dump.txt 2>&1 || true
+}
+trap capture_android_diagnostics EXIT
 if [[ ! -f "$APK" ]]; then echo "Debug APK missing: $APK"; exit 1; fi
 
 service_check() {
@@ -78,7 +88,8 @@ for attempt in $(seq 1 45); do
   fi
   sleep 2
 done
-adb logcat -d -t 4000 > app/build/outputs/psi-emulator-logcat.txt || true
+adb logcat -d -t 12000 > app/build/outputs/psi-emulator-logcat.txt || true
+adb logcat -b crash -d > app/build/outputs/psi-emulator-crash-buffer.txt 2>&1 || true
 if [[ "$dashboard_ready" -ne 1 ]]; then
   echo "Dashboard readiness failed: WebView did not confirm the app root DOM. Refusing to publish screenshot as a successful smoke test."
   echo "--- Relevant Android logcat ---"
