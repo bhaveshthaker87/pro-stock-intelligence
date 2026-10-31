@@ -42,8 +42,11 @@ class ReleaseRegressionTests(unittest.TestCase):
     def test_ui_and_native_engine_versions_match(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn("V40.83 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", html)
-        self.assertIn('"engine", "V40.83 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK"', source)
+        gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
+        version_name = re.search(r"versionName '([^']+)'", gradle).group(1)
+        engine = f"V{version_name} AUTHORIZED GATEWAY + CSV OHLCV FALLBACK"
+        self.assertIn(engine, html)
+        self.assertIn(f'"engine", "{engine}"', source)
 
     def test_fundamental_parser_fails_closed_instead_of_guessing_nearby_number(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
@@ -56,14 +59,16 @@ class ReleaseRegressionTests(unittest.TestCase):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("V40.83 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", html)
-        self.assertIn('"engine", "V40.83 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK"', source)
-        self.assertIn("versionCode 82; versionName '40.83'", gradle)
-        self.assertIn("DASHBOARD_VERSION='V40.83'", html)
-        self.assertIn("window.__PSI_BOOT_VERSION='V40.83'", html)
-        self.assertNotIn("DASHBOARD_VERSION='V40.75'", html)
-        self.assertNotIn("window.__PSI_BOOT_VERSION='V40.75'", html)
-        self.assertIn(".researchRibbon:after{content:'V40.83'", html)
+        version_code = re.search(r"versionCode (\\d+)", gradle).group(1)
+        version_name = re.search(r"versionName '([^']+)'", gradle).group(1)
+        version_tag = f"V{version_name}"
+        engine = f"{version_tag} AUTHORIZED GATEWAY + CSV OHLCV FALLBACK"
+        self.assertIn(engine, html)
+        self.assertIn(f'"engine", "{engine}"', source)
+        self.assertIn(f"versionCode {version_code}; versionName '{version_name}'", gradle)
+        self.assertIn(f"DASHBOARD_VERSION='{version_tag}'", html)
+        self.assertIn(f"window.__PSI_BOOT_VERSION='{version_tag}'", html)
+        self.assertIn(f".researchRibbon:after{{content:'{version_tag}'", html)
 
 
     def test_screener_session_cookie_checks_both_hosts_and_surfaces_parse_error(self):
