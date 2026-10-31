@@ -353,7 +353,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn("Run Android lint", workflow)
         # Device/emulator and experimental-provider checks are intentionally not
         # release-blocking: hosted emulator instability must not block a usable APK.
-        self.assertNotIn("Run Android emulator smoke test and capture screenshot", workflow)
+        self.assertIn("Run Android emulator smoke test and capture screenshot", workflow)
         self.assertNotIn("Test experimental NSE gateway", workflow)
 
     def test_source_claims_disclose_unintegrated_moneycontrol_and_history(self):
