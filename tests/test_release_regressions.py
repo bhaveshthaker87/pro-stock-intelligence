@@ -59,7 +59,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        version_code = re.search(r"versionCode (\\d+)", gradle).group(1)
+        version_code = re.search(r"versionCode (\d+)", gradle).group(1)
         version_name = re.search(r"versionName '([^']+)'", gradle).group(1)
         version_tag = f"V{version_name}"
         engine = f"{version_tag} AUTHORIZED GATEWAY + CSV OHLCV FALLBACK"
