@@ -241,32 +241,30 @@ jobs:
           # Avoid carrying compiler daemons into the memory-constrained AVD phase.
           jps -lv | awk '/GradleDaemon/ {print $1}' | xargs -r kill || true
 
-      - name: Reset and start ADB server before emulator launch
+      - name: Verify ADB before emulator launch
         shell: bash
         run: |
           set -euo pipefail
-          # The hosted Linux runner can leave adb without a live server after SDK
-          # package installation. Start it explicitly before the emulator action
-          # attempts to attach the virtual device.
-          adb kill-server || true
-          pkill -x adb || true
+          # Do not kill/restart ADB here: android-emulator-runner owns the ADB
+          # lifecycle. A second server restart can detach the action from its AVD.
+          adb version
           adb start-server
           adb devices -l
-          adb version
 
       - name: Run Android emulator smoke test and capture screenshot
         uses: reactivecircus/android-emulator-runner@v2
-        timeout-minutes: 20
+        timeout-minutes: 25
         with:
           api-level: 34
           target: google_apis
           arch: x86_64
           profile: pixel_2
-          emulator-boot-timeout: 900
+          emulator-boot-timeout: 600
           disable-animations: true
           disable-spellchecker: true
-          emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot-load -no-snapshot-save -gpu swiftshader_indirect -memory 2048 -cores 2 -camera-back none
-          pre-emulator-launch-script: adb start-server
+          # Restore adequate resources: 2 GB / 2 cores caused a 15-minute boot
+          # on the hosted runner and left too little time for app validation.
+          emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot-load -no-snapshot-save -gpu swiftshader_indirect -memory 4096 -cores 4 -camera-back none
           script: bash .github/scripts/android-smoke-test.sh
 
       - name: Upload emulator dashboard screenshot and diagnostics
