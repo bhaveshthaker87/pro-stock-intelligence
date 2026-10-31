@@ -16,12 +16,10 @@ on:
         required: false
         type: boolean
         default: false
-  # Feature-branch commits are validated by pull_request:synchronize below.
-  # Avoid duplicate push + PR runs cancelling each other on the same head.
+  # Feature branches are validated by pull_request; main also builds on direct pushes.
   push:
     branches:
       - main
-      - fix/v40-82-dashboard-readiness
   pull_request:
     branches:
       - main
@@ -244,7 +242,7 @@ jobs:
           profile: pixel_2
           emulator-boot-timeout: 900
           disable-animations: true
-          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader -camera-back none
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader -memory 4096 -cores 4 -camera-back none
           script: bash .github/scripts/android-smoke-test.sh
 
       - name: Upload emulator dashboard screenshot and logcat
