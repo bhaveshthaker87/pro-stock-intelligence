@@ -71,7 +71,7 @@ fi
 # Foreground Activity is not enough: require the local dashboard DOM to finish loading.
 # This catches splash-only launches and WebView/asset-loader failures that a valid PNG misses.
 dashboard_ready=0
-for attempt in $(seq 1 30); do
+for attempt in $(seq 1 45); do
   if adb logcat -d -s PSI_STARTUP:E PSI_WEB:E AndroidRuntime:E | grep -Fq "PSI_DASHBOARD_DOM_READY"; then
     dashboard_ready=1
     break
