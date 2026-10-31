@@ -456,21 +456,58 @@ private class NativeProvider {
         }
         val url = URL(urlText)
         if (url.host.isBlank() || urlText.substringAfter("://").substringBefore("/").contains("@")) throw IOException("Invalid provider gateway URL")
-        val c = url.openConnection() as HttpURLConnection
-        c.connectTimeout = 5000
-        c.readTimeout = 8000
-        c.requestMethod = "GET"
-        c.setRequestProperty("Accept", "application/json")
-        c.setRequestProperty("Cache-Control", "no-cache")
-        try {
-            val code = c.responseCode
-            if (code !in 200..299) throw IOException("Provider gateway returned HTTP $code. Check gateway health, authentication and vendor subscription.")
-            val body = c.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
-            if (body.length > 2_000_000) throw IOException("Provider gateway response exceeded the 2 MB safety limit")
-            val parsed = JSONObject(body)
-            if (parsed.optBoolean("ok", true) == false) throw IOException(parsed.optString("error", "Provider gateway reported unavailable data"))
-            return parsed.optJSONObject("data") ?: parsed
-        } finally { c.disconnect() }
+        var lastTransientError: IOException? = null
+        for (attempt in 0..2) {
+            val c = url.openConnection() as HttpURLConnection
+            c.connectTimeout = 5000
+            c.readTimeout = 8000
+            c.requestMethod = "GET"
+            c.setRequestProperty("Accept", "application/json")
+            c.setRequestProperty("Cache-Control", "no-cache")
+            try {
+                val code = c.responseCode
+                if (code == 401) throw IOException("Provider gateway returned HTTP 401 Unauthorized. Check the gateway service credentials.")
+                if (code == 403) throw IOException("Provider gateway returned HTTP 403 Forbidden. Check account permissions; access controls will not be bypassed.")
+                if (code == 429 || code in 500..599) {
+                    val error = IOException("Provider gateway returned transient HTTP $code.")
+                    if (attempt == 2) throw error
+                    lastTransientError = error
+                    val retryAfter = c.getHeaderField("Retry-After")?.toLongOrNull()?.coerceIn(0L, 2L)
+                    val delayMs = (retryAfter?.times(1000L)) ?: (500L * (attempt + 1))
+                    try {
+                        Thread.sleep(delayMs)
+                    } catch (interrupted: InterruptedException) {
+                        Thread.currentThread().interrupt()
+                        throw IOException("Provider gateway retry interrupted.", interrupted)
+                    }
+                    continue
+                }
+                if (code !in 200..299) throw IOException("Provider gateway returned HTTP $code. Check gateway health, authentication and vendor subscription.")
+                val body = c.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                if (body.length > 2_000_000) throw IOException("Provider gateway response exceeded the 2 MB safety limit")
+                val parsed = try { JSONObject(body) } catch (malformed: org.json.JSONException) {
+                    throw IOException("Provider gateway returned malformed JSON.", malformed)
+                }
+                if (parsed.optBoolean("ok", true) == false) throw IOException(parsed.optString("error", "Provider gateway reported unavailable data"))
+                return parsed.optJSONObject("data") ?: parsed
+            } catch (e: java.net.SocketTimeoutException) {
+                if (attempt == 2) throw IOException("Provider gateway timed out after three attempts.", e)
+                lastTransientError = IOException("Provider gateway timed out (attempt ${attempt + 1}/3).", e)
+            } catch (e: java.net.SocketException) {
+                if (attempt == 2) throw IOException("Provider gateway connection failed after three attempts.", e)
+                lastTransientError = IOException("Provider gateway connection failed (attempt ${attempt + 1}/3).", e)
+            } finally {
+                c.disconnect()
+            }
+            try {
+                Thread.sleep(500L * (attempt + 1))
+            } catch (interrupted: InterruptedException) {
+                Thread.currentThread().interrupt()
+                throw IOException("Provider gateway retry interrupted.", interrupted)
+            }
+        }
+        throw lastTransientError ?: IOException("Provider gateway request failed after bounded retries.")
+
     }
 
     private fun parseGatewayTime(value: String): Long {
