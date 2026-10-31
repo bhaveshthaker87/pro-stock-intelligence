@@ -16,6 +16,11 @@ on:
         required: false
         type: boolean
         default: false
+      build_signed_release:
+        description: 'Build a signed release APK (requires Android signing secrets and authorized live-data gateway)'
+        required: false
+        type: boolean
+        default: false
   # Feature branches are validated by pull_request; main also builds on direct pushes.
   push:
     branches:
@@ -119,10 +124,11 @@ jobs:
           PROVIDER_GATEWAY_BASE_URL: ${{ vars.PROVIDER_GATEWAY_BASE_URL }}
           REQUIRE_LIVE_PROVIDER_GATEWAY: ${{ vars.REQUIRE_LIVE_PROVIDER_GATEWAY }}
           REQUIRE_LIVE_DATA_INPUT: ${{ inputs.require_live_data }}
+          BUILD_SIGNED_RELEASE_INPUT: ${{ inputs.build_signed_release }}
         run: |
           set -euo pipefail
           require_gateway="${REQUIRE_LIVE_PROVIDER_GATEWAY:-false}"
-          if [ "${REQUIRE_LIVE_DATA_INPUT:-false}" = "true" ]; then require_gateway=true; fi
+          if [ "${REQUIRE_LIVE_DATA_INPUT:-false}" = "true" ] || [ "${BUILD_SIGNED_RELEASE_INPUT:-false}" = "true" ]; then require_gateway=true; fi
           if [ -z "${PROVIDER_GATEWAY_BASE_URL:-}" ]; then
             if [ "$require_gateway" = "true" ]; then
               echo "::error::Live provider validation is required but PROVIDER_GATEWAY_BASE_URL is not configured."
@@ -200,6 +206,57 @@ jobs:
             sleep "$delay"
             attempt=$((attempt + 1))
           done
+
+      - name: Validate Android release signing configuration
+        if: inputs.build_signed_release == true
+        shell: bash
+        env:
+          PSI_KEYSTORE_BASE64: ${{ secrets.PSI_KEYSTORE_BASE64 }}
+          PSI_KEYSTORE_PASSWORD: ${{ secrets.PSI_KEYSTORE_PASSWORD }}
+          PSI_KEY_ALIAS: ${{ secrets.PSI_KEY_ALIAS }}
+          PSI_KEY_PASSWORD: ${{ secrets.PSI_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in PSI_KEYSTORE_BASE64 PSI_KEYSTORE_PASSWORD PSI_KEY_ALIAS PSI_KEY_PASSWORD; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Signed release requested but required secret $name is missing."
+              exit 1
+            fi
+          done
+          mkdir -p "$RUNNER_TEMP/android-signing"
+          printf '%s' "$PSI_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/android-signing/release.keystore"
+          keytool -list -keystore "$RUNNER_TEMP/android-signing/release.keystore" -storepass "$PSI_KEYSTORE_PASSWORD" >/dev/null
+          echo "PSI_KEYSTORE_FILE=$RUNNER_TEMP/android-signing/release.keystore" >> "$GITHUB_ENV"
+          echo "Android signing keystore validated; passwords remain in GitHub secrets."
+
+      - name: Build signed release APK
+        if: inputs.build_signed_release == true
+        shell: bash
+        env:
+          PSI_KEYSTORE_PASSWORD: ${{ secrets.PSI_KEYSTORE_PASSWORD }}
+          PSI_KEY_ALIAS: ${{ secrets.PSI_KEY_ALIAS }}
+          PSI_KEY_PASSWORD: ${{ secrets.PSI_KEY_PASSWORD }}
+          PROVIDER_GATEWAY_BASE_URL: ${{ vars.PROVIDER_GATEWAY_BASE_URL }}
+        run: |
+          set -euo pipefail
+          gradle :app:assembleRelease --no-daemon --stacktrace -PproviderGatewayBaseUrl="$PROVIDER_GATEWAY_BASE_URL"
+          APK="app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          apksigner verify --verbose "$APK"
+          sha256sum "$APK" | tee "$APK.sha256"
+          echo "## Signed production APK" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Status: SIGNATURE VERIFIED**" >> "$GITHUB_STEP_SUMMARY"
+          echo "Live provider gateway and release signing configuration were required for this build." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload signed production APK
+        if: inputs.build_signed_release == true && hashFiles('app/build/outputs/apk/release/app-release.apk') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: PRO-STOCK-INTELLIGENCE-V40-84-signed-release
+          path: |
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/apk/release/app-release.apk.sha256
+          if-no-files-found: error
 
       - name: Generate APK SHA-256 checksum
         if: always() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''
