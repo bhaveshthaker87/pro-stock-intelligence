@@ -86,6 +86,10 @@ for attempt in $(seq 1 45); do
     dashboard_ready=1
     break
   fi
+  if ! adb shell pidof "$PACKAGE" >/dev/null 2>&1; then
+    echo "Dashboard startup aborted: Android app process exited before DOM readiness (attempt $attempt)"
+    break
+  fi
   sleep 2
 done
 adb logcat -d -t 12000 > app/build/outputs/psi-emulator-logcat.txt || true
