@@ -241,6 +241,26 @@ jobs:
           # Avoid carrying compiler daemons into the memory-constrained AVD phase.
           jps -lv | awk '/GradleDaemon/ {print $1}' | xargs -r kill || true
 
+      - name: Enable KVM hardware acceleration for Android emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          # GitHub-hosted Ubuntu runners expose /dev/kvm, but it may be group-only.
+          # The emulator action otherwise silently falls back to software TCG,
+          # which made this x86_64 AVD remain offline for the entire boot timeout.
+          if [ ! -e /dev/kvm ]; then
+            echo "::error::/dev/kvm is not available on this runner; cannot safely run the x86_64 emulator smoke test."
+            exit 1
+          fi
+          sudo chmod 666 /dev/kvm
+          if [ ! -r /dev/kvm ] || [ ! -w /dev/kvm ]; then
+            echo "::error::KVM device is not readable/writable; refusing a slow software-emulation run."
+            ls -l /dev/kvm || true
+            exit 1
+          fi
+          ls -l /dev/kvm
+          echo "KVM hardware acceleration is available."
+
       - name: Verify ADB before emulator launch
         shell: bash
         run: |
