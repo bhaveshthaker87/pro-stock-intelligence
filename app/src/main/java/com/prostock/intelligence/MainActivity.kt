@@ -124,6 +124,22 @@ class MainActivity : Activity() {
                 super.onPageStarted(view, url, favicon)
                 Log.e("PSI_STARTUP", "PAGE_STARTED $url")
             }
+            override fun onPageCommitVisible(view: WebView, url: String) {
+                super.onPageCommitVisible(view, url)
+                Log.e("PSI_STARTUP", "PAGE_COMMIT_VISIBLE $url")
+            }
+            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+                super.onReceivedError(view, request, error)
+                Log.e("PSI_WEB", "LOAD_ERROR mainFrame=${request.isForMainFrame} code=${error.errorCode} description=${error.description} url=${request.url}")
+            }
+            override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
+                super.onReceivedHttpError(view, request, response)
+                Log.e("PSI_WEB", "HTTP_ERROR mainFrame=${request.isForMainFrame} status=${response.statusCode} url=${request.url}")
+            }
+            override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+                Log.e("PSI_WEB", "RENDER_PROCESS_GONE crashed=${detail.didCrash()} priority=${detail.rendererPriorityAtExit()}")
+                return true
+            }
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
                 if (url.startsWith("https://www.screener.in/")) {
