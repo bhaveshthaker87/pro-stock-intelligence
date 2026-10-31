@@ -41,7 +41,7 @@ service_check() {
 adb wait-for-device
 boot_ready=0
 for attempt in $(seq 1 60); do
-  boot_state="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r' || true)"
+  boot_state="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
   if [[ "$boot_state" == "1" ]] &&
      adb shell service check package 2>/dev/null | grep -qi "found" &&
      adb shell service check activity 2>/dev/null | grep -qi "found"; then
