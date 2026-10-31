@@ -257,13 +257,13 @@ class DashboardUISmokeTests(unittest.TestCase):
 
     def test_version_code_and_name_are_aligned(self):
         gradle = (Path(__file__).parents[1] / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 81", gradle)
-        self.assertIn("versionName '40.82'", gradle)
+        self.assertIn("versionCode 82", gradle)
+        self.assertIn("versionName '40.83'", gradle)
 
     def test_workflow_artifact_names_match_release_version(self):
         workflow = (Path(__file__).parents[1] / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
-        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-82-lint-report", workflow)
-        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-82-debug", workflow)
+        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-83-lint-report", workflow)
+        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-83-debug", workflow)
         self.assertNotIn("V40-57", workflow)
         self.assertIn("pull_request:", workflow)
         self.assertIn("sha256sum app/build/outputs/apk/debug/app-debug.apk", workflow)
@@ -446,7 +446,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn('class="brand"', html)
         self.assertIn('android:icon="@drawable/ic_launcher"', manifest)
         self.assertTrue(launcher.exists())
-        self.assertIn("versionName '40.82'", (root / "app/build.gradle").read_text(encoding="utf-8"))
+        self.assertIn("versionName '40.83'", (root / "app/build.gradle").read_text(encoding="utf-8"))
 
 
     def test_v4079_parses_additional_screener_valuation_fields(self):
