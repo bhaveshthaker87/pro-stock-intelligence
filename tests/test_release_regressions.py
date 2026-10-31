@@ -8,7 +8,10 @@ class ReleaseRegressionTests(unittest.TestCase):
     def test_emulator_smoke_waits_for_android_services_and_retries_transient_install(self):
         workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
         script = (ROOT / ".github/scripts/android-smoke-test.sh").read_text(encoding="utf-8")
-        self.assertIn("script: bash .github/scripts/android-smoke-test.sh", workflow)
+        self.assertIn("Run Android emulator smoke test and capture screenshot", workflow)
+        self.assertIn("reactivecircus/android-emulator-runner@v2", workflow)
+        self.assertIn("PSI_DASHBOARD_DOM_READY", script)
+        # The smoke test must install the built APK and wait for the dashboard DOM, not only foreground the Activity.
         self.assertIn("service check package", script)
         self.assertIn("service check activity", script)
         self.assertIn("for attempt in 1 2 3 4; do", script)
@@ -39,8 +42,8 @@ class ReleaseRegressionTests(unittest.TestCase):
     def test_ui_and_native_engine_versions_match(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn("V40.81 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", html)
-        self.assertIn('"engine", "V40.81 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK"', source)
+        self.assertIn("V40.83 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", html)
+        self.assertIn('"engine", "V40.83 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK"', source)
 
     def test_fundamental_parser_fails_closed_instead_of_guessing_nearby_number(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
@@ -53,14 +56,14 @@ class ReleaseRegressionTests(unittest.TestCase):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("V40.81 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", html)
-        self.assertIn('"engine", "V40.81 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK"', source)
-        self.assertIn("versionCode 80; versionName '40.81'", gradle)
-        self.assertIn("DASHBOARD_VERSION='V40.81'", html)
-        self.assertIn("window.__PSI_BOOT_VERSION='V40.81'", html)
+        self.assertIn("V40.83 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", html)
+        self.assertIn('"engine", "V40.83 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK"', source)
+        self.assertIn("versionCode 82; versionName '40.83'", gradle)
+        self.assertIn("DASHBOARD_VERSION='V40.83'", html)
+        self.assertIn("window.__PSI_BOOT_VERSION='V40.83'", html)
         self.assertNotIn("DASHBOARD_VERSION='V40.75'", html)
         self.assertNotIn("window.__PSI_BOOT_VERSION='V40.75'", html)
-        self.assertIn(".researchRibbon:after{content:'V40.81'", html)
+        self.assertIn(".researchRibbon:after{content:'V40.83'", html)
 
 
     def test_screener_session_cookie_checks_both_hosts_and_surfaces_parse_error(self):
@@ -462,33 +465,34 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertNotIn("money(Math.max(...closes.slice(-252)))", html)
 
 
-    def test_downstox_is_limited_to_supplemental_fundamentals_snapshot(self):
+    def test_fundamentals_are_screener_only_and_missing_fields_are_not_filled_by_third_parties(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
-        self.assertIn('URL("https://downstox.com" + path + query)', source)
-        self.assertIn("private fun fundamentalsWithDownstox(raw: String)", source)
-        self.assertIn("PER_STOCK_TIMESTAMP_NOT_SUPPLIED_BY_DOCUMENTED_SCHEMA", source)
-        self.assertIn("PUBLIC_REFERENCE_NOT_LIVE_VERIFIED", source)
+        start = source.index("private fun fundamentalsWithDownstox(raw: String)")
+        end = source.index("\n    private fun ", start)
+        adapter = source[start:end]
+        self.assertIn('put("fundamentalSourcePolicy", "SCREENER_ONLY")', adapter)
+        self.assertNotIn("downstoxFundamentals(raw)", adapter)
+        self.assertIn("A missing field stays missing", adapter)
         self.assertIn("Live price is unavailable; no website scraping or third-party fallback is used.", source)
         self.assertIn("referencePriceSource+' reference price only — not live or exchange-verified'", html)
         self.assertIn("delete f.price;", html)
 
-    def test_downstox_index_snapshots_are_timestamped_and_never_labelled_live(self):
+    def test_indices_fail_closed_without_an_approved_nse_feed(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
-        self.assertIn("private fun downstoxMarketIndices(specs: Map<String, String>)", source)
-        self.assertIn("Downstox index snapshot timestamp is in the future or older than 24 hours", source)
-        self.assertIn('"status", "PUBLIC_SNAPSHOT"', source)
-        self.assertIn('"priceSource", "DOWNSTOX_PUBLIC_SNAPSHOT"', source)
-        self.assertIn("PUBLIC SNAPSHOT • NOT LIVE", html)
-        self.assertIn("STALE PUBLIC SNAPSHOT • NOT LIVE", html)
+        start = source.index("private fun marketIndices(): JSONObject")
+        end = source.index("\n    private fun ", start)
+        method = source[start:end]
+        self.assertIn("NSE_INDEX_FEED_NOT_CONFIGURED", method)
+        self.assertNotIn("downstoxMarketIndices(specs)", method)
 
-    def test_company_announcement_feed_is_not_a_results_or_dividend_calendar(self):
+    def test_active_news_route_uses_only_official_nse_source_link(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn("private fun downstoxAnnouncements(raw: String)", source)
-        self.assertIn('downstoxGet("/api/announcements/"', source)
-        self.assertIn("CORPORATE_ANNOUNCEMENTS_NOT_FULL_NEWS_OR_EVENT_CALENDAR", source)
-        self.assertIn("Downstox announcements unavailable", source)
+        start = source.index('"/api/news" -> {')
+        end = source.index('"/api/company-events" -> {', start)
+        route = source[start:end]
+        self.assertIn("corporate-filings-announcements", route)
+        self.assertNotIn("downstoxAnnouncements(raw)", route)
 
     def test_screener_price_is_not_repromoted_to_live_during_full_data_merge(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")

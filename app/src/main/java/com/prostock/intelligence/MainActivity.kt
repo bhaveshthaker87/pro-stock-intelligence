@@ -7,6 +7,7 @@ import android.webkit.*
 import android.net.Uri
 import android.util.Log
 import android.graphics.Color
+import androidx.core.view.WindowCompat
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewClientCompat
 import org.json.JSONArray
@@ -34,8 +35,13 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.e("PSI_STARTUP", "ON_CREATE_BEGIN")
         CookieManager.getInstance().setAcceptCookie(true)
         web = WebView(this)
+        Log.e("PSI_STARTUP", "WEBVIEW_CREATED")
+        // CI AVDs use SwiftShader; force software composition for this dashboard WebView
+        // to avoid Chromium renderer traps in headless virtual-GPU environments.
+        web.setLayerType(android.view.View.LAYER_TYPE_SOFTWARE, null)
         web.setBackgroundColor(Color.rgb(237, 245, 251))
         web.settings.javaScriptEnabled = true
         web.settings.javaScriptCanOpenWindowsAutomatically = false
@@ -49,8 +55,10 @@ class MainActivity : Activity() {
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, false)
 
         val assetLoader = WebViewAssetLoader.Builder()
+            .setDomain("appassets.androidplatform.net")
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
             .build()
+        Log.e("PSI_STARTUP", "ASSET_LOADER_READY")
         web.webChromeClient = object : WebChromeClient() {
             override fun onShowFileChooser(webView: WebView, callback: ValueCallback<Array<Uri>>, fileChooserParams: FileChooserParams): Boolean {
                 filePathCallback?.onReceiveValue(null)
@@ -112,12 +120,36 @@ class MainActivity : Activity() {
                     jsonResponse(JSONObject().put("ok", false).put("error", e.message ?: "Provider error").toString())
                 }
             }
-            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
-                api(request.url) ?: assetLoader.shouldInterceptRequest(request.url)
+            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+                if (request.url.path == "/assets/index.html") Log.e("PSI_STARTUP", "INDEX_ASSET_REQUEST ${request.url}")
+                return api(request.url) ?: assetLoader.shouldInterceptRequest(request.url)
+            }
             @Suppress("DEPRECATION")
             override fun shouldInterceptRequest(view: WebView, url: String): WebResourceResponse? {
                 val uri = Uri.parse(url)
                 return api(uri) ?: assetLoader.shouldInterceptRequest(uri)
+            }
+            override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                Log.e("PSI_STARTUP", "PAGE_STARTED $url")
+            }
+            override fun onPageCommitVisible(view: WebView, url: String) {
+                super.onPageCommitVisible(view, url)
+                Log.e("PSI_STARTUP", "PAGE_COMMIT_VISIBLE $url")
+            }
+            // Use the AndroidX compatibility error type; the platform WebResourceError
+            // overload is final in WebViewClientCompat and must not be overridden.
+            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: androidx.webkit.WebResourceErrorCompat) {
+                super.onReceivedError(view, request, error)
+                Log.e("PSI_WEB", "LOAD_ERROR mainFrame=${request.isForMainFrame} code=${error.errorCode} description=${error.description} url=${request.url}")
+            }
+            override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
+                super.onReceivedHttpError(view, request, response)
+                Log.e("PSI_WEB", "HTTP_ERROR mainFrame=${request.isForMainFrame} status=${response.statusCode} url=${request.url}")
+            }
+            override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+                Log.e("PSI_WEB", "RENDER_PROCESS_GONE crashed=${detail.didCrash()} priority=${detail.rendererPriorityAtExit()}")
+                return true
             }
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
@@ -126,12 +158,24 @@ class MainActivity : Activity() {
                 }
                 if (url.startsWith("https://appassets.androidplatform.net/assets/index.html")) {
                     CookieManager.getInstance().flush()
+                    Log.e("PSI_STARTUP", "INDEX_PAGE_FINISHED")
+                    view.evaluateJavascript(
+                        "(()=>({ready:document.readyState,root:!!document.querySelector('.app'),title:document.title}))()"
+                    ) { value ->
+                        if (!value.isNullOrBlank() && value.contains("\"root\":true")) {
+                            Log.e("PSI_STARTUP", "PSI_DASHBOARD_DOM_READY $value")
+                        } else {
+                            Log.e("PSI_STARTUP", "DASHBOARD_DOM_NOT_READY $value")
+                        }
+                    }
                     view.evaluateJavascript("window.refreshScreenerStatus && window.refreshScreenerStatus()", null)
                 }
             }
         }
         setContentView(web)
+        Log.e("PSI_STARTUP", "CONTENT_VIEW_SET")
         web.loadUrl("https://appassets.androidplatform.net/assets/index.html")
+        Log.e("PSI_STARTUP", "LOAD_URL_REQUESTED")
     }
 
     @Deprecated("Deprecated in Android API")
@@ -149,7 +193,11 @@ class MainActivity : Activity() {
         filePathCallback?.onReceiveValue(null)
         filePathCallback = null
         if (::web.isInitialized) {
+            // WebView must be detached from its parent before destroy(); destroying an
+            // attached WebView can leave renderer resources and Activity windows behind.
+            (web.parent as? android.view.ViewGroup)?.removeView(web)
             web.stopLoading()
+            web.webChromeClient = null
             web.webViewClient = WebViewClient()
             web.destroy()
         }
@@ -408,70 +456,29 @@ private class NativeProvider {
         return out
     }
 
+    /**
+     * NSE/Screener-only policy: Screener is the sole fundamentals source.
+     * Never enrich missing fields from an unrelated third-party provider.
+     * A missing field stays missing and retains the parser/source error.
+     */
     private fun fundamentalsWithDownstox(raw: String): JSONObject {
+        // A missing field stays missing; never fill it from an unrelated provider.
         val symbol = canonical(raw)
-        val base = try {
-            screener(raw)
+        return try {
+            screener(raw).apply {
+                put("symbol", symbol)
+                put("fundamentalSourcePolicy", "SCREENER_ONLY")
+            }
         } catch (e: Exception) {
-            JSONObject().put("symbol", symbol).put("name", stockName(symbol))
-                .put("providerError", e.message ?: "Screener.in unavailable")
+            JSONObject()
+                .put("symbol", symbol)
+                .put("name", stockName(symbol))
                 .put("provider", "Screener.in unavailable")
+                .put("providerError", e.message ?: "Screener.in unavailable")
+                .put("fundamentalSourcePolicy", "SCREENER_ONLY")
         }
-        if (raw.trim().uppercase(Locale.ROOT).endsWith(".BO")) return base
-
-        val missingFields = listOf("pe", "roe", "roce", "dividendYield", "bookValue", "pb", "piotroski", "price")
-            .any { !base.has(it) || base.isNull(it) }
-        if (!missingFields) {
-            if (base.has("price") && !base.has("referencePriceSource")) base.put("referencePriceSource", "Screener.in")
-            return base
-        }
-
-        val fallback = try {
-            downstoxFundamentals(raw)
-        } catch (e: Exception) {
-            base.put("downstoxSupplementError", e.message ?: "Downstox public supplement unavailable")
-            if (base.has("price") && !base.has("referencePriceSource")) base.put("referencePriceSource", "Screener.in")
-            return base
-        }
-        val out = JSONObject(base.toString())
-        val mappings = listOf("name", "sector", "pe", "roe", "roce", "dividendYield", "bookValue", "pb", "piotroski", "price")
-        var copied = 0
-        for (key in mappings) {
-            if ((!out.has(key) || out.isNull(key) || (key == "name" && out.optString(key).isBlank())) &&
-                fallback.has(key) && !fallback.isNull(key)) {
-                out.put(key, fallback.get(key))
-                copied++
-            }
-        }
-        out.put("supplementProvider", "Downstox public API")
-            .put("supplementStatus", "PARTIAL_PUBLIC_SNAPSHOT")
-            .put("supplementTimestampStatus", fallback.optString("supplementTimestampStatus", "PER_STOCK_TIMESTAMP_NOT_SUPPLIED_BY_DOCUMENTED_SCHEMA"))
-            .put("supplementSourceUrl", fallback.optString("sourceUrl", "https://downstox.com/api/stocks/" + symbol))
-        if (out.has("price")) {
-            if (base.has("price")) {
-                if (!out.has("referencePriceSource")) out.put("referencePriceSource", "Screener.in")
-            } else {
-                out.put("referencePriceSource", fallback.optString("referencePriceSource", "Downstox public CMP reference"))
-                out.put("referencePriceStatus", "PUBLIC_REFERENCE_NOT_LIVE_VERIFIED")
-            }
-        }
-        if (base.has("providerError")) {
-            val err = base.optString("providerError")
-            out.put("screenerProviderError", err)
-            if (copied > 0) out.remove("providerError")
-        }
-        if (copied > 0) out.put("provider", if (out.has("screenerProviderError")) "Downstox public fundamentals fallback" else "Screener.in + Downstox field-level supplement")
-        if (copied == 0 && fallback.optString("name").isBlank()) {
-            out.put("downstoxSupplementError", "Downstox returned no usable supplemental fields")
-        }
-        return out
     }
 
-
-    /**
-     * Client for the documented, normalized server-side provider gateway.
-     * Vendor secrets stay on that server; no API keys/cookies are embedded in this APK.
-     */
     private fun gatewayGet(path: String, params: Map<String, String> = emptyMap()): JSONObject {
         val base = gatewayBaseUrl()
         if (!base.startsWith("https://", ignoreCase = true)) {
@@ -482,21 +489,58 @@ private class NativeProvider {
         }
         val url = URL(urlText)
         if (url.host.isBlank() || urlText.substringAfter("://").substringBefore("/").contains("@")) throw IOException("Invalid provider gateway URL")
-        val c = url.openConnection() as HttpURLConnection
-        c.connectTimeout = 5000
-        c.readTimeout = 8000
-        c.requestMethod = "GET"
-        c.setRequestProperty("Accept", "application/json")
-        c.setRequestProperty("Cache-Control", "no-cache")
-        try {
-            val code = c.responseCode
-            if (code !in 200..299) throw IOException("Provider gateway returned HTTP $code. Check gateway health, authentication and vendor subscription.")
-            val body = c.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
-            if (body.length > 2_000_000) throw IOException("Provider gateway response exceeded the 2 MB safety limit")
-            val parsed = JSONObject(body)
-            if (parsed.optBoolean("ok", true) == false) throw IOException(parsed.optString("error", "Provider gateway reported unavailable data"))
-            return parsed.optJSONObject("data") ?: parsed
-        } finally { c.disconnect() }
+        var lastTransientError: IOException? = null
+        for (attempt in 0..2) {
+            val c = url.openConnection() as HttpURLConnection
+            c.connectTimeout = 5000
+            c.readTimeout = 8000
+            c.requestMethod = "GET"
+            c.setRequestProperty("Accept", "application/json")
+            c.setRequestProperty("Cache-Control", "no-cache")
+            try {
+                val code = c.responseCode
+                if (code == 401) throw IOException("Provider gateway returned HTTP 401 Unauthorized. Check the gateway service credentials.")
+                if (code == 403) throw IOException("Provider gateway returned HTTP 403 Forbidden. Check account permissions; access controls will not be bypassed.")
+                if (code == 429 || code in 500..599) {
+                    val error = IOException("Provider gateway returned transient HTTP $code.")
+                    if (attempt == 2) throw error
+                    lastTransientError = error
+                    val retryAfter = c.getHeaderField("Retry-After")?.toLongOrNull()?.coerceIn(0L, 2L)
+                    val delayMs = (retryAfter?.times(1000L)) ?: (500L * (attempt + 1))
+                    try {
+                        Thread.sleep(delayMs)
+                    } catch (interrupted: InterruptedException) {
+                        Thread.currentThread().interrupt()
+                        throw IOException("Provider gateway retry interrupted.", interrupted)
+                    }
+                    continue
+                }
+                if (code !in 200..299) throw IOException("Provider gateway returned HTTP $code. Check gateway health, authentication and vendor subscription.")
+                val body = c.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                if (body.length > 2_000_000) throw IOException("Provider gateway response exceeded the 2 MB safety limit")
+                val parsed = try { JSONObject(body) } catch (malformed: org.json.JSONException) {
+                    throw IOException("Provider gateway returned malformed JSON.", malformed)
+                }
+                if (parsed.optBoolean("ok", true) == false) throw IOException(parsed.optString("error", "Provider gateway reported unavailable data"))
+                return parsed.optJSONObject("data") ?: parsed
+            } catch (e: java.net.SocketTimeoutException) {
+                if (attempt == 2) throw IOException("Provider gateway timed out after three attempts.", e)
+                lastTransientError = IOException("Provider gateway timed out (attempt ${attempt + 1}/3).", e)
+            } catch (e: java.net.SocketException) {
+                if (attempt == 2) throw IOException("Provider gateway connection failed after three attempts.", e)
+                lastTransientError = IOException("Provider gateway connection failed (attempt ${attempt + 1}/3).", e)
+            } finally {
+                c.disconnect()
+            }
+            try {
+                Thread.sleep(500L * (attempt + 1))
+            } catch (interrupted: InterruptedException) {
+                Thread.currentThread().interrupt()
+                throw IOException("Provider gateway retry interrupted.", interrupted)
+            }
+        }
+        throw lastTransientError ?: IOException("Provider gateway request failed after bounded retries.")
+
     }
 
     private fun parseGatewayTime(value: String): Long {
@@ -1284,13 +1328,8 @@ private class NativeProvider {
             return out
         }
         if (!gatewayConfigured()) {
-            return try {
-                downstoxMarketIndices(specs)
-            } catch (e: Exception) {
-                unavailable("DOWNSTOX_PUBLIC_SNAPSHOT_UNAVAILABLE",
-                    "No authorized live index gateway is configured and Downstox public snapshot could not be validated: " +
-                        (e.message ?: "unknown error") + ". No other price-source fallback is used.")
-            }
+            return unavailable("NSE_INDEX_FEED_NOT_CONFIGURED",
+                "No approved NSE index-data feed is configured. Public website pages are not treated as a documented API; no third-party index snapshot is used.")
         }
         return try {
             val data = gatewayGet("/v1/indices")
@@ -1408,7 +1447,7 @@ private class NativeProvider {
         val s = canonical(raw)
         return try {
             when (p) {
-                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.81 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK").put("data", JSONObject().put("ok", true).put("providerGatewayConfigured", gatewayConfigured()).put("quoteStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_FEED_NOT_CONFIGURED").put("historyStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_HISTORY_NOT_CONFIGURED").put("indicesStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_INDEX_FEED_NOT_CONFIGURED").put("eventsStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_EVENTS_FEED_NOT_CONFIGURED").put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
+                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.83 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK").put("data", JSONObject().put("ok", true).put("providerGatewayConfigured", gatewayConfigured()).put("quoteStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_FEED_NOT_CONFIGURED").put("historyStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_HISTORY_NOT_CONFIGURED").put("indicesStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_INDEX_FEED_NOT_CONFIGURED").put("eventsStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_EVENTS_FEED_NOT_CONFIGURED").put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
                 "/api/providers/status" -> JSONObject().put("ok", true).put("data", providerStatus(raw)).toString()
                 "/api/screener/status" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
                 "/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerConnectionTest()).toString()
@@ -1481,17 +1520,16 @@ private class NativeProvider {
                         .put("method", "Peer prices and technical metrics require verified historical candles.")
                         .put("statusText", "Peer comparison is unavailable until an authorized NSE historical-data feed is configured. No third-party price history is used.")).toString()
                 "/api/news" -> {
-                    try {
-                        JSONObject().put("ok", true).put("data", downstoxAnnouncements(raw)).toString()
-                    } catch (e: Exception) {
-                        JSONObject().put("ok", true).put("data",
-                            JSONObject().put("symbol", s).put("news", JSONArray())
-                                .put("provider", "Downstox announcements unavailable")
-                                .put("marketDataStatus", "UNAVAILABLE")
-                                .put("providerError", e.message ?: "Downstox announcement feed failed")
-                                .put("statusText", "No corporate announcements could be validated. This does not mean no company events exist.")
-                        ).toString()
-                    }
+                    // Do not mix third-party announcement feeds into an NSE/Screener-only app.
+                    // NSE filings are linked as the authoritative source; no feed is claimed until
+                    // an approved, documented data-access method is implemented and validated.
+                    JSONObject().put("ok", true).put("data",
+                        JSONObject().put("symbol", s).put("news", JSONArray())
+                            .put("provider", "NSE official filings — source link")
+                            .put("marketDataStatus", "OFFICIAL_SOURCE_LINK_ONLY")
+                            .put("sourceUrl", "https://www.nseindia.com/companies-listing/corporate-filings-announcements")
+                            .put("statusText", "No embedded news feed is configured. Open the official NSE corporate announcements page to verify filings. No third-party news data is used.")
+                    ).toString()
                 }
                 "/api/company-events" -> {
                     if (gatewayConfigured()) {

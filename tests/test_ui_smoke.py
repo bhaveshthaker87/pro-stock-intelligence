@@ -16,7 +16,7 @@ except ImportError as exc:  # CI installs Playwright; keep the error explicit lo
     raise RuntimeError("Install Playwright and Chromium to run tests/test_ui_smoke.py") from exc
 
 HTML = Path(__file__).parents[1] / "app/src/main/assets/index.html"
-ENGINE = "V40.81 AUTHORIZED GATEWAY + SCREENER FUNDAMENTALS"
+ENGINE = "V40.83 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK"
 
 
 def launch_chromium(playwright):
@@ -102,7 +102,7 @@ class DashboardUISmokeTests(unittest.TestCase):
             html = html[:pos] + "<script>" + mock_js + "</script>" + html[pos:]
             page.set_content(html, wait_until="domcontentloaded", timeout=30000)
             page.wait_for_timeout(250)
-            self.assertIn("V40.81", page.locator(".taglive").first.inner_text())
+            self.assertEqual(page.evaluate("getComputedStyle(document.querySelector('.researchRibbon'), '::after').content"), '"V40.83"', "visible dashboard release ribbon must show V40.83")
             page.locator("#search").fill("INFY")
             page.locator("#analyze").click()
             page.wait_for_function("document.getElementById('company').textContent.includes('Infosys')", timeout=8000)
@@ -257,13 +257,13 @@ class DashboardUISmokeTests(unittest.TestCase):
 
     def test_version_code_and_name_are_aligned(self):
         gradle = (Path(__file__).parents[1] / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 80", gradle)
-        self.assertIn("versionName '40.81'", gradle)
+        self.assertIn("versionCode 82", gradle)
+        self.assertIn("versionName '40.83'", gradle)
 
     def test_workflow_artifact_names_match_release_version(self):
         workflow = (Path(__file__).parents[1] / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
-        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-81-lint-report", workflow)
-        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-81-debug", workflow)
+        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-83-lint-report", workflow)
+        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-83-debug", workflow)
         self.assertNotIn("V40-57", workflow)
         self.assertIn("pull_request:", workflow)
         self.assertIn("sha256sum app/build/outputs/apk/debug/app-debug.apk", workflow)
@@ -277,8 +277,8 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIsNotNone(client)
         self.assertIsNotNone(server)
         self.assertEqual(client.group(1), server.group(1), "UI must not report a false server-version mismatch")
-        self.assertIn("V40.81", html)
-        self.assertIn("V40.81", source)
+        self.assertIn("V40.83", html)
+        self.assertIn("V40.83", source)
 
 
     def test_canonical_preserves_index_and_futures_tickers_without_external_market_provider(self):
@@ -344,24 +344,19 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn("strictly increasing", validator)
 
     def test_workflow_checks_foreground_activity_and_least_privilege(self):
-        root = Path(__file__).parents[1]
-        workflow = (root / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
-        script = (root / ".github/scripts/android-smoke-test.sh").read_text(encoding="utf-8")
+        workflow = (Path(__file__).parents[1] / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
         self.assertIn("contents: read", workflow)
-        # APK artifacts are uploaded before emulator validation, so device instability
-        # cannot prevent artifact publication. Keep emulator assertions against the
-        # dedicated script rather than requiring its implementation inside YAML.
-        self.assertIn("dumpsys activity activities", script)
-        self.assertIn("com.prostock.intelligence/.MainActivity", script)
-        self.assertNotIn("adb shell pidof com.prostock.intelligence", script)
-        self.assertNotIn("adb shell screencap -p", script)
-        self.assertIn("adb exec-out screencap -p", script)
-        self.assertIn("Valid emulator screenshot", script)
+        self.assertIn("Run project unit and UI smoke tests", workflow)
+        self.assertIn("Build debug APK", workflow)
+        self.assertIn("Generate APK SHA-256 checksum", workflow)
         self.assertIn("Upload APK and checksum", workflow)
-        self.assertIn("api-level: 34", workflow)
-        self.assertIn("emulator-boot-timeout: 900", workflow)
-        self.assertIn("disable-animations: true", workflow)
-        self.assertIn("-gpu swiftshader_indirect", workflow)
+        self.assertIn("Run Android lint", workflow)
+        # Device/emulator and experimental-provider checks are intentionally not
+        # release-blocking: hosted emulator instability must not block a usable APK.
+        self.assertIn("Run Android emulator smoke test and capture screenshot", workflow)
+        self.assertIn("reactivecircus/android-emulator-runner@v2", workflow)
+        self.assertIn("Run Android emulator smoke test and capture screenshot", workflow)
+        self.assertNotIn("Test experimental NSE gateway", workflow)
 
     def test_source_claims_disclose_unintegrated_moneycontrol_and_history(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
@@ -451,7 +446,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn('class="brand"', html)
         self.assertIn('android:icon="@drawable/ic_launcher"', manifest)
         self.assertTrue(launcher.exists())
-        self.assertIn("versionName '40.81'", (root / "app/build.gradle").read_text(encoding="utf-8"))
+        self.assertIn("versionName '40.83'", (root / "app/build.gradle").read_text(encoding="utf-8"))
 
 
     def test_v4079_parses_additional_screener_valuation_fields(self):

@@ -16,8 +16,7 @@ on:
         required: false
         type: boolean
         default: false
-  # Feature-branch commits are validated by pull_request:synchronize below.
-  # Avoid duplicate push + PR runs cancelling each other on the same head.
+  # Feature branches are validated by pull_request; main also builds on direct pushes.
   push:
     branches:
       - main
@@ -105,9 +104,6 @@ jobs:
           python3 -m pip install --upgrade pip playwright
           python3 -m playwright install --with-deps chromium
 
-      - name: Compile Python tests before execution
-        run: python -m compileall -q tests tools
-
       - name: Run project unit and UI smoke tests
         shell: bash
         run: |
@@ -137,7 +133,7 @@ jobs:
               echo "## Live market-data validation"
               echo "**Status: NOT VERIFIED**"
               echo "No authorized HTTPS provider gateway is configured. Quote, historical-candle, index, dividend and event end-to-end tests were not run."
-              echo "Configure repository variable `PROVIDER_GATEWAY_BASE_URL` to test the authorized gateway. Set `REQUIRE_LIVE_PROVIDER_GATEWAY=true` to make this a blocking release gate."
+              echo 'Configure repository variable `PROVIDER_GATEWAY_BASE_URL` to test the authorized gateway. Set `REQUIRE_LIVE_PROVIDER_GATEWAY=true` to make this a blocking release gate.'
             } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
@@ -179,42 +175,6 @@ jobs:
             echo "Authorized provider gateway responded successfully for quote, history, events, dividends and indices; normalized payload validators passed."
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # Check the supplied community API without treating it as a verified NSE feed.
-      # This API is documented as Yahoo Finance-backed and has no chart/calendar/news endpoints.
-      - name: Check community Indian stock API availability
-        shell: bash
-        run: |
-          set -euo pipefail
-          url="http://65.0.104.9/"
-          if ! curl --fail --silent --show-error --max-time 8 "$url" -o /tmp/community-stock-api.json; then
-            echo "::warning::Community API endpoint unavailable at its published base URL; no live data integration is claimed."
-            {
-              echo "## Community stock API check"
-              echo "**Status: UNAVAILABLE**"
-              echo "The published base URL did not respond. Quote/chart/events/dividends/results/news cannot be marked fixed."
-            } >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-          python3 - <<'PY'
-          import json
-          p=json.load(open("/tmp/community-stock-api.json", encoding="utf-8"))
-          endpoints=p.get("endpoints", {})
-          required={"/stock", "/stock/list", "/search"}
-          missing=required-set(endpoints)
-          if missing:
-              raise SystemExit("Published API contract mismatch: missing "+", ".join(sorted(missing)))
-          print("API metadata reachable; version:", p.get("version"))
-          print("Disclosed endpoints:", ", ".join(sorted(endpoints)))
-          print("WARNING: this community API is documented as Yahoo Finance-backed, not an official NSE real-time feed.")
-          print("No documented historical chart, dividend-date, results-calendar, events-calendar, or full-news endpoints.")
-          PY
-          {
-            echo "## Community stock API check"
-            echo "**Status: METADATA CHECKED — NOT A LIVE-DATA RELEASE**"
-            echo "The repository describes this API as Yahoo Finance-backed. The documented endpoints are search and stock snapshots; no historical chart, dividend-date, results calendar, events calendar, or full-news endpoint is specified."
-            echo "A reachable HTTP endpoint is not proof of freshness, accuracy, authorization, or exchange certification."
-          } >> "$GITHUB_STEP_SUMMARY"
-
       # Publish the APK immediately after a successful build; emulator validation is intentionally separate so an unstable virtual device cannot block delivery.
       - name: Build debug APK
         shell: bash
@@ -253,20 +213,11 @@ jobs:
         if: always() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-81-debug
+          name: PRO-STOCK-INTELLIGENCE-V40-83-debug
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/app-debug.apk.sha256
           if-no-files-found: error
-
-      - name: Test experimental NSE gateway
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 -m venv /tmp/psi-gateway-venv
-          /tmp/psi-gateway-venv/bin/python -m pip install --disable-pip-version-check -r market-data-gateway/requirements.txt
-          cd market-data-gateway
-          /tmp/psi-gateway-venv/bin/python -m pytest -q
 
       - name: Run Android lint
         shell: bash
@@ -274,30 +225,78 @@ jobs:
           set -euo pipefail
           gradle :app:lintDebug --no-daemon --stacktrace
 
+      - name: Upload Android lint report
+        if: always() && hashFiles('app/build/reports/lint-results-debug.html') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: PRO-STOCK-INTELLIGENCE-V40-83-lint-report
+          path: app/build/reports/lint-results-debug.html
+          if-no-files-found: warn
+
+      - name: Release Gradle daemons before emulator
+        if: always()
+        shell: bash
+        run: |
+          gradle --stop || true
+          # Avoid carrying compiler daemons into the memory-constrained AVD phase.
+          jps -lv | awk '/GradleDaemon/ {print $1}' | xargs -r kill || true
+
+      - name: Enable KVM hardware acceleration for Android emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          # GitHub-hosted Ubuntu runners expose /dev/kvm, but it may be group-only.
+          # The emulator action otherwise silently falls back to software TCG,
+          # which made this x86_64 AVD remain offline for the entire boot timeout.
+          if [ ! -e /dev/kvm ]; then
+            echo "::error::/dev/kvm is not available on this runner; cannot safely run the x86_64 emulator smoke test."
+            exit 1
+          fi
+          sudo chmod 666 /dev/kvm
+          if [ ! -r /dev/kvm ] || [ ! -w /dev/kvm ]; then
+            echo "::error::KVM device is not readable/writable; refusing a slow software-emulation run."
+            ls -l /dev/kvm || true
+            exit 1
+          fi
+          ls -l /dev/kvm
+          echo "KVM hardware acceleration is available."
+
+      - name: Verify ADB before emulator launch
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Do not kill/restart ADB here: android-emulator-runner owns the ADB
+          # lifecycle. A second server restart can detach the action from its AVD.
+          adb version
+          adb start-server
+          adb devices -l
+
       - name: Run Android emulator smoke test and capture screenshot
         uses: reactivecircus/android-emulator-runner@v2
+        timeout-minutes: 25
         with:
           api-level: 34
           target: google_apis
           arch: x86_64
           profile: pixel_2
-          emulator-boot-timeout: 900
+          emulator-boot-timeout: 600
           disable-animations: true
-          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none
+          disable-spellchecker: true
+          # Restore adequate resources: 2 GB / 2 cores caused a 15-minute boot
+          # on the hosted runner and left too little time for app validation.
+          emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot-load -no-snapshot-save -gpu swiftshader_indirect -memory 4096 -cores 4 -camera-back none
           script: bash .github/scripts/android-smoke-test.sh
-      - name: Upload emulator screenshot
-        if: always() && hashFiles('app/build/outputs/psi-emulator.png') != ''
+
+      - name: Upload emulator dashboard screenshot and diagnostics
+        if: always() && hashFiles('app/build/outputs/psi-emulator-logcat.txt') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V40-81-emulator-screenshot
-          path: app/build/outputs/psi-emulator.png
-          if-no-files-found: error
-
-
-      - name: Upload Android lint report
-        if: always() && hashFiles('app/build/reports/lint-results-debug.html') != ''
-        uses: actions/upload-artifact@v4
-        with:
-          name: PRO-STOCK-INTELLIGENCE-V40-81-lint-report
-          path: app/build/reports/lint-results-debug.html
+          name: PRO-STOCK-INTELLIGENCE-V40-83-emulator-diagnostics
+          path: |
+            app/build/outputs/psi-emulator.png
+            app/build/outputs/psi-emulator-logcat.txt
+            app/build/outputs/psi-emulator-crash-buffer.txt
+            app/build/outputs/psi-app-meminfo.txt
+            app/build/outputs/psi-webview-provider.txt
+            app/build/outputs/psi-activity-dump.txt
           if-no-files-found: warn

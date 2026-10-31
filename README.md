@@ -192,3 +192,15 @@ This source package has static checks only. Do not rate it 10/10 or call it prod
 - CI validates quote, history, events, indices and dividends payloads, including symbol identity, timestamps, freshness, OHLC consistency, index uniqueness and dividend fields.
 - Manual workflow dispatch can require live-provider validation before a run is considered release-ready.
 - **External dependency remains:** live quotes/candles/indices/events are not verified until `PROVIDER_GATEWAY_BASE_URL` points to a deployed HTTPS adapter backed by a provider authorized for the intended use. A successful APK build is not evidence of live-data correctness.
+
+
+## V40.82 NSE/Screener-only source policy (2026-10-30)
+
+- The active fundamentals adapter now uses Screener.in only. Missing Screener fields remain missing; the app no longer fills them from a third-party fundamentals snapshot.
+- The active News route no longer calls the Downstox announcements feed. It returns an explicit official NSE corporate-announcements link and does not imply that an embedded news feed is active.
+- Quote and historical OHLCV routes remain fail-closed unless the configured HTTPS gateway returns a payload that passes the existing source, timestamp, symbol, and OHLCV validation. No NSE website scraping or third-party live-price fallback is enabled.
+- Important: this change does **not** yet implement an automatic NSE Bhavcopy / 52-week report / corporate-actions / financial-results downloader. NSE's public report pages are official human-facing sources, not a documented stable bulk API contract. The app must not guess ZIP/CSV URLs, bypass anti-bot controls, or redistribute NSE data to APK users without confirming the applicable data-use terms.
+- Existing user-selected CSV import remains the safe interim path for permitted NSE report exports. Imported files must retain report date, source, symbol, units, and raw-file provenance. No EOD import may be labelled live.
+- Before enabling automatic multi-user ingestion, obtain written confirmation from NSE that the intended non-commercial APK distribution, caching, and display to other users are permitted; then implement against a documented/approved delivery method and add real report fixtures plus parser tests.
+- Screener structured data remains subject to Screener's current terms and the user's authorized account access. HTTP 401/403 is not bypassed; authorized CSV import remains the fallback.
+- This source-policy change is not proof of a working live feed or a successful APK build. CI and data-fixture tests must pass, and actual downloaded NSE files must be tested before release.
