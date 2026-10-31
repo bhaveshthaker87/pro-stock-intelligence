@@ -242,7 +242,7 @@ jobs:
           profile: pixel_2
           emulator-boot-timeout: 900
           disable-animations: true
-          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -memory 4096 -cores 4 -camera-back none
+          emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader -memory 2048 -cores 2 -camera-back none
           script: bash .github/scripts/android-smoke-test.sh
 
       - name: Upload emulator dashboard screenshot and logcat
