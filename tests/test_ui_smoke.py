@@ -16,7 +16,7 @@ except ImportError as exc:  # CI installs Playwright; keep the error explicit lo
     raise RuntimeError("Install Playwright and Chromium to run tests/test_ui_smoke.py") from exc
 
 HTML = Path(__file__).parents[1] / "app/src/main/assets/index.html"
-ENGINE = "V40.82 AUTHORIZED GATEWAY + SCREENER FUNDAMENTALS"
+ENGINE = "V40.83 AUTHORIZED GATEWAY + SCREENER FUNDAMENTALS"
 
 
 def launch_chromium(playwright):
@@ -102,7 +102,7 @@ class DashboardUISmokeTests(unittest.TestCase):
             html = html[:pos] + "<script>" + mock_js + "</script>" + html[pos:]
             page.set_content(html, wait_until="domcontentloaded", timeout=30000)
             page.wait_for_timeout(250)
-            self.assertIn("V40.82", page.locator(".taglive").first.inner_text())
+            self.assertIn("V40.83", page.locator(".taglive").first.inner_text())
             page.locator("#search").fill("INFY")
             page.locator("#analyze").click()
             page.wait_for_function("document.getElementById('company').textContent.includes('Infosys')", timeout=8000)
@@ -277,8 +277,8 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIsNotNone(client)
         self.assertIsNotNone(server)
         self.assertEqual(client.group(1), server.group(1), "UI must not report a false server-version mismatch")
-        self.assertIn("V40.82", html)
-        self.assertIn("V40.82", source)
+        self.assertIn("V40.83", html)
+        self.assertIn("V40.83", source)
 
 
     def test_canonical_preserves_index_and_futures_tickers_without_external_market_provider(self):
