@@ -22,7 +22,7 @@ from urllib.parse import urljoin, urlparse
 from convert_nse_udiff_bhavcopy import OUTPUT_FIELDS, parse_bhavcopy_zip
 
 REPORTS_URL = "https://www.nseindia.com/all-reports"
-REPORT_RE = re.compile(r"BhavCopy_NSE_CM_0_0_0_(\\d{8})_F_0000\\.csv\\.zip", re.I)
+REPORT_RE = re.compile(r"BhavCopy_NSE_CM_0_0_0_(\d{8})_F_0000\.csv\.zip", re.I)
 USER_AGENT = "Mozilla/5.0 (compatible; ProStockIntelligence-EOD/1.0)"
 
 
