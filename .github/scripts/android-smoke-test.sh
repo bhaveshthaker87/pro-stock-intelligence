@@ -21,9 +21,9 @@ service_check() {
   local attempt
   for attempt in 1 2 3 4 5 6 7 8 9 10; do
     if [[ "$kind" == "package" ]]; then
-      # Check the Android package service and verify that the app is installed.
-      adb shell service check package 2>/dev/null | grep -qi "found" &&
-        adb shell cmd package list packages 2>/dev/null | grep -q "package:${PACKAGE}" && return 0
+      # Before installation, check only that Package Manager is published.
+      # App-installed validation belongs after adb install below.
+      adb shell service check package 2>/dev/null | grep -qi "found" && return 0
     else
       adb shell service check activity 2>/dev/null | grep -qi "found" && return 0
     fi
@@ -75,6 +75,13 @@ for attempt in 1 2 3 4; do
   sleep 5
 done
 if [[ "$installed" -ne 1 ]]; then echo "APK installation failed after 4 attempts"; adb logcat -d -t 1200 || true; exit 1; fi
+
+# Verify the fresh install only after adb install has succeeded.
+if ! adb shell cmd package list packages 2>/dev/null | grep -q "package:${PACKAGE}"; then
+  echo "APK install command returned success but package ${PACKAGE} is not registered"
+  adb logcat -d -t 1200 || true
+  exit 1
+fi
 
 adb shell am force-stop "$PACKAGE" || true
 adb logcat -c
