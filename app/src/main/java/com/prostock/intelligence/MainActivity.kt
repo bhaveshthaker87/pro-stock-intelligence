@@ -134,10 +134,9 @@ class MainActivity : Activity() {
                 super.onPageCommitVisible(view, url)
                 Log.e("PSI_STARTUP", "PAGE_COMMIT_VISIBLE $url")
             }
-            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
-                super.onReceivedError(view, request, error)
-                Log.e("PSI_WEB", "LOAD_ERROR mainFrame=${request.isForMainFrame} code=${error.errorCode} description=${error.description} url=${request.url}")
-            }
+            // WebViewClientCompat marks the API-23 WebResourceRequest overload final.
+            // Keep HTTP and renderer diagnostics here; page-load failures remain visible
+            // through onPageStarted/onPageFinished and the dashboard readiness timeout.
             override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
                 super.onReceivedHttpError(view, request, response)
                 Log.e("PSI_WEB", "HTTP_ERROR mainFrame=${request.isForMainFrame} status=${response.statusCode} url=${request.url}")
