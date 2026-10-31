@@ -34,7 +34,29 @@ service_check() {
   return 1
 }
 
+# The emulator action can report "booted" before system_server has finished
+# publishing package/activity services. Do not send key events or install while
+# those services are absent: that caused Broken pipe / "Can't find service"
+# failures before the app was ever launched.
+adb wait-for-device
+boot_ready=0
+for attempt in $(seq 1 60); do
+  boot_state="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r' || true)"
+  if [[ "$boot_state" == "1" ]] &&
+     adb shell service check package 2>/dev/null | grep -qi "found" &&
+     adb shell service check activity 2>/dev/null | grep -qi "found"; then
+    boot_ready=1
+    break
+  fi
+  sleep 3
+done
+if [[ "$boot_ready" -ne 1 ]]; then
+  echo "Android system services did not become ready; refusing to attempt APK install"
+  adb logcat -d -t 3000 || true
+  exit 1
+fi
 service_check activity
+service_check package
 # Wake and dismiss the emulator lock screen before launching the dashboard.
 # Some headless AVD snapshots report the Activity as resumed while the keyguard
 # is still showing, which makes the DOM smoke test a false failure.
@@ -54,7 +76,6 @@ for attempt in 1 2 3 4; do
 done
 if [[ "$installed" -ne 1 ]]; then echo "APK installation failed after 4 attempts"; adb logcat -d -t 1200 || true; exit 1; fi
 
-service_check package
 adb shell am force-stop "$PACKAGE" || true
 adb logcat -c
 adb shell am start -W -n "$ACTIVITY"
