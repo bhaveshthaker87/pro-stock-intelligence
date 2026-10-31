@@ -190,7 +190,11 @@ class MainActivity : Activity() {
         filePathCallback?.onReceiveValue(null)
         filePathCallback = null
         if (::web.isInitialized) {
+            // WebView must be detached from its parent before destroy(); destroying an
+            // attached WebView can leave renderer resources and Activity windows behind.
+            (web.parent as? android.view.ViewGroup)?.removeView(web)
             web.stopLoading()
+            web.webChromeClient = null
             web.webViewClient = WebViewClient()
             web.destroy()
         }
