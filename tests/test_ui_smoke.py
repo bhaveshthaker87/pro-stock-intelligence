@@ -102,7 +102,7 @@ class DashboardUISmokeTests(unittest.TestCase):
             html = html[:pos] + "<script>" + mock_js + "</script>" + html[pos:]
             page.set_content(html, wait_until="domcontentloaded", timeout=30000)
             page.wait_for_timeout(250)
-            self.assertIn("V40.83", page.locator(".taglive").first.inner_text())
+            self.assertEqual(page.evaluate("getComputedStyle(document.querySelector('.researchRibbon'), '::after').content"), '"V40.83"', "visible dashboard release ribbon must show V40.83")
             page.locator("#search").fill("INFY")
             page.locator("#analyze").click()
             page.wait_for_function("document.getElementById('company').textContent.includes('Infosys')", timeout=8000)
