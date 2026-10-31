@@ -19,7 +19,7 @@ except ImportError as exc:  # CI installs Playwright; keep the error explicit lo
 ROOT = Path(__file__).parents[1]
 HTML = ROOT / "app/src/main/assets/index.html"
 _GRADLE = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-VERSION_CODE = re.search(r"versionCode (\\d+)", _GRADLE).group(1)
+VERSION_CODE = re.search(r"versionCode (\d+)", _GRADLE).group(1)
 VERSION_NAME = re.search(r"versionName '([^']+)'", _GRADLE).group(1)
 VERSION_TAG = f"V{VERSION_NAME}"
 ENGINE = f"{VERSION_TAG} AUTHORIZED GATEWAY + CSV OHLCV FALLBACK"
