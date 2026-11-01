@@ -11,6 +11,9 @@ class BundledNseEodTests(unittest.TestCase):
         self.assertIn('target="app/src/main/assets/nse-eod"', workflow)
         self.assertIn('row.get("marketDataStatus") != "EOD"', workflow)
         self.assertIn("tracked-symbol NSE EOD rows", workflow)
+        self.assertIn("Acquire official NSE EOD history when repository cache is empty", workflow)
+        self.assertIn("Refusing to publish an APK that claims EOD history support", workflow)
+        self.assertIn("if total == 0 or count_files(root) == 0", workflow)
 
     def test_android_provider_reads_only_official_eod_rows(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
