@@ -31,8 +31,10 @@ class BundledNseEodTests(unittest.TestCase):
 
     def test_gateway_validation_failure_does_not_downgrade_to_eod(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn('if (gatewayConfigured()) nseQuote(raw) else eodQuote(raw)', source)
-        self.assertIn('if (gatewayConfigured()) nseQuote(raw) else eodQuote(raw)', source)
+        self.assertIn('if (gatewayConfigured()) {\n                            nseQuote(raw)\n                        } else {', source)
+        self.assertIn('Configured provider gateway failed validation; price is unavailable. No fallback is used.', source)
+        self.assertIn('Yahoo Finance unavailable', source)
+        self.assertIn('eodQuote(raw)', source)
 
 
 if __name__ == "__main__":
