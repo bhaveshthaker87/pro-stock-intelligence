@@ -24,7 +24,7 @@ android {
         applicationId 'com.prostock.intelligence'
         minSdk 26
         targetSdk 35
-        versionCode 85; versionName '40.86'
+        versionCode 86; versionName '40.87'
         buildConfigField 'String', 'PROVIDER_GATEWAY_BASE_URL', '"' + (providers.gradleProperty('providerGatewayBaseUrl').getOrElse('')) + '"'
     }
 
