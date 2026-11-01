@@ -15,13 +15,15 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-node@v4
         with:
-          python-version: '3.12'
+          node-version: '22'
+      - name: Install official MCP client SDK
+        run: npm install --no-save @modelcontextprotocol/sdk
       - name: Probe official NSE MCP (no credentials)
         run: |
           set -euo pipefail
-          python3 tools/probe_nse_cm_mcp.py | tee nse-mcp-probe.json
+          node tools/probe_nse_cm_mcp.mjs | tee nse-mcp-probe.json
       - name: Upload probe evidence
         if: always()
         uses: actions/upload-artifact@v4
