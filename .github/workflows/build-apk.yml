@@ -295,6 +295,11 @@ jobs:
         shell: bash
         env:
           PROVIDER_GATEWAY_BASE_URL: ${{ vars.PROVIDER_GATEWAY_BASE_URL }}
+          # Step-scoped secrets must be re-exposed here: GITHUB_ENV only persists
+          # PSI_KEYSTORE_FILE, not the secrets from the earlier preparation step.
+          PSI_KEYSTORE_PASSWORD: ${{ secrets.PSI_KEYSTORE_PASSWORD }}
+          PSI_KEY_ALIAS: ${{ secrets.PSI_KEY_ALIAS }}
+          PSI_KEY_PASSWORD: ${{ secrets.PSI_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           # Maven Central can temporarily throttle hosted runners (HTTP 429).
