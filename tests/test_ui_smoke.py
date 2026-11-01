@@ -245,7 +245,8 @@ class DashboardUISmokeTests(unittest.TestCase):
     def test_quote_data_disclaimer_is_explicit(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("marketDataDisclaimer", source)
-        self.assertIn("No bundled official NSE EOD close exists and no authorized live feed is configured", source)
+        self.assertIn("Yahoo Finance and bundled official NSE EOD data are unavailable; no price is fabricated.", source)
+        self.assertIn("Configured provider gateway failed validation; price is unavailable. No fallback is used.", source)
         self.assertIn("Official NSE EOD closing price", source)
         self.assertIn("Not live, delayed or intraday", source)
 
