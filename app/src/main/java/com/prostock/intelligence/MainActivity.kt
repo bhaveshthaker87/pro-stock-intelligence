@@ -1164,21 +1164,23 @@ private class NativeProvider(private val appAssets: AssetManager) {
                 appAssets.open("nse-eod/$file").bufferedReader(Charsets.UTF_8).useLines { lines ->
                     val iterator = lines.iterator()
                     if (!iterator.hasNext()) return@useLines
-                    val header = iterator.next().split(',').map { it.trim() }
+                    // Strip UTF-8 BOM and normalize headers so an otherwise valid NSE file
+                    // is not silently ignored because of BOM/case/whitespace differences.
+                    val header = iterator.next().removePrefix("\uFEFF").split(',').map { it.trim().trim('"').lowercase(Locale.ROOT) }
                     val index = header.withIndex().associate { it.value to it.index }
-                    val required = listOf("symbol", "date", "open", "high", "low", "close", "volume", "marketDataStatus")
+                    val required = listOf("symbol", "date", "open", "high", "low", "close", "volume", "marketdatastatus")
                     if (required.any { !index.containsKey(it) }) return@useLines
                     while (iterator.hasNext()) {
                         val cells = iterator.next().split(',')
-                        fun field(name: String): String = cells.getOrNull(index[name] ?: -1)?.trim().orEmpty()
-                        if (field("symbol").uppercase(Locale.ROOT) != symbol || field("marketDataStatus") != "EOD") continue
-                        val day = field("date")
+                        fun field(name: String): String = cells.getOrNull(index[name] ?: -1)?.trim()?.trim('"').orEmpty()
+                        if (field("symbol").uppercase(Locale.ROOT) != symbol || field("marketdatastatus").uppercase(Locale.ROOT) != "EOD") continue
+                        val day = field("date").take(10)
                         val date = try { java.time.LocalDate.parse(day) } catch (_: Exception) { continue }
-                        val o = field("open").toDoubleOrNull() ?: continue
-                        val h = field("high").toDoubleOrNull() ?: continue
-                        val l = field("low").toDoubleOrNull() ?: continue
-                        val c = field("close").toDoubleOrNull() ?: continue
-                        val v = field("volume").toDoubleOrNull() ?: continue
+                        val o = field("open").replace(",", "").toDoubleOrNull() ?: continue
+                        val h = field("high").replace(",", "").toDoubleOrNull() ?: continue
+                        val l = field("low").replace(",", "").toDoubleOrNull() ?: continue
+                        val c = field("close").replace(",", "").toDoubleOrNull() ?: continue
+                        val v = field("volume").replace(",", "").toDoubleOrNull() ?: continue
                         if (listOf(o,h,l,c,v).any { !it.isFinite() } || minOf(o,h,l,c) <= 0.0 || v < 0.0 || h < maxOf(o,c,l) || l > minOf(o,c,h)) continue
                         val epoch = date.atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
                         byDate[day] = JSONObject().put("time", epoch).put("date", epoch).put("tradingDate", day)
