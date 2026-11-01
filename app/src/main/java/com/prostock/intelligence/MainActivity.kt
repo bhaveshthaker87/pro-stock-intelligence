@@ -1218,6 +1218,40 @@ private class NativeProvider(private val appAssets: AssetManager) {
         return out
     }
 
+    /** Build peer rows only where both companies have validated bundled NSE EOD closes. */
+    private fun peerComparison(symbol: String): JSONObject {
+        val sector = stockSector(symbol)
+        val candidates = stocks.filter { it.symbol != symbol && it.sector == sector }
+        val rows = JSONArray()
+        var candidateCount = 0
+        candidates.forEach { peer ->
+            candidateCount++
+            val history = readBundledNseEod(peer.symbol)
+            if (history.length() == 0) return@forEach
+            val latest = history.optJSONObject(history.length() - 1) ?: return@forEach
+            val close = latest.optDouble("close", Double.NaN)
+            if (!close.isFinite() || close <= 0.0) return@forEach
+            val previous = if (history.length() > 1) history.optJSONObject(history.length() - 2) else null
+            val previousClose = previous?.optDouble("close", Double.NaN) ?: Double.NaN
+            val changePct = if (previousClose.isFinite() && previousClose > 0.0) ((close - previousClose) / previousClose) * 100.0 else Double.NaN
+            val row = JSONObject().put("symbol", peer.symbol).put("name", peer.name).put("sector", sector)
+                .put("price", close).put("period", latest.optString("tradingDate"))
+                .put("source", "NSE CM-UDiFF Common Bhavcopy Final")
+                .put("marketDataType", "NSE_EOD").put("priceStatus", "OFFICIAL_EOD_CLOSE")
+                .put("quoteTimestamp", latest.optLong("time") / 1000L)
+                .put("changePct", if (changePct.isFinite()) changePct else JSONObject.NULL)
+                .put("pe", JSONObject.NULL).put("marketCap", JSONObject.NULL)
+                .put("roce", JSONObject.NULL).put("roe", JSONObject.NULL).put("eps", JSONObject.NULL)
+            rows.put(row)
+        }
+        return JSONObject().put("symbol", symbol).put("industry", sector).put("peers", rows)
+            .put("candidateCount", candidateCount).put("validatedCount", rows.length())
+            .put("partial", rows.length() < candidateCount)
+            .put("provider", "NSE CM-UDiFF Common Bhavcopy Final")
+            .put("marketDataType", "NSE_EOD")
+            .put("statusText", "Peer closes are official NSE daily EOD prices only. P/E, market cap, ROCE, ROE and EPS are not inferred; import a dated Screener peer export for fundamentals.")
+    }
+
     private fun htmlEntities(s: String): String = s.replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<")
         .replace("&gt;", ">").replace("&quot;", "\"").replace("&#39;", "'").replace(Regex("\\s+"), " ").trim()
 
@@ -1646,11 +1680,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
                     JSONObject().put("ok", true).put("data", data).toString()
                 }
                 "/api/resolve-stock" -> JSONObject().put("ok", true).put("data", JSONObject().put("symbol", s).put("name", stockName(s)).put("sector", stockSector(s))).toString()
-                "/api/peers" -> JSONObject().put("ok", true).put("data",
-                    JSONObject().put("symbol", s).put("industry", stockSector(s)).put("peers", JSONArray())
-                        .put("candidateCount", 0).put("validatedCount", 0).put("partial", true)
-                        .put("method", "Peer prices and technical metrics require verified historical candles.")
-                        .put("statusText", "Peer comparison is unavailable until an authorized NSE historical-data feed is configured. No third-party price history is used.")).toString()
+                "/api/peers" -> JSONObject().put("ok", true).put("data", peerComparison(s)).toString()
                 "/api/news" -> {
                     // Do not mix third-party announcement feeds into an NSE/Screener-only app.
                     // NSE filings are linked as the authoritative source; no feed is claimed until
