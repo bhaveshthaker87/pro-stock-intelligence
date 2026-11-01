@@ -1323,7 +1323,7 @@ function psiRenderPeers(rows){
  const cols=isEod?[['EOD Close','price','₹'],['Day change','changePct','%'],['P/E','pe','x'],['Market Cap','marketCap',' Cr'],['ROCE','roce','%'],['ROE','roe','%'],['EPS','eps','₹']]:[['CMP','price','₹'],['P/E','pe','x'],['Market Cap','marketCap',' Cr'],['ROCE','roce','%'],['ROE','roe','%'],['EPS','eps','₹']];
  const periodLabel=isEod?'NSE EOD date':'Period';
  const source=rows[0]?.source||'CSV import';
- const status=isEod?'Official NSE EOD peer closes • fundamentals not supplied by bhavcopy':'Imported peer snapshot • verify reporting period before comparison';
+ const status=isEod?'Official NSE EOD peer closes • fundamentals not supplied by bhavcopy':'imported peer snapshot; verify period before comparison • imported figures require period review';
  $('peersDetail').innerHTML='<div class="peerstatus">'+rows.length+' validated peer EOD rows • '+status+'</div><div class="peertablewrap"><table class="peertable"><thead><tr><th>Company</th>'+cols.map(c=>'<th>'+c[0]+'</th>').join('')+'<th>'+periodLabel+'</th></tr></thead><tbody>'+rows.map(x=>'<tr><td class="peername">'+safename(x.name||x.symbol)+'</td>'+cols.map(c=>'<td>'+fmt(x[c[1]],c[2])+'</td>').join('')+'<td>'+safename(x.period||'Not specified')+'</td></tr>').join('')+'</tbody></table></div><div class="lookupMeta">Source: '+safename(source)+' • '+(isEod?'Daily closing data only; not live. Missing fundamentals remain unavailable.':'Imported data is not live.')+'</div>';
 }
 function psiImportPeerFile(file){
