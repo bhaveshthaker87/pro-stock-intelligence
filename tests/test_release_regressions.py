@@ -425,18 +425,16 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("has invalid value/changePct; snapshot rejected", source)
 
 
-    def test_screener_login_opens_official_page_before_probing_and_stops_after_403(self):
+    def test_screener_login_uses_explicit_sign_in_then_check_flow(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
-        handler_start = html.index("$('session').onclick=async()=>{")
-        handler_end = html.index("window.refreshScreenerStatus=refreshScreenerStatus;", handler_start)
-        handler = html[handler_start:handler_end]
-        self.assertLess(handler.index("api('/api/screener/status'"), handler.index("api('/api/screener/connect'"))
-        self.assertLess(handler.index("if(!current.cookieDetected)"), handler.index("api('/api/screener/connect'"))
-        self.assertIn("https://www.screener.in/login/", handler)
-        self.assertIn("Screener Access Denied (403)", handler)
-        self.assertIn("Re-login once", handler)
-        self.assertIn("use permitted CSV import or authorized access", handler)
-        self.assertIn("Refusing an unexpected login URL", handler)
+        self.assertIn("$('session').onclick=()=>{$('dataSourcesModal')?.classList.add('open')", html)
+        self.assertIn("$('screenerSignInBtn')?.addEventListener('click',()=>{window.location.href='https://www.screener.in/login/';})", html)
+        self.assertIn("$('screenerCheckBtn')?.addEventListener('click',async()=>", html)
+        self.assertIn("api('/api/screener/connect',9000)", html)
+        self.assertIn("Access blocked (403). Stop retrying.", html)
+        self.assertIn("Use the authorized Screener Excel/CSV export below.", html)
+        self.assertIn("Your password is entered only on Screener's official page", html)
+        self.assertNotIn("password", html[html.index("screenerConnectCard"):html.index("screenerConnectCard")+1000].lower().replace("password is entered only on screener's official page",""))
 
     def test_provider_validator_supports_every_gateway_payload_type(self):
         import subprocess
