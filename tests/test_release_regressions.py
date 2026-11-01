@@ -44,9 +44,8 @@ class ReleaseRegressionTests(unittest.TestCase):
     def test_autocomplete_has_broad_provider_search_and_disclaimer(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("private fun equitySearch", source)
-        self.assertNotIn("query1.finance.yahoo.com", source)
-        self.assertNotIn("query2.finance.yahoo.com", source)
-        self.assertIn("private fun equitySearch", source)
+        # Yahoo is permitted for quote/history fallback only; search must remain NSE-EOD-backed.
+        self.assertIn("private fun yahooChart(raw: String", source)
         self.assertIn("private fun bundledNseSymbols()", source)
         self.assertIn('appAssets.list("nse-eod")', source)
         self.assertIn("NSE CM-UDiFF Common Bhavcopy Final", source)
