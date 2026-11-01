@@ -5,6 +5,20 @@ import unittest
 ROOT = Path(__file__).parents[1]
 
 class ReleaseRegressionTests(unittest.TestCase):
+    def test_signed_release_requires_provider_gateway_and_android_signing_secrets(self):
+        workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
+        gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
+        self.assertIn("build_signed_release:", workflow)
+        self.assertIn("PSI_KEYSTORE_BASE64", workflow)
+        self.assertIn("PSI_KEYSTORE_PASSWORD", workflow)
+        self.assertIn("PSI_KEY_ALIAS", workflow)
+        self.assertIn("PSI_KEY_PASSWORD", workflow)
+        self.assertIn("apksigner verify --verbose", workflow)
+        self.assertIn("assembleRelease", workflow)
+        self.assertIn("build_signed_release", workflow)
+        self.assertIn("signingConfigs", gradle)
+        self.assertIn("signingConfig signingConfigs.release", gradle)
+
     def test_emulator_smoke_waits_for_android_services_and_retries_transient_install(self):
         workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
         script = (ROOT / ".github/scripts/android-smoke-test.sh").read_text(encoding="utf-8")

@@ -4,11 +4,38 @@ dependencies {
     implementation 'androidx.webkit:webkit:1.12.1'
 }
 
-android { namespace 'com.prostock.intelligence'; compileSdk 35
-    buildFeatures { buildConfig true }
-    defaultConfig { applicationId 'com.prostock.intelligence'; minSdk 26; targetSdk 35; versionCode 83; versionName '40.84'
-        buildConfigField 'String', 'PROVIDER_GATEWAY_BASE_URL', '"' + (providers.gradleProperty('providerGatewayBaseUrl').getOrElse('')) + '"' }
+android {
+    namespace 'com.prostock.intelligence'
+    compileSdk 35
 
+    signingConfigs {
+        release {
+            def keystorePath = System.getenv('PSI_KEYSTORE_FILE')
+            if (keystorePath) {
+                storeFile file(keystorePath)
+                storePassword System.getenv('PSI_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('PSI_KEY_ALIAS')
+                keyPassword System.getenv('PSI_KEY_PASSWORD')
+            }
+        }
+    }
+    buildFeatures { buildConfig true }
+    defaultConfig {
+        applicationId 'com.prostock.intelligence'
+        minSdk 26
+        targetSdk 35
+        versionCode 83; versionName '40.84'
+        buildConfigField 'String', 'PROVIDER_GATEWAY_BASE_URL', '"' + (providers.gradleProperty('providerGatewayBaseUrl').getOrElse('')) + '"'
+    }
+
+    buildTypes {
+        release {
+            if (System.getenv('PSI_KEYSTORE_FILE')) {
+                signingConfig signingConfigs.release
+            }
+            minifyEnabled false
+        }
+    }
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
