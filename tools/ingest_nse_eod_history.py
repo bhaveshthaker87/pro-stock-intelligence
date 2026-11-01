@@ -107,7 +107,7 @@ def ingest(output_root: Path, html: str | None = None, zip_payload: bytes | None
     writer.writeheader()
     writer.writerows(rows)
     csv_text = stream.getvalue()
-    if daily_path.exists() and daily_path.read_text(encoding="utf-8") != csv_text:
+    if daily_path.exists() and daily_path.read_bytes() != csv_text.encode("utf-8"):
         raise ValueError(f"Refusing to overwrite different history for {trading_date}")
     daily_path.write_text(csv_text, encoding="utf-8", newline="")
     timestamp = (fetched_at or datetime.now(timezone.utc)).astimezone(timezone.utc).isoformat()
