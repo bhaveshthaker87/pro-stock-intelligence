@@ -4,12 +4,13 @@ import sys
 import tempfile
 import unittest
 import zipfile
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from unittest.mock import patch
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from ingest_nse_eod_history import discover_report_url, ingest
+from ingest_nse_eod_history import discover_report_url, ingest, probe_archive_for_latest_report
 
 HEADERS = "TradDt,TckrSymb,SctySrs,OpnPric,HghPric,LwPric,ClsPric,TtlTradgVol\n"
 CSV = HEADERS + "2026-10-30,INFY,EQ,1500,1510,1490,1505,98765\n"
@@ -51,6 +52,21 @@ class NseEodHistoryTests(unittest.TestCase):
         html = '<div data-report-url="https://example.com/BhavCopy_NSE_CM_0_0_0_20261030_F_0000.csv.zip">CM-UDiFF</div>'
         with self.assertRaisesRegex(ValueError, "did not expose"):
             discover_report_url(html)
+
+    def test_archive_probe_uses_latest_valid_official_trading_day(self):
+        expected = "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261030_F_0000.csv.zip"
+
+        def fake_get(url, timeout=30):
+            if url == expected:
+                return zipped()
+            raise ValueError("not a valid report")
+
+        with patch("ingest_nse_eod_history._get", side_effect=fake_get):
+            url, payload, rows = probe_archive_for_latest_report(date(2026, 10, 31), days=3)
+
+        self.assertEqual(url, expected)
+        self.assertTrue(payload.startswith(b"PK"))
+        self.assertEqual(rows[0]["date"], "2026-10-30")
 
     def test_persists_idempotent_daily_history_and_manifest(self):
         html = '<a href="/BhavCopy_NSE_CM_0_0_0_20261030_F_0000.csv.zip">CM-UDiFF Common Bhavcopy Final</a>'
