@@ -243,7 +243,9 @@ class DashboardUISmokeTests(unittest.TestCase):
     def test_quote_data_disclaimer_is_explicit(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("marketDataDisclaimer", source)
-        self.assertIn("No authorized NSE real-time feed is configured", source)
+        self.assertIn("No bundled official NSE EOD close exists and no authorized live feed is configured", source)
+        self.assertIn("Official NSE EOD closing price", source)
+        self.assertIn("Not live, delayed or intraday", source)
 
 
     def test_provider_wording_does_not_claim_unverified_quotes_are_live(self):
