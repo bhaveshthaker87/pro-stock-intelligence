@@ -182,6 +182,20 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       # Publish the APK immediately after a successful build; emulator validation is intentionally separate so an unstable virtual device cannot block delivery.
+      - name: Acquire official NSE EOD history when repository cache is empty
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p data/nse/eod
+          if ! find data/nse/eod -maxdepth 1 -type f -name '????-??-??.csv' -print -quit | grep -q .; then
+            echo "No committed NSE EOD cache found; attempting official NSE All Reports ingestion."
+            python3 tools/ingest_nse_eod_history.py --output-dir data/nse/eod
+          fi
+          test -n "$(find data/nse/eod -maxdepth 1 -type f -name '????-??-??.csv' -print -quit)" || {
+            echo "::error::No official NSE EOD CSV was acquired. Refusing to publish an APK that claims EOD history support."
+            exit 1
+          }
+
       - name: Bundle validated official NSE EOD history into Android assets
         shell: bash
         run: |
@@ -222,6 +236,8 @@ jobs:
               total += len(rows)
           def count_files(p): return len(list(p.glob("*.csv")))
           print(f"Validated {total} tracked-symbol NSE EOD rows across {count_files(root)} daily files.")
+          if total == 0 or count_files(root) == 0:
+              raise SystemExit("No tracked-symbol official NSE EOD rows available; refusing an empty-data APK build.")
           PY
 
       - name: Build debug APK
