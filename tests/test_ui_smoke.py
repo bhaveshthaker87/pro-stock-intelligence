@@ -144,6 +144,10 @@ class DashboardUISmokeTests(unittest.TestCase):
             self.assertLess(chart_check["sma200Error"], 1e-6, chart_check)
             self.assertLess(chart_check["rsiError"], 1e-6, chart_check)
             self.assertTrue(chart_check["rsiRange"], chart_check)
+            # Advanced navigation is intentionally hidden on the simple first screen.
+            # Open it through the real user control before exercising advanced tabs.
+            page.locator("#psiEasyToggle").click()
+            page.wait_for_function("!document.body.classList.contains('psi-easy-mode')")
             self.assertEqual(page.locator(".tab").count(), 6)
             for tab in page.locator(".tab").all():
                 tab.click()
@@ -422,6 +426,10 @@ class DashboardUISmokeTests(unittest.TestCase):
             pos = html.find('<script')
             html = html[:pos] + '<script>' + mock_js + '</script>' + html[pos:]
             page.set_content(html, wait_until="domcontentloaded", timeout=30000)
+            # CSV import remains an optional advanced recovery tool; it is never
+            # required for automatic quote/fundamental loading on the first screen.
+            page.locator("#psiEasyToggle").click()
+            page.wait_for_function("!document.body.classList.contains('psi-easy-mode')")
             page.locator('#dataSourcesBtn').click()
             self.assertTrue(page.locator('#dataSourcesModal').is_visible())
             page.locator('#csvSource').select_option('Screener.in CSV')
