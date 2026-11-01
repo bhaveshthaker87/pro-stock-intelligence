@@ -128,10 +128,13 @@ class ReleaseRegressionTests(unittest.TestCase):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
         workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
+        version_name = re.search(r"versionName '([^']+)'", gradle).group(1)
+        version_tag = f"V{version_name}"
+        artifact_tag = version_tag.replace(".", "-")
         self.assertNotIn("versionCode 88; versionName '40.89'", gradle)
         self.assertIn(f"{version_tag} AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", html)
         self.assertIn(f"{version_tag} AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", source)
-        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-89-debug", workflow)
+        self.assertIn(f"PRO-STOCK-INTELLIGENCE-{artifact_tag}-debug", workflow)
 
     def test_screener_xlsx_maps_infosys_ltd_company_name_to_nse_symbol(self):
         importer = (ROOT / "app/src/main/assets/xlsx-import.js").read_text(encoding="utf-8")
