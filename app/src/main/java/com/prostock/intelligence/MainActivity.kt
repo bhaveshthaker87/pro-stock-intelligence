@@ -1249,7 +1249,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
             .put("partial", rows.length() < candidateCount)
             .put("provider", "NSE CM-UDiFF Common Bhavcopy Final")
             .put("marketDataType", "NSE_EOD")
-            .put("statusText", "Peer closes are official NSE daily EOD prices only. P/E, market cap, ROCE, ROE and EPS are not inferred; import a dated Screener peer export for fundamentals.")
+            .put("statusText", "Peer closes are official NSE daily EOD prices only. Fundamentals are not inferred: P/E, market cap, ROCE, ROE and EPS remain unavailable unless a dated Screener peer export is imported.")
     }
 
     private fun htmlEntities(s: String): String = s.replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<")
