@@ -45,7 +45,10 @@ def main():
                    "serverInfo":init.get("result",{}).get("serverInfo"),
                    "sessionIdReceived":bool(session)})
     # tools/list is the decisive compatibility check; no notification required.
-    protocol = init.get("result",{}).get("protocolVersion") or "2025-03-26"\n    _, session, _, listed = post({"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}},session,protocol)
+    protocol = init.get("result",{}).get("protocolVersion") or "2025-03-26"
+    # Complete the MCP initialization handshake before listing tools.
+    post({"jsonrpc":"2.0","method":"notifications/initialized"},session,protocol)
+    _, session, _, listed = post({"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}},session,protocol)
     tools = listed.get("result",{}).get("tools",[])
     report["toolNames"] = [t.get("name") for t in tools]
     tool = next((t for t in tools if t.get("name")=="cm_get_stock_quote"),None)
