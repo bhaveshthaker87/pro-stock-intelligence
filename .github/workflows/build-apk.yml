@@ -217,28 +217,42 @@ jobs:
           python3 - "$target" <<'PY'
           import csv, pathlib, sys
           root=pathlib.Path(sys.argv[1])
-          tracked = {"INFY","TCS","HCLTECH","WIPRO","TECHM","LTIM","RELIANCE","HDFCBANK","ICICIBANK","SBIN","AXISBANK","KOTAKBANK","BAJFINANCE","MARUTI","TATAMOTORS","TATASTEEL","NTPC","POWERGRID","SUNPHARMA","ITC","HINDUNILVR","TITAN","BEL","HAL","TRENT","PERSISTENT","TATAELXSI","DIXON"}
           total=0
+          symbols=set()
           for path in sorted(root.glob("*.csv")):
               with path.open(newline="", encoding="utf-8") as f:
                   reader=csv.DictReader(f)
                   fields=reader.fieldnames or []
-                  rows=[row for row in reader if row.get("symbol","").upper() in tracked]
+                  rows=list(reader)
               if not rows:
                   path.unlink()
                   continue
+              seen=set()
               for row in rows:
-                  if row.get("marketDataStatus") != "EOD" or not row.get("symbol") or not row.get("date"):
+                  symbol=row.get("symbol","").strip().upper()
+                  if row.get("marketDataStatus") != "EOD" or not symbol or not row.get("date"):
                       raise SystemExit(f"Invalid NSE EOD row in {path.name}")
+                  if symbol in seen:
+                      raise SystemExit(f"Duplicate symbol {symbol} in {path.name}")
+                  seen.add(symbol)
+                  for field in ("open","high","low","close"):
+                      try: value=float(row[field])
+                      except (KeyError,TypeError,ValueError): raise SystemExit(f"Invalid {field} in {path.name} for {symbol}")
+                      if value <= 0: raise SystemExit(f"Non-positive {field} in {path.name} for {symbol}")
+                  if float(row["high"]) < max(float(row["open"]),float(row["close"]),float(row["low"])):
+                      raise SystemExit(f"Invalid high/low range in {path.name} for {symbol}")
+                  if float(row["low"]) > min(float(row["open"]),float(row["close"]),float(row["high"])):
+                      raise SystemExit(f"Invalid low/high range in {path.name} for {symbol}")
+                  symbols.add(symbol)
               with path.open("w", newline="", encoding="utf-8") as f:
                   writer=csv.DictWriter(f,fieldnames=fields)
                   writer.writeheader()
                   writer.writerows(rows)
               total += len(rows)
           def count_files(p): return len(list(p.glob("*.csv")))
-          print(f"Validated {total} tracked-symbol NSE EOD rows across {count_files(root)} daily files.")
-          if total == 0 or count_files(root) == 0:
-              raise SystemExit("No tracked-symbol official NSE EOD rows available; refusing an empty-data APK build.")
+          print(f"Validated {total} official NSE EOD rows for {len(symbols)} unique securities across {count_files(root)} daily files; full-market rows retained.")
+          if total == 0 or count_files(root) == 0 or len(symbols) < 100:
+              raise SystemExit("Official NSE EOD history is empty or implausibly narrow; refusing an incomplete-market APK build.")
           PY
 
       - name: Build debug APK
