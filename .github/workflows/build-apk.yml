@@ -30,6 +30,7 @@ on:
       - main
       - v40-77-chart-refresh-readability
       - v40-78-nse-screener-only
+      - 'feat/**'
 
 jobs:
   build:
