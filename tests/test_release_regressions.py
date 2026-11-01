@@ -133,6 +133,12 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("V40.88 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", source)
         self.assertIn("PRO-STOCK-INTELLIGENCE-V40-88-debug", workflow)
 
+    def test_screener_xlsx_maps_infosys_ltd_company_name_to_nse_symbol(self):
+        importer = (ROOT / "app/src/main/assets/xlsx-import.js").read_text(encoding="utf-8")
+        self.assertIn("INFOSYSLTD:'INFY'", importer)
+        self.assertIn("const compact=company.toUpperCase().replace(/[^A-Z0-9]/g,'')", importer)
+        self.assertIn("Cannot safely map", importer)
+
     def test_screener_data_carries_source_and_quality_metadata(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn('.put("sourceUrl", pageUrl)', source)
