@@ -212,8 +212,8 @@ jobs:
                   if row.get("marketDataStatus") != "EOD" or not row.get("symbol") or not row.get("date"):
                       raise SystemExit(f"Invalid NSE EOD row in {path.name}")
               total += len(rows)
-          print(f"Validated {total} NSE EOD rows across {count_files(root)} daily files.")
           def count_files(p): return len(list(p.glob("*.csv")))
+          print(f"Validated {total} NSE EOD rows across {count_files(root)} daily files.")
           PY
 
       - name: Build debug APK
