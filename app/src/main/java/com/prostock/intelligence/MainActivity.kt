@@ -46,6 +46,45 @@ class MainActivity : Activity() {
         CookieManager.getInstance().setAcceptCookie(true)
         web = WebView(this)
         Log.e("PSI_STARTUP", "WEBVIEW_CREATED")
+        // Keep a branded native splash visible while the local dashboard HTML boots.
+        // This prevents a blank launch screen from being mistaken for a missing app title.
+        val appRoot = android.widget.FrameLayout(this)
+        val splashView = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            gravity = android.view.Gravity.CENTER
+            setBackgroundColor(Color.rgb(6, 38, 75))
+            setPadding(24, 24, 24, 24)
+        }
+        val splashTitle = android.widget.TextView(this).apply {
+            text = "PRO STOCK INTELLIGENCE"
+            setTextColor(Color.WHITE)
+            textSize = 23f
+            typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD)
+            gravity = android.view.Gravity.CENTER
+        }
+        val splashSubtitle = android.widget.TextView(this).apply {
+            text = "NSE  •  BSE  •  MARKET RESEARCH"
+            setTextColor(Color.rgb(177, 218, 245))
+            textSize = 12f
+            gravity = android.view.Gravity.CENTER
+            setPadding(0, 10, 0, 20)
+        }
+        splashView.addView(splashTitle, android.widget.LinearLayout.LayoutParams(
+            android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+        ))
+        splashView.addView(splashSubtitle, android.widget.LinearLayout.LayoutParams(
+            android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+        ))
+        splashView.addView(android.widget.ProgressBar(this), android.widget.LinearLayout.LayoutParams(
+            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+        ))
+        web.visibility = android.view.View.INVISIBLE
+        appRoot.addView(web, android.widget.FrameLayout.LayoutParams(
+            android.widget.FrameLayout.LayoutParams.MATCH_PARENT, android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+        ))
+        appRoot.addView(splashView, android.widget.FrameLayout.LayoutParams(
+            android.widget.FrameLayout.LayoutParams.MATCH_PARENT, android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+        ))
         // CI AVDs use SwiftShader; force software composition for this dashboard WebView
         // to avoid Chromium renderer traps in headless virtual-GPU environments.
         web.setLayerType(android.view.View.LAYER_TYPE_SOFTWARE, null)
@@ -170,6 +209,8 @@ class MainActivity : Activity() {
                         "(()=>({ready:document.readyState,root:!!document.querySelector('.app'),title:document.title}))()"
                     ) { value ->
                         if (!value.isNullOrBlank() && value.contains("\"root\":true")) {
+                            web.visibility = android.view.View.VISIBLE
+                            splashView.visibility = android.view.View.GONE
                             Log.e("PSI_STARTUP", "PSI_DASHBOARD_DOM_READY $value")
                         } else {
                             Log.e("PSI_STARTUP", "DASHBOARD_DOM_NOT_READY $value")
@@ -179,7 +220,7 @@ class MainActivity : Activity() {
                 }
             }
         }
-        setContentView(web)
+        setContentView(appRoot)
         Log.e("PSI_STARTUP", "CONTENT_VIEW_SET")
         web.loadUrl("https://appassets.androidplatform.net/assets/index.html")
         Log.e("PSI_STARTUP", "LOAD_URL_REQUESTED")
