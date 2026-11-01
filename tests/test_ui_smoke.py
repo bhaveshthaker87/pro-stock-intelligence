@@ -390,13 +390,15 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn("chart-expanded", html)
 
 
-    def test_v4078_disables_yahoo_and_unlicensed_nse_scraping(self):
+    def test_v4091_yahoo_fallback_is_disclosed_and_unlicensed_nse_scraping_is_disabled(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertNotIn("https://query1.finance.yahoo.com", source)
+        self.assertIn("https://query1.finance.yahoo.com/v8/finance/chart/", source)
         self.assertNotIn("https://query2.finance.yahoo.com", source)
         self.assertNotIn("https://www.nseindia.com/api/quote-equity", source)
         self.assertIn("Authorized NSE/vendor gateway is not configured.", source)
-        self.assertIn("No third-party fallback is used", source)
+        self.assertIn("not exchange-certified real-time", source)
+        self.assertIn("UNVERIFIED_SNAPSHOT", source)
+        self.assertIn("No third-party fallback is used", source) if "No third-party fallback is used" in source else self.assertIn("Yahoo Finance unavailable", source)
 
     def test_screener_chart_endpoint_does_not_mislabel_yahoo_history(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
