@@ -1833,13 +1833,27 @@ private class NativeProvider(private val appAssets: AssetManager) {
                 }
                 "/api/quote", "/api/fast" -> {
                     val quote = try {
-                        if (gatewayConfigured()) nseQuote(raw) else eodQuote(raw)
+                        if (gatewayConfigured()) {
+                            nseQuote(raw)
+                        } else {
+                            try {
+                                // Keep the dashboard quote route consistent with combined analysis:
+                                // Yahoo is an explicitly unverified snapshot; NSE EOD is the fallback.
+                                yahooChart(raw, "1y")
+                            } catch (yahooError: Exception) {
+                                try {
+                                    eodQuote(raw).put("fallbackWarning", "Yahoo Finance unavailable: " + (yahooError.message ?: "request failed"))
+                                } catch (nseError: Exception) {
+                                    throw IOException("Yahoo Finance unavailable (" + (yahooError.message ?: "request failed") + "); official NSE EOD unavailable (" + (nseError.message ?: "no bundled data") + ")")
+                                }
+                            }
+                        }
                     } catch (e: Exception) {
-                        JSONObject().put("symbol", s).put("status", if (gatewayConfigured()) "PROVIDER_GATEWAY_VALIDATION_FAILED" else "NSE_EOD_AND_LIVE_FEED_UNAVAILABLE")
+                        JSONObject().put("symbol", s).put("status", if (gatewayConfigured()) "PROVIDER_GATEWAY_VALIDATION_FAILED" else "YAHOO_AND_NSE_DATA_UNAVAILABLE")
                             .put("provider", "Unavailable").put("price", JSONObject.NULL)
                             .put("quoteTimestamp", JSONObject.NULL)
-                            .put("marketDataDisclaimer", if (gatewayConfigured()) "Configured provider gateway failed validation; price is unavailable. No fallback is used." else "No bundled official NSE EOD close exists and no authorized live feed is configured.")
-                            .put("providerError", e.message ?: "NSE EOD/live quote unavailable")
+                            .put("marketDataDisclaimer", if (gatewayConfigured()) "Configured provider gateway failed validation; price is unavailable. No fallback is used." else "Yahoo Finance and bundled official NSE EOD data are unavailable; no price is fabricated.")
+                            .put("providerError", e.message ?: "Verified quote unavailable")
                     }
                     quote.put("rows", JSONArray()).put("historyProvider", "Unavailable")
                         .put("historyStatus", "AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED")
