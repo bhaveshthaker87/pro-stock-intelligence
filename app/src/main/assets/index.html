@@ -1304,13 +1304,20 @@ async function renderDetails(d){
   if(Array.isArray(pnl)&&pnl.length){const head=pnl[0]||[],rows=pnl.slice(1,14).filter(r=>Array.isArray(r)&&r.length);pRows='<div class="scrollx"><table class="detailtable financialtable"><thead><tr>'+head.map(x=>`<th>${safename(x)}</th>`).join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map(x=>`<td>${safename(x??'—')}</td>`).join('')+'</tr>').join('')+'</tbody></table></div>'}
   else if(Array.isArray(q)&&q.length){pRows='<div class="sourcehint">Profit & Loss table unavailable; showing verified quarterly financials.</div><div class="scrollx"><table class="detailtable financialtable"><thead><tr><th>Period</th><th>Sales</th><th>Operating Profit</th><th>Net Profit</th><th>EPS</th></tr></thead><tbody>'+q.map(r=>`<tr><td>${safename(r.period||'—')}</td><td>${safename(r.sales||'—')}</td><td>${safename(r.operating_profit||'—')}</td><td>${safename(r.net_profit||'—')}</td><td>${safename(r.eps||'—')}</td></tr>`).join('')+'</tbody></table></div>'}
   $('quarterlyCompareDetail').innerHTML=renderQuarterlyComparison(q);
-  $('financialsDetail').innerHTML=pRows||'<span class="na">No verified Financials table returned by the provider.</span>';
+  const renderSourceTable=(rows,title)=>{if(!Array.isArray(rows)||!rows.length)return '';const head=rows[0]||[],body=rows.slice(1).filter(r=>Array.isArray(r)&&r.length);if(!head.length||!body.length)return '';return '<h4 class="detailSubhead">'+safename(title)+'</h4><div class="scrollx"><table class="detailtable financialtable"><thead><tr>'+head.map(x=>'<th>'+safename(x)+'</th>').join('')+'</tr></thead><tbody>'+body.map(r=>'<tr>'+r.map(x=>'<td>'+safename(x??'—')+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>'};
+  const extraFinancials=renderSourceTable(d.balanceSheet||f.balanceSheet,'Balance Sheet')+renderSourceTable(d.cashFlow||f.cashFlow,'Cash Flow')+renderSourceTable(d.ratios||f.ratios,'Financial Ratios');
+  $('financialsDetail').innerHTML=(pRows||'<span class="na">No verified Profit & Loss table returned by the provider.</span>')+extraFinancials;
+  const coverage=d.fundamentalCoverage||f.fundamentalCoverage||{};
+  const covered=Object.values(coverage).filter(Boolean).length, total=Object.keys(coverage).length;
+  if(total){const stamp=d.fetchedAt||f.fetchedAt||'Timestamp unavailable';$('financialsDetail').insertAdjacentHTML('afterbegin','<div class="sourcehint">Screener fundamentals coverage: '+covered+'/'+total+' sections · fetched '+safename(stamp)+'. Missing sections remain unavailable; no values are estimated.</div>')}
   const sh=d.shareholding||f.shareholding||[]; let sRows='';
   if(Array.isArray(sh)&&sh.length){const head=sh[0]||[],rows=sh.slice(1,10).filter(r=>Array.isArray(r)&&r.length);sRows='<div class="scrollx"><table class="detailtable financialtable"><thead><tr>'+head.map(x=>`<th>${safename(x)}</th>`).join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map(x=>`<td>${safename(x??'—')}</td>`).join('')+'</tr>').join('')+'</tbody></table></div>'}
   else if([f.promoter,f.public,f.pledged].some(v=>numOk(v))){sRows='<table class="detailtable"><tbody><tr><td>Promoters</td><td>'+pct(f.promoter)+'</td></tr><tr><td>Public</td><td>'+pct(f.public)+'</td></tr><tr><td>Pledged</td><td>'+pct(f.pledged)+'</td></tr></tbody></table>'}
   $('ownershipDetail').innerHTML=sRows+'<div class="sourcehint">Source: '+safename(f.provider||'Screener.in')+'</div>';
+  const screenerPeers=d.peerComparison||f.peerComparison||[];
+  if(Array.isArray(screenerPeers)&&screenerPeers.length){$('peersDetail').innerHTML=renderSourceTable(screenerPeers,'Screener Peer Comparison')+'<div class="sourcehint">Source: Screener.in · period labels retained from source</div>';}
   const importedPeerRows=psiGetImportedPeers(window.sym||'');
-  if(importedPeerRows.length){psiRenderPeers(importedPeerRows);}
+  if(!(Array.isArray(screenerPeers)&&screenerPeers.length)&&importedPeerRows.length){psiRenderPeers(importedPeerRows);}
   else {
     try {
       const pd=await api('/api/peers?symbol='+encodeURIComponent(window.sym||''));
