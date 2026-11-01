@@ -38,7 +38,7 @@ async function parseWorkbook(buffer,opts){
  const rows=sheetRows(files[dataPath],shared),labelMap=new Map();for(const row of rows){const label=String(row[0]||'').trim();if(label)labelMap.set(label.toLowerCase(),row);}
  const get=(label,col=1)=>{const r=labelMap.get(label.toLowerCase());return r?String(r[col]??'').trim():'';};
  const company=get('COMPANY NAME');if(!company)throw Error('Screener Data Sheet has no company name.');
- const compact=company.toUpperCase().replace(/[^A-Z0-9]/g,'');const aliases={COLGATEPALMOLIVEINDIALTD:'COLPAL',COLGATEPALMOLIVEINDIA:'COLPAL',INFOSYSLIMITED:'INFY',TATACONSULTANCYSERVICES:'TCS'};let symbol=aliases[compact]||'';
+ const compact=company.toUpperCase().replace(/[^A-Z0-9]/g,'');const aliases={COLGATEPALMOLIVEINDIALTD:'COLPAL',COLGATEPALMOLIVEINDIA:'COLPAL',INFOSYSLIMITED:'INFY',INFOSYSLTD:'INFY',TATACONSULTANCYSERVICES:'TCS'};let symbol=aliases[compact]||'';
  if(!symbol){const selected=String(opts.selectedSymbol||'').trim().toUpperCase().replace(/\.(NS|BO)$/,'');if(selected)symbol=selected;else throw Error('Cannot safely map "'+company+'" to an NSE symbol. Select the matching stock before import.');}
  const num=x=>{if(x===null||x===undefined||String(x).trim()==='')return null;const n=Number(String(x).replace(/,/g,''));return Number.isFinite(n)?n:null;};
  const excelDate=x=>{const n=num(x);if(n===null||n<1||n>100000)return '';const d=new Date(Date.UTC(1899,11,30)+Math.round(n)*86400000);return Number.isFinite(d.getTime())?d.toISOString().slice(0,10):'';};
