@@ -72,6 +72,28 @@ if __name__ == "__main__":
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
         native = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
-        self.assertIn("versionCode 80; versionName '40.81'", gradle)
-        self.assertIn("V40.81 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", native)
+        self.assertIn("versionCode 87; versionName '40.88'", gradle)
+        self.assertIn("V40.88 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", native)
         self.assertIn("V40.81 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", html)
+
+
+class ScreenerSessionValidationTests(unittest.TestCase):
+    def test_cookie_presence_alone_never_marks_screener_connected(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("screenerSessionIsValidated()", source)
+        self.assertIn("screenerSessionValidatedAtMs > 0L", source)
+        self.assertIn("System.currentTimeMillis() - screenerSessionValidatedAtMs < 30L * 60L * 1000L", source)
+
+    def test_successful_company_request_is_required_to_validate_session(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        method = source[source.index("private fun screenerConnectionTest()"):]
+        method = method[:method.find("\n    private fun ", 1)]
+        self.assertIn('screener("INFY")', method)
+        self.assertIn("screenerSessionValidatedAtMs = System.currentTimeMillis()", method)
+        self.assertIn("if (blocked || !screenerLoggedIn()) screenerSessionValidatedAtMs = 0L", method)
+
+    def test_frontend_validates_detected_cookie_before_fundamental_fetch(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("window.__psiScreenerValidation", html)
+        self.assertIn("/api/screener/connect", html)
+        self.assertIn("requestValidated", html)
