@@ -75,20 +75,34 @@ def _official_report_url(value: str, base_url: str) -> tuple[str, str] | None:
 def discover_report_url(html: str, base_url: str = REPORTS_URL) -> str:
     parser = LinkParser()
     parser.feed(html)
+    # Keep explicit URLs ahead of inferred archive URLs for the same trading date.
+    # Never infer an archive URL from a filename embedded in a rejected external URL.
     candidates = []
     for attrs, label in parser.links:
         for value in attrs + [label]:
             item = _official_report_url(value, base_url)
             if item:
-                candidates.append(item)
-    # NSE sometimes exposes filenames in data attributes or inline state, not anchors.
+                explicit = "://" in value or value.strip().startswith(("/", "./", "../"))
+                candidates.append((item[0], item[1], explicit))
+
+    # Some NSE pages render a bare filename in inline state/text instead of a link.
     for match in REPORT_RE.finditer(html):
+        line_start = max(html.rfind("<", 0, match.start()), html.rfind(">", 0, match.start())) + 1
+        prefix = html[line_start:match.start()]
+        # If the filename is part of any URL (including a disallowed host), do not
+        # turn it into a different, guessed official URL.
+        if re.search(r"(?:https?://|/)[^\\s\"'<>]*$", prefix, re.I):
+            continue
         item = _official_report_url(match.group(0), base_url)
         if item:
-            candidates.append(item)
+            candidates.append((item[0], item[1], False))
+
     if not candidates:
         raise ValueError("NSE All Reports page did not expose a matching official CM-UDiFF ZIP link")
-    return sorted(set(candidates), key=lambda item: item[0])[-1][1]
+    latest_date = max(item[0] for item in candidates)
+    latest = [item for item in candidates if item[0] == latest_date]
+    explicit = [item for item in latest if item[2]]
+    return sorted(explicit or latest, key=lambda item: item[1])[0][1]
 
 
 def _get(url: str, timeout: int = 30) -> bytes:
