@@ -1,5 +1,6 @@
 import io
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -23,7 +24,7 @@ def zipped():
 
 def zipped_for(day):
     payload = io.BytesIO()
-    csv_text = HEADERS + f"{day},INFY,EQ,1500,1510,1490,1505,98765\\n"
+    csv_text = HEADERS + f"{day},INFY,EQ,1500,1510,1490,1505,98765\n"
     with zipfile.ZipFile(payload, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("BhavCopy_NSE_CM_test.csv", csv_text)
     return payload.getvalue()
@@ -79,7 +80,7 @@ class NseEodHistoryTests(unittest.TestCase):
         start = datetime(2026, 10, 30, tzinfo=timezone.utc)
 
         def fake_get(url, timeout=12):
-            match = __import__("re").search(r"_(\\d{8})_F_0000", url)
+            match = re.search(r"_(\d{8})_F_0000", url)
             if not match:
                 raise ValueError("unexpected URL")
             day = datetime.strptime(match.group(1), "%Y%m%d").date()
