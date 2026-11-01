@@ -1218,6 +1218,40 @@ private class NativeProvider(private val appAssets: AssetManager) {
         return out
     }
 
+    /** Build peer rows only where both companies have validated bundled NSE EOD closes. */
+    private fun peerComparison(symbol: String): JSONObject {
+        val sector = stockSector(symbol)
+        val candidates = stocks.filter { it.symbol != symbol && it.sector == sector }
+        val rows = JSONArray()
+        var candidateCount = 0
+        candidates.forEach { peer ->
+            candidateCount++
+            val history = readBundledNseEod(peer.symbol)
+            if (history.length() == 0) return@forEach
+            val latest = history.optJSONObject(history.length() - 1) ?: return@forEach
+            val close = latest.optDouble("close", Double.NaN)
+            if (!close.isFinite() || close <= 0.0) return@forEach
+            val previous = if (history.length() > 1) history.optJSONObject(history.length() - 2) else null
+            val previousClose = previous?.optDouble("close", Double.NaN) ?: Double.NaN
+            val changePct = if (previousClose.isFinite() && previousClose > 0.0) ((close - previousClose) / previousClose) * 100.0 else Double.NaN
+            val row = JSONObject().put("symbol", peer.symbol).put("name", peer.name).put("sector", sector)
+                .put("price", close).put("period", latest.optString("tradingDate"))
+                .put("source", "NSE CM-UDiFF Common Bhavcopy Final")
+                .put("marketDataType", "NSE_EOD").put("priceStatus", "OFFICIAL_EOD_CLOSE")
+                .put("quoteTimestamp", latest.optLong("time") / 1000L)
+                .put("changePct", if (changePct.isFinite()) changePct else JSONObject.NULL)
+                .put("pe", JSONObject.NULL).put("marketCap", JSONObject.NULL)
+                .put("roce", JSONObject.NULL).put("roe", JSONObject.NULL).put("eps", JSONObject.NULL)
+            rows.put(row)
+        }
+        return JSONObject().put("symbol", symbol).put("industry", sector).put("peers", rows)
+            .put("candidateCount", candidateCount).put("validatedCount", rows.length())
+            .put("partial", rows.length() < candidateCount)
+            .put("provider", "NSE CM-UDiFF Common Bhavcopy Final")
+            .put("marketDataType", "NSE_EOD")
+            .put("statusText", "Peer closes are official NSE daily EOD prices only. Fundamentals are not inferred: P/E, market cap, ROCE, ROE and EPS remain unavailable unless a dated Screener peer export is imported.")
+    }
+
     private fun htmlEntities(s: String): String = s.replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<")
         .replace("&gt;", ">").replace("&quot;", "\"").replace("&#39;", "'").replace(Regex("\\s+"), " ").trim()
 
@@ -1577,7 +1611,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
         val s = canonical(raw)
         return try {
             when (p) {
-                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.88 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK").put("data", JSONObject().put("ok", true).put("providerGatewayConfigured", gatewayConfigured()).put("quoteStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_FEED_NOT_CONFIGURED").put("historyStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_HISTORY_NOT_CONFIGURED").put("indicesStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_INDEX_FEED_NOT_CONFIGURED").put("eventsStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_EVENTS_FEED_NOT_CONFIGURED").put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
+                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.89 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK").put("data", JSONObject().put("ok", true).put("providerGatewayConfigured", gatewayConfigured()).put("quoteStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_FEED_NOT_CONFIGURED").put("historyStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_HISTORY_NOT_CONFIGURED").put("indicesStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_INDEX_FEED_NOT_CONFIGURED").put("eventsStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_EVENTS_FEED_NOT_CONFIGURED").put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
                 "/api/providers/status" -> JSONObject().put("ok", true).put("data", providerStatus(raw)).toString()
                 "/api/screener/status" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
                 "/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerConnectionTest()).toString()
@@ -1646,11 +1680,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
                     JSONObject().put("ok", true).put("data", data).toString()
                 }
                 "/api/resolve-stock" -> JSONObject().put("ok", true).put("data", JSONObject().put("symbol", s).put("name", stockName(s)).put("sector", stockSector(s))).toString()
-                "/api/peers" -> JSONObject().put("ok", true).put("data",
-                    JSONObject().put("symbol", s).put("industry", stockSector(s)).put("peers", JSONArray())
-                        .put("candidateCount", 0).put("validatedCount", 0).put("partial", true)
-                        .put("method", "Peer prices and technical metrics require verified historical candles.")
-                        .put("statusText", "Peer comparison is unavailable until an authorized NSE historical-data feed is configured. No third-party price history is used.")).toString()
+                "/api/peers" -> JSONObject().put("ok", true).put("data", peerComparison(s)).toString()
                 "/api/news" -> {
                     // Do not mix third-party announcement feeds into an NSE/Screener-only app.
                     // NSE filings are linked as the authoritative source; no feed is claimed until
