@@ -1,0 +1,53 @@
+name: Bootstrap Android release signing key
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate-signing-key:
+    name: Generate one-time signing keystore
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Generate private keystore and recovery instructions
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p signing-bootstrap
+          STORE_PASS="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+          KEY_PASS="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+          keytool -genkeypair -noprompt -v \
+            -keystore signing-bootstrap/psi-release.jks \
+            -storetype JKS \
+            -alias psi-release \
+            -keyalg RSA -keysize 3072 -validity 10000 \
+            -dname "CN=Pro Stock Intelligence, OU=Android, O=Pro Stock Intelligence, L=Ahmedabad, ST=Gujarat, C=IN" \
+            -storepass "$STORE_PASS" -keypass "$KEY_PASS"
+          cat > signing-bootstrap/RECOVERY.txt <<EOF
+          KEEP THIS FILE PRIVATE. Anyone with this file and the keystore can sign app builds.
+
+          GitHub repository: bhaveshthaker87/pro-stock-intelligence
+          Secret PSI_KEYSTORE_PASSWORD: $STORE_PASS
+          Secret PSI_KEY_ALIAS: psi-release
+          Secret PSI_KEY_PASSWORD: $KEY_PASS
+
+          Secret PSI_KEYSTORE_BASE64:
+          On Windows PowerShell, run this in the folder containing psi-release.jks:
+          [Convert]::ToBase64String([IO.File]::ReadAllBytes("$PWD/psi-release.jks")) | Set-Clipboard
+
+          Paste the clipboard value into the PSI_KEYSTORE_BASE64 GitHub Actions secret.
+          Save the keystore and passwords in a secure offline backup.
+          Delete this recovery file after saving the values in GitHub Actions Secrets.
+          EOF
+          chmod 600 signing-bootstrap/psi-release.jks signing-bootstrap/RECOVERY.txt
+          echo "Keystore generated. Credentials are not printed to workflow logs."
+      - name: Upload private signing bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: PSI-PRIVATE-ANDROID-SIGNING-KEY
+          path: signing-bootstrap/
+          if-no-files-found: error
+          retention-days: 1
