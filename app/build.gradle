@@ -29,6 +29,13 @@ android {
     }
 
     buildTypes {
+        debug {
+            // When a persistent private key is configured, keep debug and release
+            // APKs update-compatible. Otherwise Android's normal CI debug key is used.
+            if (System.getenv('PSI_KEYSTORE_FILE')) {
+                signingConfig signingConfigs.release
+            }
+        }
         release {
             if (System.getenv('PSI_KEYSTORE_FILE')) {
                 signingConfig signingConfigs.release
