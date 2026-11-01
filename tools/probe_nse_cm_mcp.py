@@ -50,8 +50,10 @@ def main():
     if "error" in init:
         raise RuntimeError("initialize failed: " + json.dumps(init["error"])[:500])
     report.update({"initializeHttp": status, "contentType": content_type, "protocol": init.get("result", {}).get("protocolVersion"), "serverInfo": init.get("result", {}).get("serverInfo")})
-    post({"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}}, session)
-    _, session, _, listed = post({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}, session)
+    report["sessionIdReceived"] = bool(session)
+    # Some public MCP gateways reject the optional initialized notification with 404;
+    # tools/list is the authoritative connectivity check and is attempted regardless.
+    try:\n        post({"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}}, session)\n    except Exception as exc:\n        report["initializedNotificationWarning"] = str(exc)\n    _, session, _, listed = post({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}, session)
     tools = listed.get("result", {}).get("tools", [])
     names = [t.get("name") for t in tools]
     report["toolNames"] = names
