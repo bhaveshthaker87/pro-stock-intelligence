@@ -36,7 +36,7 @@ jobs:
 
           Secret PSI_KEYSTORE_BASE64:
           On Windows PowerShell, run this in the folder containing psi-release.jks:
-          [Convert]::ToBase64String([IO.File]::ReadAllBytes("$PWD/psi-release.jks")) | Set-Clipboard
+          [Convert]::ToBase64String([IO.File]::ReadAllBytes("$PWD\\psi-release.jks")) | Set-Clipboard
 
           Paste the clipboard value into the PSI_KEYSTORE_BASE64 GitHub Actions secret.
           Save the keystore and passwords in a secure offline backup.
