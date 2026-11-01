@@ -27,7 +27,7 @@ INDEX_ALIASES = {
     "low": {"low", "low index value"},
     "close": {"close", "closing index value", "close index value"},
 }
-CORPORATE_FILE = re.compile(r"^(An|Bc|Bm)(\\d{6})\\.(txt|csv)$", re.I)
+CORPORATE_FILE = re.compile(r"^(An|Bc|Bm)(\d{6})\.(txt|csv)$", re.I)
 
 
 def _source_ok(url: str, allowed: set[str]) -> None:
