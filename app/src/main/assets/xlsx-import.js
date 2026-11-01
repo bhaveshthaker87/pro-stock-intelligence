@@ -71,6 +71,11 @@ async function parseWorkbook(buffer,opts){
  const prevCapital=(num(findRow('Equity Share Capital',55,80)[latestAnnualCol-1])||0)+(num(findRow('Reserves',55,80)[latestAnnualCol-1])||0)+(num(findRow('Borrowings',55,80)[latestAnnualCol-1])||0);
  const currentCapital=(equity||0)+(reserves||0)+(debt||0),pbt=num(findRow('Profit before tax',15,40)[latestAnnualCol]),interest=num(findRow('Interest',15,40)[latestAnnualCol])||0;
  put('roe',num(annualProfit[latestAnnualCol])!==null&&(equity||0)+(reserves||0)>0?num(annualProfit[latestAnnualCol])/((equity||0)+(reserves||0))*100:null,'PERCENT',latestAnnualDate,'Derived: net profit / equity plus reserves');
+ put('debtEquity',debt!==null&&(equity||0)+(reserves||0)>0?debt/((equity||0)+(reserves||0)):null,'RATIO',latestAnnualDate,'Derived: borrowings / equity plus reserves');
+ const sales3yBase=num(annualSales[latestAnnualCol-3]),sales3yEnd=num(annualSales[latestAnnualCol]);
+ const profit3yBase=num(annualProfit[latestAnnualCol-3]),profit3yEnd=num(annualProfit[latestAnnualCol]);
+ put('sales3y',sales3yBase>0&&sales3yEnd>=0?(Math.pow(sales3yEnd/sales3yBase,1/3)-1)*100:null,'PERCENT',latestAnnualDate,'Derived 3-year CAGR from annual Sales row');
+ put('profit3y',profit3yBase>0&&profit3yEnd>=0?(Math.pow(profit3yEnd/profit3yBase,1/3)-1)*100:null,'PERCENT',latestAnnualDate,'Derived 3-year CAGR from annual Net profit row');
  put('roce',pbt!==null&&currentCapital+prevCapital>0?(pbt+interest)*2/(currentCapital+prevCapital)*100:null,'PERCENT',latestAnnualDate,'Derived using Screener workbook ROCE formula');
  // Include the latest quarterly snapshot as explicitly labelled metadata; do not treat it as live market data.
  const period=latestAnnualDate;
