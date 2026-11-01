@@ -60,7 +60,9 @@ def _official_report_url(value: str, base_url: str) -> tuple[str, str] | None:
     candidate = value.strip()
     if candidate.lower().startswith(("javascript:", "#")):
         candidate = ""
-    if candidate and not candidate.lower().endswith(".zip") and "://" not in candidate and "/" not in candidate:
+    # A bare filename is not a page-relative URL; resolve it only against
+    # the explicitly configured official NSE archive directory.
+    if candidate and "://" not in candidate and "/" not in candidate and "\\" not in candidate:
         candidate = ""
     if candidate:
         url = urljoin(base_url, candidate)
