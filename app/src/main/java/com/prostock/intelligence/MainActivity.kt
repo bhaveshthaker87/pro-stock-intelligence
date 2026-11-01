@@ -8,7 +8,6 @@ import android.webkit.*
 import android.net.Uri
 import android.util.Log
 import android.graphics.Color
-import androidx.core.view.WindowCompat
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewClientCompat
 import org.json.JSONArray
@@ -37,7 +36,7 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Keep WebView content below Android system bars on devices using edge-to-edge defaults.
-        WindowCompat.setDecorFitsSystemWindows(window, true)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) window.setDecorFitsSystemWindows(true)
         window.statusBarColor = Color.rgb(6, 38, 75)
         window.navigationBarColor = Color.rgb(6, 38, 75)
         @Suppress("DEPRECATION")
