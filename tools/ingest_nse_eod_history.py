@@ -21,53 +21,74 @@ from urllib.parse import urljoin, urlparse
 
 from convert_nse_udiff_bhavcopy import OUTPUT_FIELDS, parse_bhavcopy_zip
 
-REPORTS_URL = "https://www.nseindia.com/all-reports"
+REPORTS_URL = "https://www.nseindia.in/all-reports"
+OFFICIAL_HOSTS = {"nseindia.com", "www.nseindia.com", "nseindia.in", "www.nseindia.in", "nsearchives.nseindia.com"}
+ARCHIVE_BASE = "https://nsearchives.nseindia.com/content/cm/"
 REPORT_RE = re.compile(r"BhavCopy_NSE_CM_0_0_0_(\d{8})_F_0000\.csv\.zip", re.I)
 USER_AGENT = "Mozilla/5.0 (compatible; ProStockIntelligence-EOD/1.0)"
 
 
 class LinkParser(HTMLParser):
+    """Collect link text and all attributes because NSE report controls are not always anchors."""
     def __init__(self):
         super().__init__()
         self.links = []
-        self._href = None
+        self._attrs = None
         self._text = []
 
     def handle_starttag(self, tag, attrs):
-        if tag.lower() == "a":
-            self._href = dict(attrs).get("href")
+        values = [str(value) for _, value in attrs if value]
+        if tag.lower() in {"a", "button", "input"} or values:
+            self._attrs = values
             self._text = []
 
     def handle_data(self, data):
-        if self._href is not None:
+        if self._attrs is not None:
             self._text.append(data)
 
     def handle_endtag(self, tag):
-        if tag.lower() == "a" and self._href is not None:
-            self.links.append((self._href, " ".join(self._text).strip()))
-            self._href = None
+        if self._attrs is not None:
+            self.links.append((self._attrs, " ".join(self._text).strip()))
+            self._attrs = None
             self._text = []
+
+
+def _official_report_url(value: str, base_url: str) -> tuple[str, str] | None:
+    match = REPORT_RE.search(value)
+    if not match:
+        return None
+    candidate = value.strip()
+    if candidate.lower().startswith(("javascript:", "#")):
+        candidate = ""
+    if candidate and not candidate.lower().endswith(".zip") and "://" not in candidate and "/" not in candidate:
+        candidate = ""
+    if candidate:
+        url = urljoin(base_url, candidate)
+    else:
+        url = urljoin(ARCHIVE_BASE, match.group(0))
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or parsed.hostname not in OFFICIAL_HOSTS:
+        return None
+    return match.group(1), url
 
 
 def discover_report_url(html: str, base_url: str = REPORTS_URL) -> str:
     parser = LinkParser()
     parser.feed(html)
     candidates = []
-    for href, label in parser.links:
-        if not href:
-            continue
-        match = REPORT_RE.search(href) or REPORT_RE.search(label)
-        if not match:
-            continue
-        url = urljoin(base_url, href)
-        parsed = urlparse(url)
-        if parsed.scheme != "https" or parsed.hostname not in {"nseindia.com", "www.nseindia.com"}:
-            continue
-        candidates.append((match.group(1), url))
+    for attrs, label in parser.links:
+        for value in attrs + [label]:
+            item = _official_report_url(value, base_url)
+            if item:
+                candidates.append(item)
+    # NSE sometimes exposes filenames in data attributes or inline state, not anchors.
+    for match in REPORT_RE.finditer(html):
+        item = _official_report_url(match.group(0), base_url)
+        if item:
+            candidates.append(item)
     if not candidates:
         raise ValueError("NSE All Reports page did not expose a matching official CM-UDiFF ZIP link")
-    # Pick the latest trading date advertised by the official page.
-    return sorted(candidates, key=lambda item: item[0])[-1][1]
+    return sorted(set(candidates), key=lambda item: item[0])[-1][1]
 
 
 def _get(url: str, timeout: int = 30) -> bytes:
@@ -80,7 +101,7 @@ def _get(url: str, timeout: int = 30) -> bytes:
         if response.status != 200:
             raise RuntimeError(f"Unexpected HTTP status {response.status} for NSE source")
         final = urlparse(response.geturl())
-        if final.scheme != "https" or final.hostname not in {"nseindia.com", "www.nseindia.com"}:
+        if final.scheme != "https" or final.hostname not in OFFICIAL_HOSTS:
             raise RuntimeError("NSE download redirected outside the official NSE HTTPS domain")
         return response.read()
 
