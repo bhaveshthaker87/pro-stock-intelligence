@@ -211,12 +211,60 @@ def ingest(output_root: Path, html: str | None = None, zip_payload: bytes | None
     return metadata
 
 
+def ingest_recent_history(output_root: Path, lookback_days: int = 380,
+                          fetched_at: datetime | None = None) -> dict:
+    """Acquire a rolling year of validated daily EQ bhavcopies from the official archive.
+
+    Weekends are skipped. NSE holidays and unavailable dates are treated as gaps;
+    every accepted file must be a valid ZIP whose row dates match its filename.
+    """
+    as_of = (fetched_at or datetime.now(timezone.utc)).date()
+    accepted = []
+    failed_dates = []
+    for offset in range(lookback_days):
+        trading_date = as_of - timedelta(days=offset)
+        if trading_date.weekday() >= 5:
+            continue
+        filename = f"BhavCopy_NSE_CM_0_0_0_{trading_date:%Y%m%d}_F_0000.csv.zip"
+        url = urljoin(ARCHIVE_BASE, filename)
+        try:
+            payload = _get(url, timeout=12)
+            rows = parse_bhavcopy_zip(payload)
+            row_dates = {row["date"] for row in rows}
+            if row_dates != {trading_date.isoformat()}:
+                raise ValueError(f"archive date mismatch: expected {trading_date}, got {sorted(row_dates)}")
+            # Reuse the same idempotent persistence and manifest validation path.
+            link = f'<a href="{url}">CM-UDiFF Common Bhavcopy Final {filename}</a>'
+            metadata = ingest(output_root, html=link, zip_payload=payload, fetched_at=fetched_at)
+            accepted.append(metadata)
+        except (OSError, urllib.error.URLError, ValueError, RuntimeError, zipfile.BadZipFile) as exc:
+            failed_dates.append(f"{trading_date}: {exc}")
+    if len(accepted) < 2:
+        raise ValueError(
+            f"Only {len(accepted)} valid NSE EOD days acquired in {lookback_days} calendar days; "
+            "at least two are required for historical charts"
+        )
+    accepted.sort(key=lambda item: item["tradingDate"])
+    return {
+        "source": "NSE CM-UDiFF Common Bhavcopy Final",
+        "marketDataStatus": "EOD",
+        "asOf": as_of.isoformat(),
+        "firstTradingDate": accepted[0]["tradingDate"],
+        "lastTradingDate": accepted[-1]["tradingDate"],
+        "dailyFiles": len(accepted),
+        "totalRows": sum(item["rowCount"] for item in accepted),
+        "failedOrNonTradingDates": len(failed_dates),
+        "historyDirectory": str(output_root),
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=Path, default=Path("data/nse/eod"))
+    parser.add_argument("--lookback-days", type=int, default=380)
     args = parser.parse_args()
     try:
-        result = ingest(args.output_dir)
+        result = ingest_recent_history(args.output_dir, lookback_days=args.lookback_days)
     except (OSError, urllib.error.URLError, UnicodeError, ValueError, RuntimeError) as exc:
         print(f"ERROR: NSE EOD ingestion failed closed: {exc}", file=sys.stderr)
         return 2
