@@ -1,4 +1,16 @@
-# PRO STOCK INTELLIGENCE V40.58 — professional release hardening
+# PRO STOCK INTELLIGENCE V40.87 — source-aware NSE EOD build
+
+## Current release status (2026-11-01)
+- V40.87 / versionCode 86: full validated NSE CM-UDiFF cash-market EOD rows are retained in the APK bundle; the previous 28-symbol workflow filter is removed.
+- GitHub Actions run #688 passed unit/UI tests, official NSE EOD acquisition/bundling, debug APK compilation, Android lint and emulator smoke test; PR #35 is merged.
+- This is a **development/debug build, not a certified live-data or production release**. The workflow skipped signed-release steps because Android signing secrets are not configured.
+- NSE quote/history gateway is fail-closed unless an authorized HTTPS provider gateway is configured. No Yahoo Finance or Moneycontrol live-price fallback is used.
+- Screener fundamentals depend on a user-authorized session or permitted CSV export; HTTP 401/403 is not bypassed.
+- Live Nifty indices and embedded complete corporate-event/results feeds remain unavailable until a permitted authorized source is configured. Official source links and user imports are interim paths.
+- Historical EOD data is not intraday/live. Data periods, source and freshness must be checked before decisions.
+- Do not interpret CI success as proof of live-data availability, completeness of fundamentals, investment performance, or production signing.
+
+
 
 ## V40.57 audit fixes
 - Fixed missing-value coercion in AI/cockpit numeric parsing: null/empty values no longer become numeric zero and produce misleading technical states.

@@ -122,15 +122,15 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("imported peer snapshot; verify period", html)
         self.assertIn("Imported company news snapshot", html)
 
-    def test_v4086_release_markers_are_aligned(self):
+    def test_v4087_release_markers_are_aligned(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
         workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
-        self.assertIn("versionCode 85; versionName '40.86'", gradle)
-        self.assertIn("V40.86 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", html)
-        self.assertIn("V40.86 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", source)
-        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-86-debug", workflow)
+        self.assertIn("versionCode 86; versionName '40.87'", gradle)
+        self.assertIn("V40.87 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", html)
+        self.assertIn("V40.87 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", source)
+        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-87-debug", workflow)
 
     def test_screener_data_carries_source_and_quality_metadata(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
