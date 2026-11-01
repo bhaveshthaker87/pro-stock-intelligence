@@ -25,7 +25,7 @@ class NseEodHistoryTests(unittest.TestCase):
         html = '<a href="/api/reports/BhavCopy_NSE_CM_0_0_0_20261030_F_0000.csv.zip">CM-UDiFF Common Bhavcopy Final</a>'
         self.assertEqual(
             discover_report_url(html),
-            "https://www.nseindia.com/api/reports/BhavCopy_NSE_CM_0_0_0_20261030_F_0000.csv.zip",
+            "https://www.nseindia.in/api/reports/BhavCopy_NSE_CM_0_0_0_20261030_F_0000.csv.zip",
         )
 
     def test_discovery_rejects_missing_and_off_domain_links(self):
@@ -33,6 +33,24 @@ class NseEodHistoryTests(unittest.TestCase):
             discover_report_url('<a href="https://example.com/BhavCopy_NSE_CM_0_0_0_20261030_F_0000.csv.zip">x</a>')
         with self.assertRaisesRegex(ValueError, "did not expose"):
             discover_report_url("<html>no report</html>")
+
+
+    def test_discovery_reads_nse_data_attributes_and_official_archive_filename(self):
+        html = '<div data-report-url="https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261030_F_0000.csv.zip">CM-UDiFF</div>'
+        self.assertEqual(
+            discover_report_url(html),
+            "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261030_F_0000.csv.zip",
+        )
+        filename_only = '<span>BhavCopy_NSE_CM_0_0_0_20261030_F_0000.csv.zip</span>'
+        self.assertEqual(
+            discover_report_url(filename_only),
+            "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261030_F_0000.csv.zip",
+        )
+
+    def test_discovery_rejects_untrusted_data_attribute_url(self):
+        html = '<div data-report-url="https://example.com/BhavCopy_NSE_CM_0_0_0_20261030_F_0000.csv.zip">CM-UDiFF</div>'
+        with self.assertRaisesRegex(ValueError, "did not expose"):
+            discover_report_url(html)
 
     def test_persists_idempotent_daily_history_and_manifest(self):
         html = '<a href="/BhavCopy_NSE_CM_0_0_0_20261030_F_0000.csv.zip">CM-UDiFF Common Bhavcopy Final</a>'
