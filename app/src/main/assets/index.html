@@ -843,6 +843,78 @@ body[data-nav-page="chart"] .stock{margin-bottom:10px}
 @media(max-width:760px){.market-head{align-items:flex-start;flex-direction:column;padding:10px 2px}.market-refresh{width:100%}.market-subtitle{max-width:100%}.icard{padding:10px!important}}
 @media(prefers-reduced-motion:reduce){.icard{transition:none}.icard:hover{transform:none}}
 </style>
+
+<style id="psi-premium-ui-polish">
+/* PSI PREMIUM UI POLISH 2026 — visual-only layer; preserves existing IDs and workflows */
+:root{
+ --navy:#071b35;--blue:#2563eb;--cyan:#06b6d4;--green:#059669;--red:#dc3545;
+ --purple:#7657e8;--bg:#eef3fb;--card:#ffffff;--line:#dce5f1;--muted:#64748b;
+ --text:#132b4a;--shadow:0 8px 24px rgba(15,39,75,.075)
+}
+html{scroll-behavior:smooth}
+body{background:radial-gradient(ellipse at 8% 0%,#dcecff 0,transparent 32%),linear-gradient(180deg,#f2f6fc 0%,#f7f9fd 55%,#edf3fa 100%);color:var(--text)}
+.top{background:linear-gradient(105deg,#071b35 0%,#102e58 55%,#164477 100%);border-bottom:1px solid #315783;box-shadow:0 8px 28px rgba(4,22,48,.22)}
+.brand{letter-spacing:-.7px;text-shadow:0 2px 14px #0003}
+.brand span{color:#55d7f2}
+.taglive{font-size:9px;letter-spacing:.25px;padding:5px 9px;background:#102f55;border-color:#4c78a8}
+.searchwrap input{border:1.5px solid #9fc6ee;border-radius:11px;box-shadow:inset 0 1px 2px #102b4b0d}
+.searchwrap input:focus{border-color:#39a6e8;box-shadow:0 0 0 3px #38bdf833}
+.btn{border-radius:10px;transition:transform .16s ease,box-shadow .16s ease,filter .16s ease}
+.btn:hover{transform:translateY(-1px);filter:brightness(1.06);box-shadow:0 5px 14px #061c3830}
+.btn.primary{background:linear-gradient(135deg,#2563eb,#168bd5);border-color:#2879dc}
+.btn.green{background:linear-gradient(135deg,#059669,#0d9f83)}
+.indices{padding-top:12px;padding-bottom:12px;gap:10px}
+.icard,.stock,.summarycard,.factor,.chartcard,.sidecard,.table{border:1px solid #dce6f2;border-radius:14px;box-shadow:var(--shadow)}
+.icard{background:linear-gradient(155deg,#fff,#f8fbff);min-width:155px;transition:transform .16s ease,box-shadow .16s ease}
+.icard:hover,.summarycard:hover,.fcard:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(15,39,75,.11)}
+.container{padding:8px 20px 30px}
+.stock{padding:15px 16px 0;background:linear-gradient(145deg,#fff,#fbfdff)}
+.clogo{background:linear-gradient(145deg,#2563eb,#06b6d4);box-shadow:0 7px 18px #2563eb35}
+.cname{letter-spacing:-.35px}
+.chip{border-radius:999px;background:#eff6ff;border-color:#cfe1f6;color:#244d7d}
+.pricebig{letter-spacing:-1px}
+.tabs{border-top-color:#e3ebf5}
+.tab{border-radius:9px 9px 0 0;transition:background .15s ease,color .15s ease}
+.tab.active{background:linear-gradient(120deg,#2563eb,#168bd5)}
+.summarygrid{gap:14px}
+.summarycard{padding:17px;background:linear-gradient(155deg,#fff,#fbfdff)}
+.score{background:linear-gradient(125deg,#1d4ed8 0%,#087fba 52%,#059b82 100%);border:0;box-shadow:0 10px 25px #0c5e9d30}
+.pill{border:1px solid #c6f0dc}
+.pill.warn{border-color:#f5d89b}
+.factor{padding:13px;background:linear-gradient(160deg,#fff,#f8fbff)}
+.factorhead{color:#15385f}
+.fcard{border-radius:12px;box-shadow:0 3px 10px #0f274b08;transition:transform .16s ease,box-shadow .16s ease}
+.fcard.q{background:linear-gradient(150deg,#fff,#effcf7)}
+.fcard.g{background:linear-gradient(150deg,#fff,#eff7ff)}
+.fcard.v{background:linear-gradient(150deg,#fff,#f6f2ff)}
+.fcard.t{background:linear-gradient(150deg,#fff,#fff8eb)}
+.fcard.r{background:linear-gradient(150deg,#fff,#fff1f2)}
+.chartcard,.sidecard{padding:15px;background:linear-gradient(160deg,#fff,#fbfdff)}
+.charttitle{letter-spacing:-.25px}
+.range button{border-radius:8px;padding:6px 11px}
+.range button.active{background:linear-gradient(120deg,#2563eb,#0e91c5);border-color:#2879dc}
+.table{overflow:auto}
+.table h3{background:linear-gradient(90deg,#eff6ff,#f5fbff);color:#173b63}
+.table th{background:#f5f8fc}
+.qsimple thead th,.qcompare th{background:#eef4fb}
+.qsimple tbody tr:hover td,.qcompare tbody tr:hover td{background:#f0f7ff}
+.suggestions,.morepanel{border-radius:12px;box-shadow:0 16px 36px #0b27442a}
+@media(max-width:760px){
+ .top{padding:12px;gap:10px}
+ .brand{font-size:19px}
+ .container{padding:7px 9px 20px}
+ .indices{padding:8px 9px}
+ .icard{min-width:138px}
+ .stock{padding:11px 10px 0}
+ .summarycard,.chartcard,.sidecard{padding:12px}
+ .tabs{scrollbar-width:thin}
+ .tab{padding:10px 13px}
+}
+@media(prefers-reduced-motion:reduce){
+ html{scroll-behavior:auto}
+ *,*::before,*::after{transition:none!important;animation:none!important}
+}
+</style>
 </head><body><div class="app">
 <header class="top"><div class="brand"><img class="brandLogo" src="brand-logo.svg" alt="Pro Stock Intelligence logo"><div class="brandText"><div>INDIAN STOCK <span>INTELLIGENCE</span></div><small>NSE · BSE · FUNDAMENTALS · TECHNICAL ANALYSIS</small></div></div><span class="taglive">V40.84 · SOURCE-AWARE MARKET RESEARCH</span><div class="searchbox"><div class="searchwrap"><span class="searchicon">⌕</span><input id="search" value="INFOSYS" placeholder="Search NSE/BSE stock or symbol"><span class="clearx" id="clearx">×</span><div id="suggestions" class="suggestions"></div></div><button class="btn primary" id="analyze">Analyze</button><button class="btn" id="clear">Clear</button><button class="btn" id="refresh">↻ Refresh</button><button class="btn" id="watchlistViewBtn">📌 Watchlist</button><button class="btn" id="dataSourcesBtn">Data Sources / CSV</button><button class="btn" id="session">Connect Screener</button></div><div class="clock"><span class="live">● NATIVE ENGINE</span><br><span id="clock"></span></div></header><div id="watchModal" class="watchmodal" role="dialog" aria-modal="true" aria-labelledby="watchModalTitle" tabindex="-1"><div class="watchbox"><div class="watchhead"><h3 id="watchModalTitle">My Persistent Watchlist</h3><button id="watchClose" class="watchclose" type="button" aria-label="Close dialog">×</button></div><div id="watchModalBody" class="watchbody"></div></div></div><div id="dataSourcesModal" class="watchmodal" role="dialog" aria-modal="true" aria-labelledby="dataSourcesTitle" tabindex="-1"><div class="watchbox"><div class="watchhead"><h3 id="dataSourcesTitle">Live Provider Status & Data Import</h3><button id="dataSourcesClose" class="watchclose" type="button" aria-label="Close data source dialog">×</button></div><div id="providerDiagnosticsPanel" class="csvImportStatus">Checking source connectivity…</div><div class="csvImportActions"><button id="refreshProviderDiagnostics" class="btn" type="button">↻ Refresh provider status</button><button id="openMoneycontrolStock" class="btn" type="button">Open Moneycontrol stock page ↗</button><button id="openScreenerStock" class="btn" type="button">Open Screener company page ↗</button></div><p class="csvSourceNote">Import a Screener Excel (.xlsx) workbook or CSV that you are authorized to use. This app does not scrape Moneycontrol or store your login credentials. Subscription access alone does not establish permission for automated extraction. Screener supports CSV export for Premium users; Moneycontrol CSV import works only if your account/product provides a permitted export. Imported values are labelled, never treated as verified live data. Moneycontrol public viewing does not mean the app can automatically extract its data.</p><div class="csvImportGrid"><div><label for="csvSource">Data source</label><select id="csvSource"><option value="Screener.in Excel export">Screener.in Excel export (.xlsx)</option><option value="Screener.in CSV">Screener.in CSV export</option><option value="Moneycontrol CSV">Moneycontrol CSV export (if available to your plan)</option><option value="User CSV">Other authorized CSV</option></select></div><div><label for="csvFile">Choose Screener Excel or CSV file</label><input id="csvFile" type="file" accept=".xlsx,.csv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/plain,application/vnd.ms-excel" /></div></div><label class="csvUseRow"><input id="useImportedCsv" type="checkbox" checked /><span>Use imported fundamentals only to fill fields missing from live data. Never overwrite live values. Imported historical OHLCV may be used for the current stock chart.</span></label><div id="csvImportStatus" class="csvImportStatus">No CSV import loaded. Choose a source and file.</div><div class="csvImportActions"><a href="https://www.screener.in/" target="_blank" rel="noopener">Open Screener.in ↗</a><a href="https://www.moneycontrol.com/" target="_blank" rel="noopener">Open Moneycontrol ↗</a><button id="clearImportedCsv" class="btn red" type="button">Remove imported data</button></div><p class="csvSourceNote">Excel/CSV import stores normalized values locally in this app's WebView storage. It does not prove the export's period or freshness. Keep provider labels and periods visible when making decisions.</p></div></div>
 <section class="indices" id="indices"></section>
