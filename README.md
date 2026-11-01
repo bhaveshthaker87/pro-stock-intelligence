@@ -1,7 +1,7 @@
-# PRO STOCK INTELLIGENCE V40.88 — NSE EOD full-universe search
+# PRO STOCK INTELLIGENCE V40.89 — NSE EOD full-universe search
 
 ## Release notes
-- Android version: V40.88 / versionCode 87.
+- Android version: V40.89 / versionCode 88.
 - Search suggestions now read the newest bundled official NSE CM-UDiFF EQ bhavcopy and search all symbols present in that report, rather than relying only on 28 hard-coded examples.
 - Search results explicitly identify the NSE EOD report as the source and do not imply BSE coverage or live quotes.
 - Quotes remain unavailable unless an authorized HTTPS provider gateway is configured. NSE EOD close is not represented as a live quote.
