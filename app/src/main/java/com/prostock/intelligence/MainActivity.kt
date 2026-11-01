@@ -36,6 +36,12 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Keep WebView content below Android system bars on devices using edge-to-edge defaults.
+        WindowCompat.setDecorFitsSystemWindows(window, true)
+        window.statusBarColor = Color.rgb(6, 38, 75)
+        window.navigationBarColor = Color.rgb(6, 38, 75)
+        @Suppress("DEPRECATION")
+        window.decorView.systemUiVisibility = 0
         provider = NativeProvider(assets)
         Log.e("PSI_STARTUP", "ON_CREATE_BEGIN")
         CookieManager.getInstance().setAcceptCookie(true)
