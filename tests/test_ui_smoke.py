@@ -527,7 +527,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertNotIn("Screener Session Verified", html)
         self.assertIn("does not certify every field or its freshness", html)
         self.assertIn("Keep the plot clean: show only the most recent closed-bar signal", html)
-        self.assertIn("WindowCompat.setDecorFitsSystemWindows(window, true)", source)
+        self.assertIn("window.setDecorFitsSystemWindows(true)", source)
         self.assertIn("window.statusBarColor = Color.rgb(6, 38, 75)", source)
         self.assertIn("Import peer data", html)
         self.assertIn("Open official NSE announcements", html)
