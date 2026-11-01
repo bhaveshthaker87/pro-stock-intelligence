@@ -1473,12 +1473,51 @@ private class NativeProvider(private val appAssets: AssetManager) {
     }
 
     /**
-     * Local equity autocomplete; broad provider search is intentionally disabled.
-     * This is discovery only, not an exchange-authoritative security master or a licensed feed.
-     * Preserve .NS/.BO suffixes so quote lookup uses the selected listing when available.
+     * Search the newest bundled official NSE CM-UDiFF EQ bhavcopy.
+     * This expands discovery beyond the legacy 28 hand-maintained suggestions.
+     * It is an EOD-observed NSE symbol universe, not a live quote feed or BSE master.
      */
-    /** Search is limited to the locally maintained NSE equity suggestions until an authorized security master is configured. */
-    private fun equitySearch(term: String, limit: Int = 12): List<JSONObject> = emptyList()
+    @Volatile private var bundledNseSymbolCache: List<String>? = null
+
+    private fun bundledNseSymbols(): List<String> {
+        bundledNseSymbolCache?.let { return it }
+        synchronized(this) {
+            bundledNseSymbolCache?.let { return it }
+            val files = appAssets.list("nse-eod").orEmpty()
+                .filter { it.matches(Regex("\\d{4}-\\d{2}-\\d{2}\\.csv")) }
+                .sortedDescending()
+            if (files.isEmpty()) return emptyList()
+            val symbols = linkedSetOf<String>()
+            appAssets.open("nse-eod/" + files.first()).bufferedReader(Charsets.UTF_8).useLines { lines ->
+                lines.drop(1).forEach { line ->
+                    val symbol = line.substringBefore(',').trim().trim('"').uppercase(Locale.ROOT)
+                    if (symbol.matches(Regex("[A-Z0-9&._-]{1,30}"))) symbols.add(symbol)
+                }
+            }
+            val result = symbols.toList().sorted()
+            bundledNseSymbolCache = result
+            return result
+        }
+    }
+
+    private fun equitySearch(term: String, limit: Int = 12): List<JSONObject> {
+        val normalized = term.trim().uppercase(Locale.ROOT).replace(Regex("[^A-Z0-9]"), "")
+        if (normalized.length < 1) return emptyList()
+        return bundledNseSymbols()
+            .filter { it.replace(Regex("[^A-Z0-9]"), "").contains(normalized) }
+            .sortedWith(compareBy<String> { if (it.startsWith(normalized)) 0 else 1 }.thenBy { it })
+            .take(limit.coerceIn(1, 50))
+            .map { symbol ->
+                JSONObject()
+                    .put("symbol", symbol)
+                    .put("name", stockName(symbol))
+                    .put("exchange", "NSE (observed in official EOD EQ bhavcopy)")
+                    .put("sector", stockSector(symbol))
+                    .put("provider", "NSE CM-UDiFF Common Bhavcopy Final")
+                    .put("marketDataStatus", "EOD")
+                    .put("listingVerification", "Symbol observed in latest bundled NSE EQ EOD report")
+            }
+    }
 
     private fun gatewayEvents(path: String, symbol: String, eventType: String): JSONObject {
         val params = linkedMapOf("eventType" to eventType.uppercase(Locale.ROOT))
@@ -1531,7 +1570,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
         val s = canonical(raw)
         return try {
             when (p) {
-                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.87 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK").put("data", JSONObject().put("ok", true).put("providerGatewayConfigured", gatewayConfigured()).put("quoteStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_FEED_NOT_CONFIGURED").put("historyStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_HISTORY_NOT_CONFIGURED").put("indicesStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_INDEX_FEED_NOT_CONFIGURED").put("eventsStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_EVENTS_FEED_NOT_CONFIGURED").put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
+                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.88 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK").put("data", JSONObject().put("ok", true).put("providerGatewayConfigured", gatewayConfigured()).put("quoteStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_FEED_NOT_CONFIGURED").put("historyStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_HISTORY_NOT_CONFIGURED").put("indicesStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_INDEX_FEED_NOT_CONFIGURED").put("eventsStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_EVENTS_FEED_NOT_CONFIGURED").put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
                 "/api/providers/status" -> JSONObject().put("ok", true).put("data", providerStatus(raw)).toString()
                 "/api/screener/status" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
                 "/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerConnectionTest()).toString()
@@ -1545,8 +1584,8 @@ private class NativeProvider(private val appAssets: AssetManager) {
                     val combined = (external + local).distinctBy { it.optString("symbol").uppercase(Locale.ROOT) }.take(12)
                     val arr = JSONArray(); combined.forEach { arr.put(it) }
                     JSONObject().put("ok", true).put("data", arr).put("count", combined.size)
-                        .put("searchProvider", if (external.isNotEmpty()) "Authorized security-master search" else "Local symbol list only; broad search unavailable")
-                        .put("coverageDisclaimer", "Autocomplete is broad best-effort discovery, not a complete official NSE/BSE security master. Quotes can be delayed or unavailable.").toString()
+                        .put("searchProvider", if (external.isNotEmpty()) "Bundled official NSE EOD EQ symbol universe" else "Legacy local suggestions only; NSE EOD symbol master unavailable")
+                        .put("coverageDisclaimer", "Search uses symbols present in the latest bundled official NSE CM-UDiFF EQ bhavcopy. It is NSE EOD discovery, not a BSE security master or live quote feed.").toString()
                 }
                 "/api/quote", "/api/fast" -> {
                     val quote = try {

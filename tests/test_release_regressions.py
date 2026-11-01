@@ -47,10 +47,11 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertNotIn("query1.finance.yahoo.com", source)
         self.assertNotIn("query2.finance.yahoo.com", source)
         self.assertIn("private fun equitySearch", source)
-        self.assertIn("Local symbol list only; broad search unavailable", source)
-        self.assertIn("not a complete official NSE/BSE security master", source)
-        self.assertIn('"exchange", "LISTING_UNVERIFIED"', source)
-        self.assertIn("exchange listing not verified", source)
+        self.assertIn("private fun bundledNseSymbols()", source)
+        self.assertIn('appAssets.list("nse-eod")', source)
+        self.assertIn("NSE CM-UDiFF Common Bhavcopy Final", source)
+        self.assertIn("latest bundled official NSE CM-UDiFF EQ bhavcopy", source)
+        self.assertIn("not a BSE security master or live quote feed", source)
         self.assertNotIn("NSE public endpoint with disclosed third-party fallback", source)
 
     def test_ui_and_native_engine_versions_match(self):
@@ -122,15 +123,15 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("imported peer snapshot; verify period", html)
         self.assertIn("Imported company news snapshot", html)
 
-    def test_v4087_release_markers_are_aligned(self):
+    def test_v4088_release_markers_are_aligned(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
         workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
-        self.assertIn("versionCode 86; versionName '40.87'", gradle)
-        self.assertIn("V40.87 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", html)
-        self.assertIn("V40.87 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", source)
-        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-87-debug", workflow)
+        self.assertIn("versionCode 87; versionName '40.88'", gradle)
+        self.assertIn("V40.88 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", html)
+        self.assertIn("V40.88 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", source)
+        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-88-debug", workflow)
 
     def test_screener_data_carries_source_and_quality_metadata(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
