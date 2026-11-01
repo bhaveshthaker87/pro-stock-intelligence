@@ -24,6 +24,8 @@ def post(payload, session=None, protocol=None):
                "User-Agent":"ProStockIntelligence-personal-research/1.0"}
     if session:
         headers["Mcp-Session-Id"] = session
+    if protocol:
+        headers["MCP-Protocol-Version"] = protocol
     req = urllib.request.Request(URL, data=json.dumps(payload).encode(), headers=headers, method="POST")
     with urllib.request.urlopen(req, timeout=25) as response:
         body = response.read()
