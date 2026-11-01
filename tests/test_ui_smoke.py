@@ -529,6 +529,9 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn("Keep the plot clean: show only the most recent closed-bar signal", html)
         self.assertIn("WindowCompat.setDecorFitsSystemWindows(window, true)", source)
         self.assertIn("window.statusBarColor = Color.rgb(6, 38, 75)", source)
+        self.assertIn("Import peer data", html)
+        self.assertIn("Open official NSE announcements", html)
+        self.assertIn("metrics not present in this source", html)
 
 if __name__ == "__main__":
     unittest.main()
