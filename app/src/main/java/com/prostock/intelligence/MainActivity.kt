@@ -1059,18 +1059,27 @@ private class NativeProvider(private val appAssets: AssetManager) {
         // Quote and candle data fail closed until an authorized NSE feed is configured.
         val quoteFuture = executor.submit<JSONObject> {
             try {
-                (if (gatewayConfigured()) nseQuote(raw) else eodQuote(raw)).put("rows", JSONArray())
-                    .put("historyProvider", "Unavailable")
-                    .put("historyStatus", "AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED")
+                if (gatewayConfigured()) {
+                    nseQuote(raw)
+                } else {
+                    try { yahooChart(raw, "1y") }
+                    catch (yahooError: Exception) {
+                        try {
+                            eodQuote(raw).put("fallbackWarning", "Yahoo Finance unavailable: " + (yahooError.message ?: "request failed"))
+                        } catch (nseError: Exception) {
+                            throw IOException("Yahoo Finance unavailable (" + (yahooError.message ?: "request failed") + "); official NSE EOD unavailable (" + (nseError.message ?: "no bundled data") + ")")
+                        }
+                    }
+                }
             } catch (e: Exception) {
                 JSONObject().put("symbol", s)
                     .put("provider", "Unavailable")
-                    .put("status", if (gatewayConfigured()) "PROVIDER_GATEWAY_VALIDATION_FAILED" else "AUTHORIZED_NSE_FEED_NOT_CONFIGURED")
+                    .put("status", if (gatewayConfigured()) "PROVIDER_GATEWAY_VALIDATION_FAILED" else "YAHOO_AND_NSE_DATA_UNAVAILABLE")
                     .put("rows", JSONArray())
                     .put("historyProvider", "Unavailable")
-                    .put("historyStatus", "AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED")
-                    .put("providerError", e.message ?: "Authorized NSE quote feed is not configured")
-                    .put("marketDataDisclaimer", if (gatewayConfigured()) "Configured provider gateway failed validation; price is unavailable. No fallback is used." else "No authorized NSE real-time or historical feed is configured. No third-party fallback is used.")
+                    .put("historyStatus", "HISTORICAL_DATA_UNAVAILABLE")
+                    .put("providerError", e.message ?: "Market data unavailable")
+                    .put("marketDataDisclaimer", "No verified quote or historical data is currently available. Last verified local snapshots, if present, remain unchanged.")
             }
         }
         val fundamentalFuture = executor.submit<JSONObject> {
@@ -1145,6 +1154,35 @@ private class NativeProvider(private val appAssets: AssetManager) {
 
     private fun historyData(raw: String, range: String): JSONObject {
         val symbol = canonical(raw)
+        if (!gatewayConfigured()) {
+            try {
+                val yahoo = yahooChart(raw, range)
+                val rows = yahoo.optJSONArray("historyRows") ?: throw IOException("Yahoo Finance history rows missing")
+                return JSONObject().put("symbol", symbol).put("rows", rows)
+                    .put("provider", "Yahoo Finance").put("historyProvider", "Yahoo Finance daily OHLCV")
+                    .put("historyStatus", "YAHOO_FINANCE_DAILY_HISTORY")
+                    .put("marketDataStatus", "UNVERIFIED_SNAPSHOT").put("chartMode", "OHLCV")
+                    .put("statusText", "Yahoo Finance daily OHLCV • not exchange-certified real-time")
+                    .put("rangeRequested", range).put("interval", "1d")
+                    .put("quoteTimestamp", yahoo.optLong("quoteTimestamp", 0L))
+                    .put("sourceDisclaimer", "Yahoo Finance daily history. Validate against official exchange data before trading.")
+            } catch (yahooError: Exception) {
+                val localRows = readBundledNseEod(symbol)
+                if (localRows.length() >= 2) {
+                    val latest = localRows.optJSONObject(localRows.length() - 1)
+                    return JSONObject().put("symbol", symbol).put("rows", localRows)
+                        .put("provider", "NSE CM-UDiFF Common Bhavcopy Final")
+                        .put("historyProvider", "NSE official EOD bhavcopy bundled with app")
+                        .put("historyStatus", "VALIDATED_OFFICIAL_NSE_EOD")
+                        .put("marketDataStatus", "EOD").put("chartMode", "OHLCV")
+                        .put("statusText", "Official NSE daily OHLCV • EOD only • latest session " + (latest?.optString("tradingDate") ?: "unknown") + " • Yahoo fallback unavailable")
+                        .put("rangeRequested", range).put("interval", "1d")
+                        .put("quoteTimestamp", latest?.optLong("time", 0L)?.div(1000L) ?: JSONObject.NULL)
+                        .put("sourceDisclaimer", "Official NSE EOD history; Yahoo Finance request failed: " + (yahooError.message ?: "unavailable"))
+                }
+                throw IOException("Yahoo Finance history unavailable: " + (yahooError.message ?: "request failed"))
+            }
+        }
         if (gatewayConfigured()) {
             val data = gatewayGet("/v1/history", mapOf("symbol" to symbol, "range" to range))
             if (canonical(data.optString("symbol")) != symbol) throw IOException("History provider returned a different symbol; candles rejected")
@@ -1234,6 +1272,115 @@ private class NativeProvider(private val appAssets: AssetManager) {
             }
         }
         return JSONArray().apply { byDate.values.forEach { put(it) } }
+    }
+
+    // Yahoo Finance chart adapter: public market snapshot + daily OHLCV fallback.
+    // Yahoo does not guarantee exchange-certified real-time delivery; every response is
+    // labelled as an unverified Yahoo snapshot and timestamp-checked before use.
+    private val yahooCache = mutableMapOf<String, Pair<Long, String>>()
+
+    private fun yahooTicker(raw: String): String {
+        val input = raw.trim().uppercase(Locale.ROOT)
+        if (input.matches(Regex("^\\^[A-Z0-9]+$"))) return input
+        if (input.endsWith(".BO") || input.endsWith(".NS")) return input
+        val symbol = canonical(input)
+        if (symbol.isBlank()) throw IOException("Enter a valid NSE/BSE symbol")
+        return "$symbol.NS"
+    }
+
+    private fun yahooChart(raw: String, range: String = "1y"): JSONObject {
+        val ticker = yahooTicker(raw)
+        val safeRange = when (range.lowercase(Locale.ROOT)) {
+            "1m", "1mo" -> "1mo"
+            "3m", "3mo" -> "3mo"
+            "6m", "6mo" -> "6mo"
+            "2y" -> "2y"
+            "5y" -> "5y"
+            "max" -> "max"
+            else -> "1y"
+        }
+        val key = "$ticker|$safeRange"
+        val now = System.currentTimeMillis()
+        synchronized(yahooCache) {
+            val cached = yahooCache[key]
+            if (cached != null && now >= cached.first && now - cached.first < 60_000L) {
+                return JSONObject(cached.second)
+            }
+        }
+        val encoded = URLEncoder.encode(ticker, "UTF-8")
+        val url = URL("https://query1.finance.yahoo.com/v8/finance/chart/$encoded?range=$safeRange&interval=1d&events=div%2Csplits")
+        val connection = url.openConnection() as HttpURLConnection
+        connection.connectTimeout = 7000
+        connection.readTimeout = 10000
+        connection.requestMethod = "GET"
+        connection.setRequestProperty("Accept", "application/json")
+        connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/126.0 Mobile Safari/537.36")
+        try {
+            val code = connection.responseCode
+            if (code !in 200..299) throw IOException("Yahoo Finance returned HTTP $code for $ticker")
+            val body = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            if (body.length > 8_000_000) throw IOException("Yahoo Finance history response exceeded the 8 MB safety limit")
+            val root = JSONObject(body).optJSONObject("chart") ?: throw IOException("Yahoo Finance response has no chart object")
+            val error = root.optJSONObject("error")
+            if (error != null && !error.isNull("code")) throw IOException("Yahoo Finance: " + error.optString("description", "symbol unavailable"))
+            val result = root.optJSONArray("result")?.optJSONObject(0) ?: throw IOException("Yahoo Finance returned no data for $ticker")
+            val meta = result.optJSONObject("meta") ?: throw IOException("Yahoo Finance response is missing exchange metadata")
+            val resolved = meta.optString("symbol").uppercase(Locale.ROOT)
+            if (resolved.isBlank() || resolved != ticker) throw IOException("Yahoo Finance symbol mismatch: requested $ticker, received $resolved")
+            val timestamps = result.optJSONArray("timestamp") ?: throw IOException("Yahoo Finance returned no daily timestamps")
+            val indicators = result.optJSONObject("indicators") ?: throw IOException("Yahoo Finance response is missing OHLCV indicators")
+            val quote = indicators.optJSONArray("quote")?.optJSONObject(0) ?: throw IOException("Yahoo Finance response is missing OHLCV quote data")
+            val opens = quote.optJSONArray("open") ?: throw IOException("Yahoo Finance response is missing open prices")
+            val highs = quote.optJSONArray("high") ?: throw IOException("Yahoo Finance response is missing high prices")
+            val lows = quote.optJSONArray("low") ?: throw IOException("Yahoo Finance response is missing low prices")
+            val closes = quote.optJSONArray("close") ?: throw IOException("Yahoo Finance response is missing close prices")
+            val volumes = quote.optJSONArray("volume") ?: throw IOException("Yahoo Finance response is missing volume")
+            val rows = JSONArray()
+            var previous = Long.MIN_VALUE
+            for (i in 0 until timestamps.length()) {
+                val time = timestamps.optLong(i, 0L)
+                val o = opens.optDouble(i, Double.NaN)
+                val h = highs.optDouble(i, Double.NaN)
+                val l = lows.optDouble(i, Double.NaN)
+                val c = closes.optDouble(i, Double.NaN)
+                val v = volumes.optDouble(i, Double.NaN)
+                if (time <= previous || !finite(o) || !finite(h) || !finite(l) || !finite(c) || !finite(v) ||
+                    minOf(o, h, l, c) <= 0.0 || h < maxOf(o, c, l) || l > minOf(o, c, h) || v < 0.0) continue
+                rows.put(JSONObject().put("time", time * 1000L).put("date", time * 1000L)
+                    .put("open", o).put("high", h).put("low", l).put("close", c).put("volume", v))
+                previous = time
+            }
+            if (rows.length() < 2) throw IOException("Yahoo Finance returned fewer than two valid daily OHLCV rows")
+            val regularTime = meta.optLong("regularMarketTime", 0L)
+            val price = meta.optDouble("regularMarketPrice", Double.NaN)
+            val previousClose = meta.optDouble("chartPreviousClose", meta.optDouble("previousClose", Double.NaN))
+            val lastRow = rows.optJSONObject(rows.length() - 1) ?: throw IOException("Yahoo Finance latest candle is invalid")
+            val priceTimestamp = if (regularTime > 0L) regularTime else (lastRow.optLong("time") / 1000L)
+            val ageSeconds = System.currentTimeMillis() / 1000L - priceTimestamp
+            if (priceTimestamp <= 0L || ageSeconds < -60L || ageSeconds > 5L * 24L * 60L * 60L)
+                throw IOException("Yahoo Finance quote timestamp is missing, future-dated or older than five days")
+            val currentPrice = if (finite(price) && price > 0.0) price else lastRow.optDouble("close", Double.NaN)
+            if (!finite(currentPrice) || currentPrice <= 0.0) throw IOException("Yahoo Finance returned no valid current/reference price")
+            val output = JSONObject().put("symbol", canonical(raw)).put("yahooSymbol", ticker)
+                .put("price", currentPrice).put("currency", meta.optString("currency", "INR"))
+                .put("provider", "Yahoo Finance").put("source", "Yahoo Finance chart endpoint")
+                .put("status", "YAHOO_FINANCE_SNAPSHOT").put("marketDataStatus", "UNVERIFIED_SNAPSHOT")
+                .put("quoteTimestamp", priceTimestamp).put("quoteAsOf", java.time.Instant.ofEpochSecond(priceTimestamp).toString())
+                .put("marketDataDisclaimer", "Yahoo Finance snapshot. Not exchange-certified real-time; verify before trading.")
+                .put("isExchangeCertifiedRealtime", false).put("historyRows", rows)
+                .put("historyProvider", "Yahoo Finance daily OHLCV").put("historyStatus", "YAHOO_FINANCE_DAILY_HISTORY")
+                .put("currency", meta.optString("currency", "INR"))
+            if (finite(previousClose) && previousClose > 0.0) {
+                output.put("previousClose", previousClose)
+                output.put("dayChangePct", ((currentPrice - previousClose) / previousClose) * 100.0)
+            }
+            if (meta.has("fiftyTwoWeekHigh")) output.put("high52", meta.optDouble("fiftyTwoWeekHigh"))
+            if (meta.has("fiftyTwoWeekLow")) output.put("low52", meta.optDouble("fiftyTwoWeekLow"))
+            synchronized(yahooCache) { yahooCache[key] = Pair(now, output.toString()) }
+            return output
+        } finally {
+            connection.disconnect()
+        }
     }
 
     private fun eodQuote(raw: String): JSONObject {
