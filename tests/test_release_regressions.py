@@ -138,6 +138,9 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("INFOSYSLTD:'INFY'", importer)
         self.assertIn("const compact=company.toUpperCase().replace(/[^A-Z0-9]/g,'')", importer)
         self.assertIn("Cannot safely map", importer)
+        self.assertIn("put('debtEquity'", importer)
+        self.assertIn("Derived 3-year CAGR from annual Sales row", importer)
+        self.assertIn("Derived 3-year CAGR from annual Net profit row", importer)
 
     def test_screener_data_carries_source_and_quality_metadata(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
