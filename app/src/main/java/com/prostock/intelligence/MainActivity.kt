@@ -2,6 +2,7 @@ package com.prostock.intelligence
 
 import android.app.Activity
 import android.content.Intent
+import android.content.res.AssetManager
 import android.os.Bundle
 import android.webkit.*
 import android.net.Uri
@@ -26,7 +27,7 @@ class MainActivity : Activity() {
     private lateinit var web: WebView
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
     private val csvPickerRequestCode = 4071
-    private val provider = NativeProvider()
+    private lateinit var provider: NativeProvider
 
     private fun jsonResponse(json: String): WebResourceResponse =
         WebResourceResponse("application/json", "UTF-8", ByteArrayInputStream(json.toByteArray(Charsets.UTF_8))).apply {
@@ -35,6 +36,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        provider = NativeProvider(assets)
         Log.e("PSI_STARTUP", "ON_CREATE_BEGIN")
         CookieManager.getInstance().setAcceptCookie(true)
         web = WebView(this)
@@ -210,7 +212,7 @@ class MainActivity : Activity() {
     }
 }
 
-private class NativeProvider {
+private class NativeProvider(private val appAssets: AssetManager) {
     @Volatile private var screener403Observed: Boolean = false
     private data class Stock(val symbol: String, val name: String, val sector: String)
     private val stocks = listOf(
@@ -1004,7 +1006,7 @@ private class NativeProvider {
         // Quote and candle data fail closed until an authorized NSE feed is configured.
         val quoteFuture = executor.submit<JSONObject> {
             try {
-                nseQuote(raw).put("rows", JSONArray())
+                (if (gatewayConfigured()) nseQuote(raw) else eodQuote(raw)).put("rows", JSONArray())
                     .put("historyProvider", "Unavailable")
                     .put("historyStatus", "AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED")
             } catch (e: Exception) {
@@ -1120,11 +1122,88 @@ private class NativeProvider {
                 .put("chartMode", "OHLCV").put("statusText", "Provider OHLCV • as of " + data.optString("asOf"))
                 .put("rangeRequested", range).put("interval", interval).put("quoteTimestamp", asOf / 1000L)
         }
-        return JSONObject().put("symbol", symbol).put("rows", JSONArray())
-            .put("provider", "Unavailable").put("historyStatus", "AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED")
+        val localRows = readBundledNseEod(symbol)
+        if (localRows.length() >= 2) {
+            val latest = localRows.optJSONObject(localRows.length() - 1)
+            val latestTime = latest?.optLong("time", 0L) ?: 0L
+            return JSONObject().put("symbol", symbol).put("rows", localRows)
+                .put("provider", "NSE CM-UDiFF Common Bhavcopy Final")
+                .put("historyProvider", "NSE official EOD bhavcopy bundled with app")
+                .put("historyStatus", "VALIDATED_OFFICIAL_NSE_EOD")
+                .put("marketDataStatus", "EOD").put("chartMode", "OHLCV")
+                .put("statusText", "Official NSE daily OHLCV • EOD only • latest session " + (latest?.optString("tradingDate") ?: "unknown"))
+                .put("rangeRequested", range).put("interval", "1d")
+                .put("quoteTimestamp", if (latestTime > 0L) latestTime / 1000L else JSONObject.NULL)
+                .put("sourceDisclaimer", "Daily closing data from official NSE CM-UDiFF Bhavcopy. Not live or intraday.")
+        }
+        return JSONObject().put("symbol", symbol).put("rows", localRows)
+            .put("provider", "Unavailable").put("historyStatus", "NSE_EOD_HISTORY_NOT_BUNDLED")
             .put("chartMode", "OHLCV")
-            .put("statusText", "Historical candles are unavailable until an authorized provider gateway is configured. No third-party fallback is used.")
+            .put("statusText", "No bundled NSE EOD history for this symbol yet. Run the official NSE EOD ingestion workflow; live/intraday data is not included.")
             .put("rangeRequested", range).put("quoteTimestamp", JSONObject.NULL)
+    }
+
+    /** Read only validated NSE EQ bhavcopy files copied into assets by the release workflow. */
+    private fun readBundledNseEod(symbol: String): JSONArray {
+        val byDate = sortedMapOf<String, JSONObject>()
+        val files = try { appAssets.list("nse-eod") ?: emptyArray() } catch (_: Exception) { emptyArray() }
+        for (file in files.filter { it.endsWith(".csv", true) }.sorted()) {
+            try {
+                appAssets.open("nse-eod/$file").bufferedReader(Charsets.UTF_8).useLines { lines ->
+                    val iterator = lines.iterator()
+                    if (!iterator.hasNext()) return@useLines
+                    val header = iterator.next().split(',').map { it.trim() }
+                    val index = header.withIndex().associate { it.value to it.index }
+                    val required = listOf("symbol", "date", "open", "high", "low", "close", "volume", "marketDataStatus")
+                    if (required.any { !index.containsKey(it) }) return@useLines
+                    while (iterator.hasNext()) {
+                        val cells = iterator.next().split(',')
+                        fun field(name: String): String = cells.getOrNull(index[name] ?: -1)?.trim().orEmpty()
+                        if (field("symbol").uppercase(Locale.ROOT) != symbol || field("marketDataStatus") != "EOD") continue
+                        val day = field("date")
+                        val date = try { java.time.LocalDate.parse(day) } catch (_: Exception) { continue }
+                        val o = field("open").toDoubleOrNull() ?: continue
+                        val h = field("high").toDoubleOrNull() ?: continue
+                        val l = field("low").toDoubleOrNull() ?: continue
+                        val c = field("close").toDoubleOrNull() ?: continue
+                        val v = field("volume").toDoubleOrNull() ?: continue
+                        if (listOf(o,h,l,c,v).any { !it.isFinite() } || minOf(o,h,l,c) <= 0.0 || v < 0.0 || h < maxOf(o,c,l) || l > minOf(o,c,h)) continue
+                        val epoch = date.atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+                        byDate[day] = JSONObject().put("time", epoch).put("date", epoch).put("tradingDate", day)
+                            .put("open", o).put("high", h).put("low", l).put("close", c).put("volume", v)
+                            .put("marketDataStatus", "EOD").put("source", "NSE CM-UDiFF Common Bhavcopy Final")
+                    }
+                }
+            } catch (_: Exception) {
+                // A malformed or inaccessible bundled file is skipped; never synthesize candles.
+            }
+        }
+        return JSONArray().apply { byDate.values.forEach { put(it) } }
+    }
+
+    private fun eodQuote(raw: String): JSONObject {
+        val symbol = canonical(raw)
+        val history = readBundledNseEod(symbol)
+        if (history.length() == 0) throw IOException("No bundled official NSE EOD close exists for $symbol")
+        val last = history.optJSONObject(history.length() - 1) ?: throw IOException("Latest NSE EOD row is invalid")
+        val previous = if (history.length() > 1) history.optJSONObject(history.length() - 2) else null
+        val close = last.optDouble("close", Double.NaN)
+        if (!close.isFinite() || close <= 0.0) throw IOException("Latest NSE EOD close is invalid")
+        val out = JSONObject().put("symbol", symbol).put("price", close).put("currency", "INR")
+            .put("provider", "NSE CM-UDiFF Common Bhavcopy Final").put("source", "NSE official EOD bhavcopy")
+            .put("status", "EOD").put("marketDataStatus", "EOD")
+            .put("quoteTimestamp", last.optLong("time") / 1000L)
+            .put("quoteAsOf", last.optString("tradingDate"))
+            .put("marketDataDisclaimer", "Official NSE EOD closing price for " + last.optString("tradingDate") + ". Not live, delayed or intraday.")
+            .put("isExchangeCertifiedRealtime", false)
+        if (previous != null) {
+            val prevClose = previous.optDouble("close", Double.NaN)
+            if (prevClose.isFinite() && prevClose > 0.0) {
+                out.put("previousClose", prevClose)
+                out.put("dayChangePct", ((close - prevClose) / prevClose) * 100.0)
+            }
+        }
+        return out
     }
 
     private fun htmlEntities(s: String): String = s.replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<")
@@ -1465,12 +1544,14 @@ private class NativeProvider {
                         .put("coverageDisclaimer", "Autocomplete is broad best-effort discovery, not a complete official NSE/BSE security master. Quotes can be delayed or unavailable.").toString()
                 }
                 "/api/quote", "/api/fast" -> {
-                    val quote = try { nseQuote(raw) } catch (e: Exception) {
-                        JSONObject().put("symbol", s).put("status", if (gatewayConfigured()) "PROVIDER_GATEWAY_VALIDATION_FAILED" else "AUTHORIZED_NSE_FEED_NOT_CONFIGURED")
+                    val quote = try {
+                        if (gatewayConfigured()) nseQuote(raw) else eodQuote(raw)
+                    } catch (e: Exception) {
+                        JSONObject().put("symbol", s).put("status", if (gatewayConfigured()) "PROVIDER_GATEWAY_VALIDATION_FAILED" else "NSE_EOD_AND_LIVE_FEED_UNAVAILABLE")
                             .put("provider", "Unavailable").put("price", JSONObject.NULL)
                             .put("quoteTimestamp", JSONObject.NULL)
-                            .put("marketDataDisclaimer", if (gatewayConfigured()) "Configured provider gateway failed validation; price is unavailable. No fallback is used." else "No authorized NSE real-time feed is configured. No third-party fallback is used.")
-                            .put("providerError", e.message ?: "Authorized NSE quote feed unavailable")
+                            .put("marketDataDisclaimer", if (gatewayConfigured()) "Configured provider gateway failed validation; price is unavailable. No fallback is used." else "No bundled official NSE EOD close exists and no authorized live feed is configured.")
+                            .put("providerError", e.message ?: "NSE EOD/live quote unavailable")
                     }
                     quote.put("rows", JSONArray()).put("historyProvider", "Unavailable")
                         .put("historyStatus", "AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED")

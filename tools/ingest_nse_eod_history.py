@@ -14,60 +14,98 @@ import re
 import sys
 import urllib.error
 import urllib.request
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from html.parser import HTMLParser
 from pathlib import Path
+import zipfile
 from urllib.parse import urljoin, urlparse
 
 from convert_nse_udiff_bhavcopy import OUTPUT_FIELDS, parse_bhavcopy_zip
 
-REPORTS_URL = "https://www.nseindia.com/all-reports"
+REPORTS_URL = "https://www.nseindia.in/all-reports"
+OFFICIAL_HOSTS = {"nseindia.com", "www.nseindia.com", "nseindia.in", "www.nseindia.in", "nsearchives.nseindia.com"}
+ARCHIVE_BASE = "https://nsearchives.nseindia.com/content/cm/"
 REPORT_RE = re.compile(r"BhavCopy_NSE_CM_0_0_0_(\d{8})_F_0000\.csv\.zip", re.I)
 USER_AGENT = "Mozilla/5.0 (compatible; ProStockIntelligence-EOD/1.0)"
 
 
 class LinkParser(HTMLParser):
+    """Collect link text and all attributes because NSE report controls are not always anchors."""
     def __init__(self):
         super().__init__()
         self.links = []
-        self._href = None
+        self._attrs = None
         self._text = []
 
     def handle_starttag(self, tag, attrs):
-        if tag.lower() == "a":
-            self._href = dict(attrs).get("href")
+        values = [str(value) for _, value in attrs if value]
+        if tag.lower() in {"a", "button", "input"} or values:
+            self._attrs = values
             self._text = []
 
     def handle_data(self, data):
-        if self._href is not None:
+        if self._attrs is not None:
             self._text.append(data)
 
     def handle_endtag(self, tag):
-        if tag.lower() == "a" and self._href is not None:
-            self.links.append((self._href, " ".join(self._text).strip()))
-            self._href = None
+        if self._attrs is not None:
+            self.links.append((self._attrs, " ".join(self._text).strip()))
+            self._attrs = None
             self._text = []
+
+
+def _official_report_url(value: str, base_url: str) -> tuple[str, str] | None:
+    match = REPORT_RE.search(value)
+    if not match:
+        return None
+    candidate = value.strip()
+    if candidate.lower().startswith(("javascript:", "#")):
+        candidate = ""
+    # A bare filename is not a page-relative URL; resolve it only against
+    # the explicitly configured official NSE archive directory.
+    if candidate and "://" not in candidate and "/" not in candidate and "\\" not in candidate:
+        candidate = ""
+    if candidate:
+        url = urljoin(base_url, candidate)
+    else:
+        url = urljoin(ARCHIVE_BASE, match.group(0))
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or parsed.hostname not in OFFICIAL_HOSTS:
+        return None
+    return match.group(1), url
 
 
 def discover_report_url(html: str, base_url: str = REPORTS_URL) -> str:
     parser = LinkParser()
     parser.feed(html)
+    # Keep explicit URLs ahead of inferred archive URLs for the same trading date.
+    # Never infer an archive URL from a filename embedded in a rejected external URL.
     candidates = []
-    for href, label in parser.links:
-        if not href:
+    for attrs, label in parser.links:
+        for value in attrs + [label]:
+            item = _official_report_url(value, base_url)
+            if item:
+                explicit = "://" in value or value.strip().startswith(("/", "./", "../"))
+                candidates.append((item[0], item[1], explicit))
+
+    # Some NSE pages render a bare filename in inline state/text instead of a link.
+    for match in REPORT_RE.finditer(html):
+        line_start = max(html.rfind("<", 0, match.start()), html.rfind(">", 0, match.start())) + 1
+        prefix = html[line_start:match.start()]
+        # If the filename is part of any URL (including a disallowed host), do not
+        # turn it into a different, guessed official URL.
+        if re.search(r"(?:https?://|/)[^\\s\"'<>]*$", prefix, re.I):
             continue
-        match = REPORT_RE.search(href) or REPORT_RE.search(label)
-        if not match:
-            continue
-        url = urljoin(base_url, href)
-        parsed = urlparse(url)
-        if parsed.scheme != "https" or parsed.hostname not in {"nseindia.com", "www.nseindia.com"}:
-            continue
-        candidates.append((match.group(1), url))
+        item = _official_report_url(match.group(0), base_url)
+        if item:
+            candidates.append((item[0], item[1], False))
+
     if not candidates:
         raise ValueError("NSE All Reports page did not expose a matching official CM-UDiFF ZIP link")
-    # Pick the latest trading date advertised by the official page.
-    return sorted(candidates, key=lambda item: item[0])[-1][1]
+    latest_date = max(item[0] for item in candidates)
+    latest = [item for item in candidates if item[0] == latest_date]
+    explicit = [item for item in latest if item[2]]
+    return sorted(explicit or latest, key=lambda item: item[1])[0][1]
 
 
 def _get(url: str, timeout: int = 30) -> bytes:
@@ -80,21 +118,55 @@ def _get(url: str, timeout: int = 30) -> bytes:
         if response.status != 200:
             raise RuntimeError(f"Unexpected HTTP status {response.status} for NSE source")
         final = urlparse(response.geturl())
-        if final.scheme != "https" or final.hostname not in {"nseindia.com", "www.nseindia.com"}:
+        if final.scheme != "https" or final.hostname not in OFFICIAL_HOSTS:
             raise RuntimeError("NSE download redirected outside the official NSE HTTPS domain")
         return response.read()
+
+
+def probe_archive_for_latest_report(start_date: date, days: int = 14) -> tuple[str, bytes, list[dict]]:
+    """Probe only the documented official NSE CM archive path for recent trading dates.
+
+    This handles the All Reports page rendering report rows client-side, so a plain
+    HTTP fetch can contain the page shell but no report links. Each candidate must
+    download successfully and parse as a CM-UDiFF bhavcopy with the matching date.
+    """
+    failures = []
+    for offset in range(days):
+        trading_date = start_date - timedelta(days=offset)
+        filename = f"BhavCopy_NSE_CM_0_0_0_{trading_date:%Y%m%d}_F_0000.csv.zip"
+        url = urljoin(ARCHIVE_BASE, filename)
+        try:
+            payload = _get(url, timeout=12)
+            rows = parse_bhavcopy_zip(payload)
+            row_dates = {row["date"] for row in rows}
+            if row_dates != {trading_date.isoformat()}:
+                raise ValueError(f"archive date mismatch: expected {trading_date}, got {sorted(row_dates)}")
+            return url, payload, rows
+        except (OSError, urllib.error.URLError, ValueError, RuntimeError, zipfile.BadZipFile) as exc:
+            failures.append(f"{trading_date}: {exc}")
+    raise ValueError("No valid recent CM-UDiFF report found in official NSE archive; " + "; ".join(failures[-3:]))
 
 
 def ingest(output_root: Path, html: str | None = None, zip_payload: bytes | None = None,
            fetched_at: datetime | None = None) -> dict:
     page = html if html is not None else _get(REPORTS_URL).decode("utf-8", errors="replace")
-    report_url = discover_report_url(page)
+    try:
+        report_url = discover_report_url(page)
+    except ValueError:
+        # NSE currently renders report metadata dynamically; its HTML shell may
+        # omit the report filename. Probe dated files only on the official archive.
+        report_url, probed_payload, probed_rows = probe_archive_for_latest_report(
+            (fetched_at or datetime.now(timezone.utc)).date()
+        )
+    else:
+        probed_payload = None
+        probed_rows = None
     match = REPORT_RE.search(report_url)
     if not match:
         raise ValueError("Discovered report URL has no valid NSE trading date")
     trading_date = datetime.strptime(match.group(1), "%Y%m%d").date()
-    payload = zip_payload if zip_payload is not None else _get(report_url)
-    rows = parse_bhavcopy_zip(payload)
+    payload = zip_payload if zip_payload is not None else (probed_payload if probed_payload is not None else _get(report_url))
+    rows = probed_rows if probed_rows is not None and zip_payload is None else parse_bhavcopy_zip(payload)
     row_dates = {row["date"] for row in rows}
     if row_dates != {trading_date.isoformat()}:
         raise ValueError(f"Report date mismatch: filename={trading_date}, rows={sorted(row_dates)}")
@@ -139,12 +211,60 @@ def ingest(output_root: Path, html: str | None = None, zip_payload: bytes | None
     return metadata
 
 
+def ingest_recent_history(output_root: Path, lookback_days: int = 380,
+                          fetched_at: datetime | None = None) -> dict:
+    """Acquire a rolling year of validated daily EQ bhavcopies from the official archive.
+
+    Weekends are skipped. NSE holidays and unavailable dates are treated as gaps;
+    every accepted file must be a valid ZIP whose row dates match its filename.
+    """
+    as_of = (fetched_at or datetime.now(timezone.utc)).date()
+    accepted = []
+    failed_dates = []
+    for offset in range(lookback_days):
+        trading_date = as_of - timedelta(days=offset)
+        if trading_date.weekday() >= 5:
+            continue
+        filename = f"BhavCopy_NSE_CM_0_0_0_{trading_date:%Y%m%d}_F_0000.csv.zip"
+        url = urljoin(ARCHIVE_BASE, filename)
+        try:
+            payload = _get(url, timeout=12)
+            rows = parse_bhavcopy_zip(payload)
+            row_dates = {row["date"] for row in rows}
+            if row_dates != {trading_date.isoformat()}:
+                raise ValueError(f"archive date mismatch: expected {trading_date}, got {sorted(row_dates)}")
+            # Reuse the same idempotent persistence and manifest validation path.
+            link = f'<a href="{url}">CM-UDiFF Common Bhavcopy Final {filename}</a>'
+            metadata = ingest(output_root, html=link, zip_payload=payload, fetched_at=fetched_at)
+            accepted.append(metadata)
+        except (OSError, urllib.error.URLError, ValueError, RuntimeError, zipfile.BadZipFile) as exc:
+            failed_dates.append(f"{trading_date}: {exc}")
+    if len(accepted) < 2:
+        raise ValueError(
+            f"Only {len(accepted)} valid NSE EOD days acquired in {lookback_days} calendar days; "
+            "at least two are required for historical charts"
+        )
+    accepted.sort(key=lambda item: item["tradingDate"])
+    return {
+        "source": "NSE CM-UDiFF Common Bhavcopy Final",
+        "marketDataStatus": "EOD",
+        "asOf": as_of.isoformat(),
+        "firstTradingDate": accepted[0]["tradingDate"],
+        "lastTradingDate": accepted[-1]["tradingDate"],
+        "dailyFiles": len(accepted),
+        "totalRows": sum(item["rowCount"] for item in accepted),
+        "failedOrNonTradingDates": len(failed_dates),
+        "historyDirectory": str(output_root),
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=Path, default=Path("data/nse/eod"))
+    parser.add_argument("--lookback-days", type=int, default=380)
     args = parser.parse_args()
     try:
-        result = ingest(args.output_dir)
+        result = ingest_recent_history(args.output_dir, lookback_days=args.lookback_days)
     except (OSError, urllib.error.URLError, UnicodeError, ValueError, RuntimeError) as exc:
         print(f"ERROR: NSE EOD ingestion failed closed: {exc}", file=sys.stderr)
         return 2

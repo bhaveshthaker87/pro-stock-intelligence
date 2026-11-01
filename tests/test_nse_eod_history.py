@@ -1,15 +1,17 @@
 import io
 import json
+import re
 import sys
 import tempfile
 import unittest
 import zipfile
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from unittest.mock import patch
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from ingest_nse_eod_history import discover_report_url, ingest
+from ingest_nse_eod_history import discover_report_url, ingest, ingest_recent_history, probe_archive_for_latest_report
 
 HEADERS = "TradDt,TckrSymb,SctySrs,OpnPric,HghPric,LwPric,ClsPric,TtlTradgVol\n"
 CSV = HEADERS + "2026-10-30,INFY,EQ,1500,1510,1490,1505,98765\n"
@@ -20,12 +22,19 @@ def zipped():
         archive.writestr("BhavCopy_NSE_CM_test.csv", CSV)
     return out.getvalue()
 
+def zipped_for(day):
+    payload = io.BytesIO()
+    csv_text = HEADERS + f"{day},INFY,EQ,1500,1510,1490,1505,98765\n"
+    with zipfile.ZipFile(payload, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("BhavCopy_NSE_CM_test.csv", csv_text)
+    return payload.getvalue()
+
 class NseEodHistoryTests(unittest.TestCase):
     def test_discovery_uses_only_official_https_udiff_links(self):
         html = '<a href="/api/reports/BhavCopy_NSE_CM_0_0_0_20261030_F_0000.csv.zip">CM-UDiFF Common Bhavcopy Final</a>'
         self.assertEqual(
             discover_report_url(html),
-            "https://www.nseindia.com/api/reports/BhavCopy_NSE_CM_0_0_0_20261030_F_0000.csv.zip",
+            "https://www.nseindia.in/api/reports/BhavCopy_NSE_CM_0_0_0_20261030_F_0000.csv.zip",
         )
 
     def test_discovery_rejects_missing_and_off_domain_links(self):
@@ -33,6 +42,58 @@ class NseEodHistoryTests(unittest.TestCase):
             discover_report_url('<a href="https://example.com/BhavCopy_NSE_CM_0_0_0_20261030_F_0000.csv.zip">x</a>')
         with self.assertRaisesRegex(ValueError, "did not expose"):
             discover_report_url("<html>no report</html>")
+
+
+    def test_discovery_reads_nse_data_attributes_and_official_archive_filename(self):
+        html = '<div data-report-url="https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261030_F_0000.csv.zip">CM-UDiFF</div>'
+        self.assertEqual(
+            discover_report_url(html),
+            "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261030_F_0000.csv.zip",
+        )
+        filename_only = '<span>BhavCopy_NSE_CM_0_0_0_20261030_F_0000.csv.zip</span>'
+        self.assertEqual(
+            discover_report_url(filename_only),
+            "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261030_F_0000.csv.zip",
+        )
+
+    def test_discovery_rejects_untrusted_data_attribute_url(self):
+        html = '<div data-report-url="https://example.com/BhavCopy_NSE_CM_0_0_0_20261030_F_0000.csv.zip">CM-UDiFF</div>'
+        with self.assertRaisesRegex(ValueError, "did not expose"):
+            discover_report_url(html)
+
+    def test_archive_probe_uses_latest_valid_official_trading_day(self):
+        expected = "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261030_F_0000.csv.zip"
+
+        def fake_get(url, timeout=30):
+            if url == expected:
+                return zipped()
+            raise ValueError("not a valid report")
+
+        with patch("ingest_nse_eod_history._get", side_effect=fake_get):
+            url, payload, rows = probe_archive_for_latest_report(date(2026, 10, 31), days=3)
+
+        self.assertEqual(url, expected)
+        self.assertTrue(payload.startswith(b"PK"))
+        self.assertEqual(rows[0]["date"], "2026-10-30")
+
+    def test_recent_history_ingests_multiple_validated_trading_days(self):
+        start = datetime(2026, 10, 30, tzinfo=timezone.utc)
+
+        def fake_get(url, timeout=12):
+            match = re.search(r"_(\d{8})_F_0000", url)
+            if not match:
+                raise ValueError("unexpected URL")
+            day = datetime.strptime(match.group(1), "%Y%m%d").date()
+            return zipped_for(day.isoformat())
+
+        with tempfile.TemporaryDirectory() as temp, patch("ingest_nse_eod_history._get", side_effect=fake_get):
+            result = ingest_recent_history(Path(temp), lookback_days=3, fetched_at=start)
+            manifest = json.loads((Path(temp) / "index.json").read_text())
+
+        self.assertEqual(result["dailyFiles"], 3)
+        self.assertEqual(result["firstTradingDate"], "2026-10-28")
+        self.assertEqual(result["lastTradingDate"], "2026-10-30")
+        self.assertEqual(len(manifest["tradingDates"]), 3)
 
     def test_persists_idempotent_daily_history_and_manifest(self):
         html = '<a href="/BhavCopy_NSE_CM_0_0_0_20261030_F_0000.csv.zip">CM-UDiFF Common Bhavcopy Final</a>'
