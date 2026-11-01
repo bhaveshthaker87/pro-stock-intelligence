@@ -1222,13 +1222,25 @@ private class NativeProvider(private val appAssets: AssetManager) {
 
     /** Build peer rows only where both companies have validated bundled NSE EOD closes. */
     private fun peerComparison(symbol: String): JSONObject {
+        // Use a maintained sector peer universe rather than only the small stock-search
+        // list. The old list had RELIANCE as the sole Energy member, guaranteeing an
+        // empty peer panel even when the full-market NSE EOD files were bundled.
+        val peerGroups = mapOf(
+            "Energy" to listOf("RELIANCE", "ONGC", "IOC", "BPCL", "GAIL", "HINDPETRO", "OIL"),
+            "Banking" to listOf("HDFCBANK", "ICICIBANK", "SBIN", "AXISBANK", "KOTAKBANK", "INDUSINDBK", "BANKBARODA", "PNB", "CANBK"),
+            "Financial Services" to listOf("BAJFINANCE", "BAJAJFINSV", "SHRIRAMFIN", "CHOLAFIN", "MUTHOOTFIN", "HDFCAMC"),
+            "IT Services" to listOf("TCS", "INFY", "HCLTECH", "WIPRO", "TECHM", "LTIM", "PERSISTENT", "COFORGE", "MPHASIS"),
+            "Automobiles" to listOf("MARUTI", "M&M", "TATAMOTORS", "EICHERMOT", "HEROMOTOCO", "BAJAJ-AUTO", "TVSMOTOR"),
+            "Metals" to listOf("TATASTEEL", "JSWSTEEL", "HINDALCO", "VEDL", "JINDALSTEL", "NMDC"),
+            "Power" to listOf("NTPC", "POWERGRID", "TATAPOWER", "ADANIPOWER", "NHPC", "JSWENERGY"),
+            "FMCG" to listOf("ITC", "HINDUNILVR", "NESTLEIND", "BRITANNIA", "DABUR", "GODREJCP")
+        )
         val sector = stockSector(symbol)
-        val candidates = stocks.filter { it.symbol != symbol && it.sector == sector }
+        val candidates = (peerGroups[sector] ?: stocks.filter { it.sector == sector }.map { it.symbol })
+            .distinct().filter { it != symbol }
         val rows = JSONArray()
-        var candidateCount = 0
-        candidates.forEach { peer ->
-            candidateCount++
-            val history = readBundledNseEod(peer.symbol)
+        candidates.forEach { peerSymbol ->
+            val history = readBundledNseEod(peerSymbol)
             if (history.length() == 0) return@forEach
             val latest = history.optJSONObject(history.length() - 1) ?: return@forEach
             val close = latest.optDouble("close", Double.NaN)
@@ -1236,7 +1248,8 @@ private class NativeProvider(private val appAssets: AssetManager) {
             val previous = if (history.length() > 1) history.optJSONObject(history.length() - 2) else null
             val previousClose = previous?.optDouble("close", Double.NaN) ?: Double.NaN
             val changePct = if (previousClose.isFinite() && previousClose > 0.0) ((close - previousClose) / previousClose) * 100.0 else Double.NaN
-            val row = JSONObject().put("symbol", peer.symbol).put("name", peer.name).put("sector", sector)
+            val known = stocks.firstOrNull { it.symbol == peerSymbol }
+            val row = JSONObject().put("symbol", peerSymbol).put("name", known?.name ?: peerSymbol).put("sector", sector)
                 .put("price", close).put("period", latest.optString("tradingDate"))
                 .put("source", "NSE CM-UDiFF Common Bhavcopy Final")
                 .put("marketDataType", "NSE_EOD").put("priceStatus", "OFFICIAL_EOD_CLOSE")
@@ -1247,8 +1260,8 @@ private class NativeProvider(private val appAssets: AssetManager) {
             rows.put(row)
         }
         return JSONObject().put("symbol", symbol).put("industry", sector).put("peers", rows)
-            .put("candidateCount", candidateCount).put("validatedCount", rows.length())
-            .put("partial", rows.length() < candidateCount)
+            .put("candidateCount", candidates.size).put("validatedCount", rows.length())
+            .put("partial", rows.length() < candidates.size)
             .put("provider", "NSE CM-UDiFF Common Bhavcopy Final")
             .put("marketDataType", "NSE_EOD")
             .put("statusText", "Peer closes are official NSE daily EOD prices only. Fundamentals are not inferred: P/E, market cap, ROCE, ROE and EPS remain unavailable unless a dated Screener peer export is imported.")
