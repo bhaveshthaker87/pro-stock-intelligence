@@ -14,9 +14,10 @@ import re
 import sys
 import urllib.error
 import urllib.request
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from html.parser import HTMLParser
 from pathlib import Path
+import zipfile
 from urllib.parse import urljoin, urlparse
 
 from convert_nse_udiff_bhavcopy import OUTPUT_FIELDS, parse_bhavcopy_zip
@@ -122,16 +123,50 @@ def _get(url: str, timeout: int = 30) -> bytes:
         return response.read()
 
 
+def probe_archive_for_latest_report(start_date: date, days: int = 14) -> tuple[str, bytes, list[dict]]:
+    """Probe only the documented official NSE CM archive path for recent trading dates.
+
+    This handles the All Reports page rendering report rows client-side, so a plain
+    HTTP fetch can contain the page shell but no report links. Each candidate must
+    download successfully and parse as a CM-UDiFF bhavcopy with the matching date.
+    """
+    failures = []
+    for offset in range(days):
+        trading_date = start_date - timedelta(days=offset)
+        filename = f"BhavCopy_NSE_CM_0_0_0_{trading_date:%Y%m%d}_F_0000.csv.zip"
+        url = urljoin(ARCHIVE_BASE, filename)
+        try:
+            payload = _get(url, timeout=12)
+            rows = parse_bhavcopy_zip(payload)
+            row_dates = {row["date"] for row in rows}
+            if row_dates != {trading_date.isoformat()}:
+                raise ValueError(f"archive date mismatch: expected {trading_date}, got {sorted(row_dates)}")
+            return url, payload, rows
+        except (OSError, urllib.error.URLError, ValueError, RuntimeError, zipfile.BadZipFile) as exc:
+            failures.append(f"{trading_date}: {exc}")
+    raise ValueError("No valid recent CM-UDiFF report found in official NSE archive; " + "; ".join(failures[-3:]))
+
+
 def ingest(output_root: Path, html: str | None = None, zip_payload: bytes | None = None,
            fetched_at: datetime | None = None) -> dict:
     page = html if html is not None else _get(REPORTS_URL).decode("utf-8", errors="replace")
-    report_url = discover_report_url(page)
+    try:
+        report_url = discover_report_url(page)
+    except ValueError:
+        # NSE currently renders report metadata dynamically; its HTML shell may
+        # omit the report filename. Probe dated files only on the official archive.
+        report_url, probed_payload, probed_rows = probe_archive_for_latest_report(
+            (fetched_at or datetime.now(timezone.utc)).date()
+        )
+    else:
+        probed_payload = None
+        probed_rows = None
     match = REPORT_RE.search(report_url)
     if not match:
         raise ValueError("Discovered report URL has no valid NSE trading date")
     trading_date = datetime.strptime(match.group(1), "%Y%m%d").date()
-    payload = zip_payload if zip_payload is not None else _get(report_url)
-    rows = parse_bhavcopy_zip(payload)
+    payload = zip_payload if zip_payload is not None else (probed_payload if probed_payload is not None else _get(report_url))
+    rows = probed_rows if probed_rows is not None and zip_payload is None else parse_bhavcopy_zip(payload)
     row_dates = {row["date"] for row in rows}
     if row_dates != {trading_date.isoformat()}:
         raise ValueError(f"Report date mismatch: filename={trading_date}, rows={sorted(row_dates)}")
