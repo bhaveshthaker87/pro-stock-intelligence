@@ -21,6 +21,9 @@ class BundledNseEodTests(unittest.TestCase):
     def test_android_provider_reads_only_official_eod_rows(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn('appAssets.list("nse-eod")', source)
+        self.assertIn('removePrefix("\\uFEFF")', source)
+        self.assertIn('lowercase(Locale.ROOT)', source)
+        self.assertIn('field("marketdatastatus")', source)
         self.assertIn('field("marketDataStatus") != "EOD"', source)
         self.assertIn('put("marketDataStatus", "EOD")', source)
         self.assertIn("Official NSE EOD closing price", source)
