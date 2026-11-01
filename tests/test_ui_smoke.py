@@ -113,6 +113,8 @@ class DashboardUISmokeTests(unittest.TestCase):
             page.locator("#analyze").click()
             page.wait_for_function("document.getElementById('company').textContent.includes('Infosys')", timeout=8000)
             self.assertIn("1,310", page.locator("#price").inner_text())
+            self.assertEqual(page.locator(".ratioMissing").count(), 1, "Unavailable metrics should be grouped, not rendered as dozens of empty cards.")
+            self.assertIn("metrics not present in this source", page.locator(".ratioMissing summary").inner_text())
             signal_count = page.evaluate("(window.chartRows||[]).filter(r=>r.nwSignal==='BUY'||r.nwSignal==='SELL').length")
             self.assertLess(signal_count, max(10, len(self.rows)//3), f"NW signals look over-triggered: {signal_count}")
             # Check actual chart series against independently recomputed SMA/RSI and candle invariants.
@@ -517,6 +519,16 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn("Event feed timestamp is stale or in the future", source)
         self.assertIn("Empty results mean no rows were returned, not that no events exist.", source)
         self.assertIn("This is not confirmation that no result dates are scheduled.", source)
+
+    def test_professional_source_status_and_chart_overprint_regressions(self):
+        html = HTML.read_text(encoding="utf-8")
+        source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("Screener: Page Access OK", html)
+        self.assertNotIn("Screener Session Verified", html)
+        self.assertIn("does not certify every field or its freshness", html)
+        self.assertIn("Keep the plot clean: show only the most recent closed-bar signal", html)
+        self.assertIn("WindowCompat.setDecorFitsSystemWindows(window, true)", source)
+        self.assertIn("window.statusBarColor = Color.rgb(6, 38, 75)", source)
 
 if __name__ == "__main__":
     unittest.main()
