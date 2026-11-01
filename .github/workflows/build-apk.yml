@@ -202,18 +202,26 @@ jobs:
           python3 - "$target" <<'PY'
           import csv, pathlib, sys
           root=pathlib.Path(sys.argv[1])
+          tracked = {"INFY","TCS","HCLTECH","WIPRO","TECHM","LTIM","RELIANCE","HDFCBANK","ICICIBANK","SBIN","AXISBANK","KOTAKBANK","BAJFINANCE","MARUTI","TATAMOTORS","TATASTEEL","NTPC","POWERGRID","SUNPHARMA","ITC","HINDUNILVR","TITAN","BEL","HAL","TRENT","PERSISTENT","TATAELXSI","DIXON"}
           total=0
           for path in sorted(root.glob("*.csv")):
               with path.open(newline="", encoding="utf-8") as f:
-                  rows=list(csv.DictReader(f))
+                  reader=csv.DictReader(f)
+                  fields=reader.fieldnames or []
+                  rows=[row for row in reader if row.get("symbol","").upper() in tracked]
               if not rows:
-                  raise SystemExit(f"Empty NSE EOD file: {path.name}")
+                  path.unlink()
+                  continue
               for row in rows:
                   if row.get("marketDataStatus") != "EOD" or not row.get("symbol") or not row.get("date"):
                       raise SystemExit(f"Invalid NSE EOD row in {path.name}")
+              with path.open("w", newline="", encoding="utf-8") as f:
+                  writer=csv.DictWriter(f,fieldnames=fields)
+                  writer.writeheader()
+                  writer.writerows(rows)
               total += len(rows)
           def count_files(p): return len(list(p.glob("*.csv")))
-          print(f"Validated {total} NSE EOD rows across {count_files(root)} daily files.")
+          print(f"Validated {total} tracked-symbol NSE EOD rows across {count_files(root)} daily files.")
           PY
 
       - name: Build debug APK
