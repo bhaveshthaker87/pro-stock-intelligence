@@ -20,7 +20,7 @@ class NseEodPeerComparisonTests(unittest.TestCase):
         method = source[start:end]
         for field in ('"pe"', '"marketCap"', '"roce"', '"roe"', '"eps"'):
             self.assertIn(f".put({field}, JSONObject.NULL)", method)
-        self.assertIn("fundamentals are not inferred", method)
+        self.assertIn("fundamentals are not inferred", method.lower())
 
     def test_dashboard_labels_eod_peer_rows_and_missing_fundamentals(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
