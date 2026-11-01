@@ -24,7 +24,7 @@ class BundledNseEodTests(unittest.TestCase):
         self.assertIn('removePrefix("\\uFEFF")', source)
         self.assertIn('lowercase(Locale.ROOT)', source)
         self.assertIn('field("marketdatastatus")', source)
-        self.assertIn('field("marketDataStatus") != "EOD"', source)
+        self.assertIn('field("marketdatastatus") != "EOD"', source)
         self.assertIn('put("marketDataStatus", "EOD")', source)
         self.assertIn("Official NSE EOD closing price", source)
         self.assertIn("Not live, delayed or intraday", source)
