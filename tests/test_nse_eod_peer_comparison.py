@@ -9,7 +9,8 @@ class NseEodPeerComparisonTests(unittest.TestCase):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn('"/api/peers" -> JSONObject().put("ok", true).put("data", peerComparison(s)).toString()', source)
         self.assertIn("private fun peerComparison(symbol: String): JSONObject", source)
-        self.assertIn("readBundledNseEod(peer.symbol)", source)
+        self.assertIn("readBundledNseEod(peerSymbol)", source)
+        self.assertIn('"Energy" to listOf("RELIANCE", "ONGC", "IOC", "BPCL"', source)
         self.assertIn('put("marketDataType", "NSE_EOD")', source)
         self.assertIn('put("source", "NSE CM-UDiFF Common Bhavcopy Final")', source)
 
