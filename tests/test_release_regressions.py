@@ -345,8 +345,12 @@ class ReleaseRegressionTests(unittest.TestCase):
     def test_v4081_screener_cookie_is_not_treated_as_verified_session(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         self.assertIn("d.connected&&d.loggedIn&&d.validated&&d.requestValidated", html)
-        self.assertIn("Screener Access Denied (403)", html)
-        self.assertIn("Official Screener login is opening", html)
+        # Current UI deliberately uses a two-step official sign-in/check flow.
+        # A browser cookie alone is never presented as a verified subscription session.
+        self.assertIn('id="screenerSignInBtn"', html)
+        self.assertIn('id="screenerCheckBtn"', html)
+        self.assertIn("Access blocked (403). Stop retrying.", html)
+        self.assertIn("Use the authorized Screener Excel/CSV export below.", html)
         self.assertNotIn("✓ Screener Cookie Found — verify", html)
 
     def test_v4081_mobile_indices_and_chart_are_compact_and_stale_chart_clears(self):
@@ -373,9 +377,12 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn('id="session">Screener Login</button>', html)
         self.assertIn('Screener: Page Access OK', html)
         self.assertNotIn('Screener Session Verified', html)
-        self.assertIn('Official Screener login is opening', html)
-        self.assertIn('Screener Access Denied (403)', html)
-        self.assertIn('Official Screener login is opening', html)
+        # The login button navigates to Screener's official sign-in page;
+        # the separate check button validates actual company-page access.
+        self.assertIn("$('screenerSignInBtn')?.addEventListener('click',()=>{window.location.href='https://www.screener.in/login/';})", html)
+        self.assertIn("$('screenerCheckBtn')?.addEventListener('click',async()=>", html)
+        self.assertIn("Access blocked (403). Stop retrying.", html)
+        self.assertIn("Use the authorized Screener Excel/CSV export below.", html)
 
     def test_screener_status_exposes_forbidden_state_to_ui(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
