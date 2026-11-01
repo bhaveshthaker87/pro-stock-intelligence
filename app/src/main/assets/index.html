@@ -1582,8 +1582,16 @@ async function runAnalysis(){const entered=$('search').value.trim();if(!entered)
   // merges Screener fundamentals when the authenticated HTTP response arrives.
   const authEnrichment=(async()=>{
     try{
-      const ss=await api('/api/screener/status',3500);
-      if(!(ss.connected&&ss.loggedIn)) return {__error:ss.message||'Screener login is not active; fundamentals cannot be fetched.'};
+      let ss=await api('/api/screener/status',3500);
+      let ready=!!(ss.connected&&ss.loggedIn&&ss.validated&&ss.requestValidated);
+      // A saved WebView cookie is only a hint, never proof of authentication.
+      // Validate it once against the official company page before requesting fundamentals.
+      if(!ready&&ss.cookieDetected&&!ss.blockedBy403){
+        if(!window.__psiScreenerValidation) window.__psiScreenerValidation=api('/api/screener/connect',9000).finally(()=>{window.__psiScreenerValidation=null;});
+        ss=await window.__psiScreenerValidation;
+        ready=!!(ss.connected&&ss.loggedIn&&ss.validated&&ss.requestValidated&&Number(ss.httpStatus)===200);
+      }
+      if(!ready) return {__error:ss.message||'Screener access is not verified. Open the official login or import an authorized Screener export.'};
       const live=await api('/api/screener/live?symbol='+encodeURIComponent(symbol),20000);
       if(token!==analysisToken || !live) return null;
       return live;

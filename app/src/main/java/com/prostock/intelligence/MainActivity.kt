@@ -219,6 +219,8 @@ class MainActivity : Activity() {
 
 private class NativeProvider(private val appAssets: AssetManager) {
     @Volatile private var screener403Observed: Boolean = false
+    @Volatile private var screenerSessionValidatedAtMs: Long = 0L
+    private fun screenerSessionIsValidated(): Boolean = screenerLoggedIn() && !screener403Observed && screenerSessionValidatedAtMs > 0L && System.currentTimeMillis() - screenerSessionValidatedAtMs < 30L * 60L * 1000L
     private data class Stock(val symbol: String, val name: String, val sector: String)
     private val stocks = listOf(
         Stock("INFY", "Infosys Ltd", "IT Services"), Stock("TCS", "Tata Consultancy Services Ltd", "IT Services"),
@@ -312,6 +314,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
             }
             if (code == 403 && (host == "screener.in" || host.endsWith(".screener.in"))) {
                 screener403Observed = true
+                screenerSessionValidatedAtMs = 0L
                 val finalHost = runCatching { c.url.host.lowercase(Locale.ROOT) }.getOrDefault(host)
                 val responseKind = when {
                     Regex("""(?is)<title[^>]*>.*?(login|sign in).*?</title>|name=["']password["']""").containsMatchIn(body) -> "login page returned"
@@ -884,19 +887,20 @@ private class NativeProvider(private val appAssets: AssetManager) {
     private fun screenerStatus(): JSONObject {
         val cookieDetected = screenerLoggedIn()
         val blocked = screener403Observed
+        val validated = screenerSessionIsValidated()
         val message = when {
-            blocked -> "Screener denied the data request (HTTP 403). Do not keep retrying. Use a permitted CSV export or request authorized integration access."
-            cookieDetected -> "Session cookie detected, but access is not verified yet. Tap Test Connection to validate a permitted company-page request."
-            else -> "Tap Connect Screener to open the official login page. Sign in there, return to the app, then tap Test Connection."
+            blocked -> "Screener denied the data request (HTTP 403). Use the authorized CSV import or contact Screener support; automated retries are disabled."
+            validated -> "Screener session validated successfully in this app. Fundamental fields are still checked individually for coverage and freshness."
+            cookieDetected -> "Screener session cookie found. Checking access once against a company page before using fundamentals."
+            else -> "Tap Connect Screener to open the official login page. Sign in there; the app will check the session when you return."
         }
-        // A cookie is not proof of login. Only a successful validated company-page request
-        // may set connected/loggedIn/validated to true.
-        return JSONObject().put("connected", false).put("loggedIn", false).put("cookieDetected", cookieDetected)
-            .put("blockedBy403", blocked).put("validated", false).put("requestValidated", false)
-            .put("status", if (blocked) "HTTP_403_FORBIDDEN" else if (cookieDetected) "SESSION_UNVERIFIED" else "LOGIN_REQUIRED")
-            .put("httpStatus", if (blocked) 403 else JSONObject.NULL)
-            .put("recommendedAction", if (blocked) "Use a permitted Screener CSV export or request authorized API access. Do not retry automated scraping." else "Sign in through the official page, then tap Test Connection.")
+        return JSONObject().put("connected", validated).put("loggedIn", validated).put("cookieDetected", cookieDetected)
+            .put("blockedBy403", blocked).put("validated", validated).put("requestValidated", validated)
+            .put("status", if (blocked) "HTTP_403_FORBIDDEN" else if (validated) "CONNECTED_VERIFIED" else if (cookieDetected) "SESSION_UNVERIFIED" else "LOGIN_REQUIRED")
+            .put("httpStatus", if (blocked) 403 else if (validated) 200 else JSONObject.NULL)
+            .put("recommendedAction", if (blocked) "Use authorized Screener CSV/XLSX import; do not retry blocked requests." else if (validated) "Select a stock to load available fundamentals; import the Screener workbook for deeper statements." else "Sign in through the official page; the app validates access once when you return.")
             .put("loginUrl", "https://www.screener.in/login/")
+            .put("validationExpiresInSeconds", if (validated) ((30L * 60L * 1000L - (System.currentTimeMillis() - screenerSessionValidatedAtMs)).coerceAtLeast(0L) / 1000L) else 0)
             .put("message", message)
     }
 
@@ -907,6 +911,8 @@ private class NativeProvider(private val appAssets: AssetManager) {
             if (!screenerLoggedIn()) throw IOException("LOGIN_REQUIRED: no Screener session cookie detected. Open the official login page, sign in, return, and test again.")
             // Use the same company-page path and parser as normal fundamentals retrieval.
             val sample = screener("INFY")
+            screenerSessionValidatedAtMs = System.currentTimeMillis()
+            screener403Observed = false
             val status = screenerStatus()
             status.put("connected", true).put("loggedIn", true).put("validated", true)
                 .put("requestValidated", true).put("httpStatus", 200)
@@ -918,6 +924,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
         } catch (e: Exception) {
             val status = screenerStatus()
             val blocked = screener403Observed || e.message.orEmpty().contains("403")
+            if (blocked || !screenerLoggedIn()) screenerSessionValidatedAtMs = 0L
             status.put("connected", false).put("loggedIn", false).put("validated", false)
                 .put("requestValidated", false).put("blockedBy403", blocked)
                 .put("status", if (blocked) "HTTP_403_FORBIDDEN" else if (!screenerLoggedIn()) "LOGIN_REQUIRED" else "CONNECTION_FAILED")
