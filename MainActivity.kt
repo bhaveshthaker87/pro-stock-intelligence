@@ -267,6 +267,9 @@ private class NativeProvider {
         val qRows = sectionTableRows(html, "quarters")
         val ownershipRows = sectionTableRows(html, "shareholding")
         val balanceRows = sectionTableRows(html, "balance-sheet")
+        val cashFlowRows = sectionTableRows(html, "cash-flow")
+        val ratiosRows = sectionTableRows(html, "ratios")
+        val peersRows = sectionTableRows(html, "peers")
         fun rowFor(rows: List<List<String>>, label: String): List<String>? = rows.drop(1).firstOrNull { it.firstOrNull()?.trim()?.equals(label, true) == true }
         fun setLatestFromTable(rows: List<List<String>>, label: String, key: String) {
             val row = rowFor(rows, label) ?: return
@@ -277,6 +280,22 @@ private class NativeProvider {
         setLatestFromTable(pnlRows, "Operating Profit", "operatingProfit")
         setLatestFromTable(pnlRows, "OPM %", "opm")
         setLatestFromTable(pnlRows, "Interest", "interestExpense")
+        // Preserve full Screener tables, not just a handful of headline ratios.
+        if (balanceRows.isNotEmpty()) f.put("balanceSheet", jsonRows(balanceRows))
+        if (cashFlowRows.isNotEmpty()) f.put("cashFlow", jsonRows(cashFlowRows))
+        if (ratiosRows.isNotEmpty()) f.put("ratios", jsonRows(ratiosRows))
+        if (peersRows.isNotEmpty()) f.put("peerComparison", jsonRows(peersRows))
+        setLatestFromTable(balanceRows, "Equity Capital", "equityCapital")
+        setLatestFromTable(balanceRows, "Reserves", "reserves")
+        setLatestFromTable(balanceRows, "Borrowings", "borrowings")
+        setLatestFromTable(balanceRows, "Total Assets", "totalAssets")
+        setLatestFromTable(cashFlowRows, "Cash from Operating Activity", "cashFromOperating")
+        setLatestFromTable(cashFlowRows, "Cash from Investing Activity", "cashFromInvesting")
+        setLatestFromTable(cashFlowRows, "Cash from Financing Activity", "cashFromFinancing")
+        setLatestFromTable(cashFlowRows, "Net Cash Flow", "netCashFlow")
+        setLatestFromTable(ratiosRows, "ROA %", "roa")
+        setLatestFromTable(ratiosRows, "ROE %", "roe")
+        setLatestFromTable(ratiosRows, "ROCE %", "roce")
         // Calculate 3-year CAGR only when both the oldest and latest table values are positive and present.
         fun setCagr(rows: List<List<String>>, label: String, key: String) {
             val row = rowFor(rows, label) ?: return
@@ -325,6 +344,17 @@ private class NativeProvider {
         }
         val name = Regex("(?is)<h1[^>]*>(.*?)</h1>").find(html)?.groupValues?.get(1)?.let { cleanText(it) } ?: stockName(s)
         f.put("name", name).put("symbol", s).put("sector", stockSector(s)).put("provider", "Screener.in")
+            .put("source", "Screener.in")
+            .put("fetchedAt", java.time.Instant.now().toString())
+            .put("dataPeriod", "Period labels are retained in each source table")
+            .put("fundamentalCoverage", JSONObject()
+                .put("profitLoss", pnlRows.isNotEmpty())
+                .put("quarterly", qRows.isNotEmpty())
+                .put("balanceSheet", balanceRows.isNotEmpty())
+                .put("cashFlow", cashFlowRows.isNotEmpty())
+                .put("shareholding", ownershipRows.isNotEmpty())
+                .put("ratios", ratiosRows.isNotEmpty())
+                .put("peerComparison", peersRows.isNotEmpty()))
         return f
     }
 
