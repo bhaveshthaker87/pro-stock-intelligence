@@ -19,7 +19,7 @@ def decode(raw):
                     pass
     raise RuntimeError("No JSON-RPC response in body: " + raw[:500])
 
-def post(payload, session=None):
+def post(payload, session=None, protocol=None):
     headers = {"Content-Type":"application/json", "Accept":"application/json, text/event-stream",
                "User-Agent":"ProStockIntelligence-personal-research/1.0"}
     if session:
@@ -43,7 +43,7 @@ def main():
                    "serverInfo":init.get("result",{}).get("serverInfo"),
                    "sessionIdReceived":bool(session)})
     # tools/list is the decisive compatibility check; no notification required.
-    _, session, _, listed = post({"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}},session)
+    protocol = init.get("result",{}).get("protocolVersion") or "2025-03-26"\n    _, session, _, listed = post({"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}},session,protocol)
     tools = listed.get("result",{}).get("tools",[])
     report["toolNames"] = [t.get("name") for t in tools]
     tool = next((t for t in tools if t.get("name")=="cm_get_stock_quote"),None)
