@@ -1006,7 +1006,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
         // Quote and candle data fail closed until an authorized NSE feed is configured.
         val quoteFuture = executor.submit<JSONObject> {
             try {
-                nseQuote(raw).put("rows", JSONArray())
+                (if (gatewayConfigured()) nseQuote(raw) else eodQuote(raw)).put("rows", JSONArray())
                     .put("historyProvider", "Unavailable")
                     .put("historyStatus", "AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED")
             } catch (e: Exception) {
@@ -1544,12 +1544,14 @@ private class NativeProvider(private val appAssets: AssetManager) {
                         .put("coverageDisclaimer", "Autocomplete is broad best-effort discovery, not a complete official NSE/BSE security master. Quotes can be delayed or unavailable.").toString()
                 }
                 "/api/quote", "/api/fast" -> {
-                    val quote = try { nseQuote(raw) } catch (e: Exception) {
-                        JSONObject().put("symbol", s).put("status", if (gatewayConfigured()) "PROVIDER_GATEWAY_VALIDATION_FAILED" else "AUTHORIZED_NSE_FEED_NOT_CONFIGURED")
+                    val quote = try {
+                        if (gatewayConfigured()) nseQuote(raw) else eodQuote(raw)
+                    } catch (e: Exception) {
+                        JSONObject().put("symbol", s).put("status", if (gatewayConfigured()) "PROVIDER_GATEWAY_VALIDATION_FAILED" else "NSE_EOD_AND_LIVE_FEED_UNAVAILABLE")
                             .put("provider", "Unavailable").put("price", JSONObject.NULL)
                             .put("quoteTimestamp", JSONObject.NULL)
-                            .put("marketDataDisclaimer", if (gatewayConfigured()) "Configured provider gateway failed validation; price is unavailable. No fallback is used." else "No authorized NSE real-time feed is configured. No third-party fallback is used.")
-                            .put("providerError", e.message ?: "Authorized NSE quote feed unavailable")
+                            .put("marketDataDisclaimer", if (gatewayConfigured()) "Configured provider gateway failed validation; price is unavailable. No fallback is used." else "No bundled official NSE EOD close exists and no authorized live feed is configured.")
+                            .put("providerError", e.message ?: "NSE EOD/live quote unavailable")
                     }
                     quote.put("rows", JSONArray()).put("historyProvider", "Unavailable")
                         .put("historyStatus", "AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED")
