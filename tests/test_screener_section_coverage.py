@@ -65,10 +65,10 @@ class ScreenerSectionCoverageTests(unittest.TestCase):
     def test_validation_universe_contains_30_unique_nse_symbols(self):
         source = NATIVE.read_text(encoding="utf-8")
         start = source.index("private val stocks = listOf(")
-        end = source.index("\\n    )", start)
+        end = source.index("\n    )", start)
         block = source[start:end]
         import re
-        symbols = re.findall(r'Stock\\("([A-Z0-9]+)"', block)
+        symbols = re.findall(r'Stock\("([A-Z0-9]+)"', block)
         self.assertEqual(len(symbols), 30)
         self.assertEqual(len(set(symbols)), 30)
 
