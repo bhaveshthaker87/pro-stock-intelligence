@@ -1247,7 +1247,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
                     .put("historyProvider", "Unavailable")
                     .put("historyStatus", "HISTORICAL_DATA_UNAVAILABLE")
                     .put("providerError", e.message ?: "Market data unavailable")
-                    .put("marketDataDisclaimer", "No bundled official NSE EOD close exists and no authorized live feed is configured. Yahoo/Moneycontrol fallback is disabled; no price or candle is fabricated.")
+                    .put("marketDataDisclaimer", "No bundled official NSE EOD close exists and no authorized live feed is configured. No third-party fallback is used; Yahoo/Moneycontrol fallback is disabled. No price or candle is fabricated.")
             }
         }
         val fundamentalFuture = executor.submit<JSONObject> {
@@ -1456,6 +1456,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
                     while (iterator.hasNext()) {
                         val cells = iterator.next().split(',')
                         fun field(name: String): String = cells.getOrNull(index[name.lowercase(Locale.ROOT)] ?: -1)?.trim()?.trim('"').orEmpty()
+                        // Fail closed: field("marketDataStatus") != "EOD" rows are never accepted.
                         if (field("symbol").uppercase(Locale.ROOT) != symbol || field("marketDataStatus").uppercase(Locale.ROOT) != "EOD") continue
                         val day = field("date").take(10)
                         val date = try { java.time.LocalDate.parse(day) } catch (_: Exception) { continue }
@@ -1938,7 +1939,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
                             .put("status", if (gatewayConfigured()) "PROVIDER_GATEWAY_VALIDATION_FAILED" else "OFFICIAL_NSE_EOD_UNAVAILABLE")
                             .put("provider", "Unavailable").put("price", JSONObject.NULL)
                             .put("quoteTimestamp", JSONObject.NULL)
-                            .put("marketDataDisclaimer", "No authorized quote gateway or validated NSE EOD reference is available. No Yahoo/Moneycontrol fallback and no price is fabricated.")
+                            .put("marketDataDisclaimer", "No authorized quote gateway or validated NSE EOD reference is available. No third-party fallback is used; no Yahoo/Moneycontrol fallback and no price is fabricated.")
                             .put("providerError", e.message ?: "Verified quote unavailable")
                     }
                     quote.put("rows", JSONArray()).put("historyProvider", "Unavailable")
