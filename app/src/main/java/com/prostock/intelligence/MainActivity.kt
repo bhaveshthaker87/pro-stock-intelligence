@@ -369,7 +369,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
                     body.isBlank() -> "empty denial response"
                     else -> "server denied the request"
                 }
-                throw IOException("Screener HTTP 403 Forbidden ($responseKind; final host $finalHost). Session cookie was taken from the exact request URL to avoid stale duplicate cookies. This app will not bypass access controls. If this persists, the account/session or server access policy is rejecting this request; use the permitted CSV export or authorized data access.")
+                throw IOException("Screener HTTP 403 Forbidden ($responseKind; final host $finalHost). Session cookie was taken from the exact request URL to avoid stale duplicate cookies. This app will not bypass access controls. Reopen the official Screener page inside the app, confirm the account is signed in, then run one access check. If it persists, Screener is denying this app request and the fields remain unavailable.")
             }
             if (code == 401 && (host == "screener.in" || host.endsWith(".screener.in"))) {
                 throw IOException("Screener returned HTTP 401. Tap Screener Login, sign in again, return to the app and retry.")
@@ -1094,7 +1094,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
         val blocked = screener403Observed
         val validated = screenerSessionIsValidated()
         val message = when {
-            blocked -> "Screener denied the data request (HTTP 403). Use the authorized CSV import or contact Screener support; automated retries are disabled."
+            blocked -> "Screener denied the app request (HTTP 403). Sign in again on the official Screener page inside the app and run one access check; automated retries are disabled."
             validated -> "Screener session validated successfully in this app. Fundamental fields are still checked individually for coverage and freshness."
             cookieDetected -> "Screener session cookie found. Checking access once against a company page before using fundamentals."
             else -> "Tap Connect Screener to open the official login page. Sign in there; the app will check the session when you return."
@@ -1103,7 +1103,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
             .put("blockedBy403", blocked).put("validated", validated).put("requestValidated", validated)
             .put("status", if (blocked) "HTTP_403_FORBIDDEN" else if (validated) "CONNECTED_VERIFIED" else if (cookieDetected) "SESSION_UNVERIFIED" else "LOGIN_REQUIRED")
             .put("httpStatus", if (blocked) 403 else if (validated) 200 else JSONObject.NULL)
-            .put("recommendedAction", if (blocked) "Use authorized Screener CSV/XLSX import; do not retry blocked requests." else if (validated) "Select a stock to load available fundamentals; import the Screener workbook for deeper statements." else "Sign in through the official page; the app validates access once when you return.")
+            .put("recommendedAction", if (blocked) "Reopen official Screener login inside the app and check access once; no CSV workaround is required or used for automatic metrics." else if (validated) "Select a stock to load available Screener fundamentals automatically." else "Sign in through the official page inside the app; return and check access once.")
             .put("loginUrl", "https://www.screener.in/login/")
             .put("validationExpiresInSeconds", if (validated) ((30L * 60L * 1000L - (System.currentTimeMillis() - screenerSessionValidatedAtMs)).coerceAtLeast(0L) / 1000L) else 0)
             .put("message", message)
@@ -1137,8 +1137,8 @@ private class NativeProvider(private val appAssets: AssetManager) {
                 .put("requestValidated", false).put("blockedBy403", blocked)
                 .put("status", if (blocked) "HTTP_403_FORBIDDEN" else if (!screenerLoggedIn()) "LOGIN_REQUIRED" else "CONNECTION_FAILED")
                 .put("httpStatus", if (blocked) 403 else JSONObject.NULL)
-                .put("message", if (blocked) "Screener returned HTTP 403. Sign in once through the official site; if it persists, use a permitted CSV export or request authorized access. The app will not bypass the block." else e.message ?: "Screener connection test failed.")
-                .put("recommendedAction", if (blocked) "Use permitted CSV import or authorized access; do not retry repeatedly." else "Open official Screener login, sign in, return, then test once.")
+                .put("message", if (blocked) "Screener returned HTTP 403. Sign in through the official page inside the app and check once. If it persists, automated access is denied; no CSV workaround is used for these metrics." else e.message ?: "Screener connection test failed.")
+                .put("recommendedAction", if (blocked) "Reopen official Screener login inside the app and check access once; no CSV workaround is required or used for automatic metrics." else "Open official Screener login inside the app, sign in, return, then test once.")
         }
     }
 
