@@ -259,6 +259,11 @@ class MainActivity : Activity() {
 }
 
 private class NativeProvider(private val appAssets: AssetManager) {
+    // One short-lived cache is shared by analyze, bootstrap, factor and peer requests.
+    // Store immutable JSON snapshots as strings so callers cannot mutate the cached object.
+    private data class CachedFundamentals(val payload: String, val fetchedAtMs: Long)
+    private val fundamentalsCache = java.util.concurrent.ConcurrentHashMap<String, CachedFundamentals>()
+    private val fundamentalsCacheTtlMs = 5L * 60L * 1000L
     @Volatile private var screener403Observed: Boolean = false
     @Volatile private var screenerSessionValidatedAtMs: Long = 0L
     private fun screenerSessionIsValidated(): Boolean = screenerLoggedIn() && !screener403Observed && screenerSessionValidatedAtMs > 0L && System.currentTimeMillis() - screenerSessionValidatedAtMs < 30L * 60L * 1000L
@@ -513,13 +518,35 @@ private class NativeProvider(private val appAssets: AssetManager) {
      * A missing field stays missing and retains the parser/source error.
      */
     private fun fundamentalsWithDownstox(raw: String): JSONObject {
-        // A missing field stays missing; never fill it from an unrelated provider.
+        // Shared read-through cache: every screen sees the same Screener snapshot.
+        // Never cache authorization failures; a fresh login must be able to recover.
         val symbol = canonical(raw)
+        val now = System.currentTimeMillis()
+        fundamentalsCache[symbol]?.let { cached ->
+            if (now - cached.fetchedAtMs in 0..fundamentalsCacheTtlMs) {
+                return JSONObject(cached.payload).put("cacheStatus", "HIT")
+                    .put("cacheAgeSeconds", ((now - cached.fetchedAtMs) / 1000L))
+            } else fundamentalsCache.remove(symbol, cached)
+        }
         return try {
-            screener(raw).apply {
+            val fresh = screener(raw).apply {
                 put("symbol", symbol)
                 put("fundamentalSourcePolicy", "SCREENER_ONLY")
+                put("cacheStatus", "MISS")
+                put("fetchedAtEpochMs", System.currentTimeMillis())
+                put("dataPeriodPolicy", "Provider-reported periods only; no inferred reporting period")
             }
+            // Do not cache a response with no meaningful fundamentals or a provider error.
+            val hasFundamentalData = fresh.keys().asSequence().any { key ->
+                key !in setOf("symbol", "name", "sector", "provider", "sourceUrl", "fetchedAtEpochMs",
+                    "fundamentalSourcePolicy", "cacheStatus", "dataPeriodPolicy", "sectionCoverage",
+                    "fundamentalCoverage", "availableFundamentalFields", "expectedFundamentalFields",
+                    "qualityFlags", "fundamentalStatus") && !fresh.isNull(key)
+            }
+            if (hasFundamentalData && !fresh.has("providerError")) {
+                fundamentalsCache[symbol] = CachedFundamentals(fresh.toString(), System.currentTimeMillis())
+            }
+            fresh
         } catch (e: Exception) {
             JSONObject()
                 .put("symbol", symbol)
@@ -527,6 +554,8 @@ private class NativeProvider(private val appAssets: AssetManager) {
                 .put("provider", "Screener.in unavailable")
                 .put("providerError", e.message ?: "Screener.in unavailable")
                 .put("fundamentalSourcePolicy", "SCREENER_ONLY")
+                .put("cacheStatus", "BYPASS_ON_ERROR")
+                .put("sourceStatus", if (screener403Observed) "HTTP_403_FORBIDDEN" else "UNAVAILABLE")
         }
     }
 
