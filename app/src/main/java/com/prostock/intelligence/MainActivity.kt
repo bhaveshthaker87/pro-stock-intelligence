@@ -1281,6 +1281,28 @@ private class NativeProvider(private val appAssets: AssetManager) {
         if (f.has("screenerProviderError")) warnings.put("Screener.in partial/unavailable: " + f.optString("screenerProviderError"))
         if (f.has("downstoxSupplementError")) warnings.put("Downstox supplement unavailable: " + f.optString("downstoxSupplementError"))
         if (warnings.length() > 0) data.put("providerWarnings", warnings)
+        // Canonical read model consumed by every UI surface. Quote and fundamentals
+        // remain separately attributed, while the merged market object is the one
+        // source of truth for dashboard, scoring, peer views and filters.
+        val normalizedMarket = JSONObject(market.toString())
+        val normalizedFundamentals = JSONObject(f.toString())
+        val normalizedFinancials = JSONObject()
+            .put("profitLoss", f.optJSONArray("pnl") ?: JSONArray())
+            .put("quarterly", f.optJSONArray("quarterly") ?: JSONArray())
+            .put("balanceSheet", f.optJSONArray("balanceSheet") ?: JSONArray())
+            .put("cashFlow", f.optJSONArray("cashFlow") ?: JSONArray())
+            .put("ratios", f.optJSONArray("ratios") ?: JSONArray())
+            .put("shareholding", f.optJSONArray("shareholding") ?: JSONArray())
+            .put("peers", f.optJSONArray("peerComparison") ?: JSONArray())
+        data.put("normalizedData", JSONObject()
+            .put("schemaVersion", 1)
+            .put("symbol", s)
+            .put("market", normalizedMarket)
+            .put("fundamentals", normalizedFundamentals)
+            .put("financials", normalizedFinancials)
+            .put("coverage", coreCoverage(f))
+            .put("dataSources", data.optJSONObject("dataSources") ?: JSONObject())
+            .put("generatedAtEpochMs", System.currentTimeMillis()))
         return data
     }
 
