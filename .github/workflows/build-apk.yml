@@ -255,6 +255,20 @@ jobs:
               raise SystemExit("Official NSE EOD history is empty or implausibly narrow; refusing an incomplete-market APK build.")
           PY
 
+      - name: Run independent NSE chart indicator parity audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/validate_nse_chart_parity.py --data-dir app/src/main/assets/nse-eod --output app/build/reports/nse-chart-parity-report.json
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+          p=json.loads(Path("app/build/reports/nse-chart-parity-report.json").read_text())
+          print("## NSE chart calculation parity")
+          print(f"**{p['status']}** — {p['calculatedSymbols']}/{p['targetSymbols']} symbols have at least 200 official NSE EOD bars.")
+          print(p["formulaContract"])
+          PY
+
       - name: Build debug APK
         shell: bash
         env:
