@@ -38,6 +38,11 @@ class ScreenerSectionCoverageTests(unittest.TestCase):
         self.assertIn("financial sections", html)
         self.assertIn("core fields", html)
 
+    def test_dashboard_does_not_derive_pe_from_price_and_unverified_eps(self):
+        html = HTML.read_text(encoding="utf-8")
+        self.assertNotIn("Number(f.price)/Number(f.eps)", html)
+        self.assertIn("validated TTM profit", html)
+
 
 if __name__ == "__main__":
     unittest.main()
