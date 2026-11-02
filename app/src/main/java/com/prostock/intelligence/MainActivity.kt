@@ -1037,7 +1037,9 @@ private class NativeProvider(private val appAssets: AssetManager) {
                 .put("requestValidated", true).put("httpStatus", 200)
                 .put("status", "CONNECTED_VERIFIED")
                 .put("sessionAuthenticated", false)
-                .put("message", "Screener company-page request succeeded with a session cookie present. This proves page access, not that subscription-only endpoints accepted the login; each returned field is still subject to coverage and period checks.")
+                .put("message", "Screener session cookie was present and the INFY company-page request succeeded. Subscription-only access is not proven by this public-page probe; use the permitted workbook import for protected or unavailable sections. Every field remains subject to coverage and period checks.")
+                .put("accessLevel", "PUBLIC_PAGE_WITH_SESSION_COOKIE")
+                .put("subscriptionAccessVerified", false)
                 .put("sampleSymbol", "INFY")
                 .put("sampleFieldCount", sample.keys().asSequence().count { it !in setOf("name", "symbol", "sector", "provider", "sourceUrl", "fetchedAtEpochMs", "fundamentalStatus", "availableFundamentalFields", "expectedFundamentalFields", "qualityFlags") })
             status
