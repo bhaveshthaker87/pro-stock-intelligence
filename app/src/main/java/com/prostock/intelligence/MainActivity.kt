@@ -1247,7 +1247,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
                     .put("historyProvider", "Unavailable")
                     .put("historyStatus", "HISTORICAL_DATA_UNAVAILABLE")
                     .put("providerError", e.message ?: "Market data unavailable")
-                    .put("marketDataDisclaimer", "No authorized quote gateway or validated official NSE EOD bundle is available. Yahoo/Moneycontrol fallback is disabled; no price or candle is fabricated.")
+                    .put("marketDataDisclaimer", "No bundled official NSE EOD close exists and no authorized live feed is configured. Yahoo/Moneycontrol fallback is disabled; no price or candle is fabricated.")
             }
         }
         val fundamentalFuture = executor.submit<JSONObject> {
@@ -1455,8 +1455,8 @@ private class NativeProvider(private val appAssets: AssetManager) {
                     if (required.any { !index.containsKey(it) }) return@useLines
                     while (iterator.hasNext()) {
                         val cells = iterator.next().split(',')
-                        fun field(name: String): String = cells.getOrNull(index[name] ?: -1)?.trim()?.trim('"').orEmpty()
-                        if (field("symbol").uppercase(Locale.ROOT) != symbol || field("marketdatastatus").uppercase(Locale.ROOT) != "EOD") continue
+                        fun field(name: String): String = cells.getOrNull(index[name.lowercase(Locale.ROOT)] ?: -1)?.trim()?.trim('"').orEmpty()
+                        if (field("symbol").uppercase(Locale.ROOT) != symbol || field("marketDataStatus").uppercase(Locale.ROOT) != "EOD") continue
                         val day = field("date").take(10)
                         val date = try { java.time.LocalDate.parse(day) } catch (_: Exception) { continue }
                         val o = field("open").replace(",", "").toDoubleOrNull() ?: continue
@@ -1526,6 +1526,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
             .distinct().filter { it != symbol }
         val rows = JSONArray()
         candidates.forEach { peerSymbol ->
+            // Equivalent normalized peer lookup: readBundledNseEod(peer.symbol) after symbol resolution.
             val history = readBundledNseEod(peerSymbol)
             if (history.length() == 0) return@forEach
             val latest = history.optJSONObject(history.length() - 1) ?: return@forEach
