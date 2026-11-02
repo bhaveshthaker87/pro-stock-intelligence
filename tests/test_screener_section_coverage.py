@@ -62,6 +62,21 @@ class ScreenerSectionCoverageTests(unittest.TestCase):
         self.assertIn("canonical.market||d.market||{}", html)
         self.assertIn("canonical.financials||{}", html)
 
+    def test_validation_universe_contains_30_unique_nse_symbols(self):
+        source = NATIVE.read_text(encoding="utf-8")
+        start = source.index("private val stocks = listOf(")
+        end = source.index("\\n    )", start)
+        block = source[start:end]
+        import re
+        symbols = re.findall(r'Stock\\("([A-Z0-9]+)"', block)
+        self.assertEqual(len(symbols), 30)
+        self.assertEqual(len(set(symbols)), 30)
+
+    def test_screener_status_does_not_claim_subscription_authentication(self):
+        source = NATIVE.read_text(encoding="utf-8")
+        self.assertIn('.put("sessionAuthenticated", false)', source)
+        self.assertIn("proves page access, not that subscription-only endpoints accepted the login", source)
+
 
 if __name__ == "__main__":
     unittest.main()
