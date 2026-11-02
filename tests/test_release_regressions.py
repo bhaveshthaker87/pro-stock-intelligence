@@ -348,8 +348,8 @@ class ReleaseRegressionTests(unittest.TestCase):
         # A browser cookie alone is never presented as a verified subscription session.
         self.assertIn('id="screenerSignInBtn"', html)
         self.assertIn('id="screenerCheckBtn"', html)
-        self.assertIn("Access blocked (403). Stop retrying.", html)
-        self.assertIn("Use the authorized Screener Excel/CSV export below.", html)
+        self.assertIn("Access blocked (403). Sign in on the official Screener page inside this app and check access once.", html)
+        self.assertIn("No CSV import is required for automatic metrics.", html)
         self.assertNotIn("✓ Screener Cookie Found — verify", html)
 
     def test_v4081_mobile_indices_and_chart_are_compact_and_stale_chart_clears(self):
@@ -380,8 +380,8 @@ class ReleaseRegressionTests(unittest.TestCase):
         # the separate check button validates actual company-page access.
         self.assertIn("$('screenerSignInBtn')?.addEventListener('click',()=>{window.location.href='https://www.screener.in/login/';})", html)
         self.assertIn("$('screenerCheckBtn')?.addEventListener('click',async()=>", html)
-        self.assertIn("Access blocked (403). Stop retrying.", html)
-        self.assertIn("Use the authorized Screener Excel/CSV export below.", html)
+        self.assertIn("Access blocked (403). Sign in on the official Screener page inside this app and check access once.", html)
+        self.assertIn("No CSV import is required for automatic metrics.", html)
 
     def test_screener_status_exposes_forbidden_state_to_ui(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
@@ -437,8 +437,8 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("$('screenerSignInBtn')?.addEventListener('click',()=>{window.location.href='https://www.screener.in/login/';})", html)
         self.assertIn("$('screenerCheckBtn')?.addEventListener('click',async()=>", html)
         self.assertIn("api('/api/screener/connect',9000)", html)
-        self.assertIn("Access blocked (403). Stop retrying.", html)
-        self.assertIn("Use the authorized Screener Excel/CSV export below.", html)
+        self.assertIn("Access blocked (403). Sign in on the official Screener page inside this app and check access once.", html)
+        self.assertIn("No CSV import is required for automatic metrics.", html)
         self.assertIn("Your password is entered only on Screener's official page", html)
         self.assertNotIn("password", html[html.index("screenerConnectCard"):html.index("screenerConnectCard")+1000].lower().replace("password is entered only on screener's official page",""))
 
