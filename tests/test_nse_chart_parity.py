@@ -11,7 +11,7 @@ MODULE=importlib.util.module_from_spec(SPEC);SPEC.loader.exec_module(MODULE)
 class NseChartParityTests(unittest.TestCase):
     def test_sma_rsi_and_nw_are_deterministic_and_causal(self):
         values=[100.0+i for i in range(220)]
-        self.assertAlmostEqual(MODULE.sma(values,50),194.5,places=9)
+        self.assertAlmostEqual(MODULE.sma(values,50),294.5,places=9)
         self.assertEqual(MODULE.rsi_wilder(values),100.0)
         a=MODULE.nw_envelope(values)
         b=MODULE.nw_envelope(values+[9999.0])
