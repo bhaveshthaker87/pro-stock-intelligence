@@ -1,0 +1,10 @@
+{
+  "tradingDate": "2026-03-06",
+  "fetchedAt": "2026-11-02T22:52:46.477837+00:00",
+  "source": "NSE CM-UDiFF Common Bhavcopy Final",
+  "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260306_F_0000.csv.zip",
+  "marketDataStatus": "EOD",
+  "rowCount": 2421,
+  "sha256": "8fd5043d946e418d905be64731baccec041111de48ff3f87ff880ed1c658aafd",
+  "file": "2026-03-06.csv"
+}
