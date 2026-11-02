@@ -860,6 +860,32 @@ private class NativeProvider(private val appAssets: AssetManager) {
         setCagr(pnlRows, "Sales", "sales3y")
         setCagr(pnlRows, "Net Profit", "profit3y")
         setCagr(pnlRows, "EPS in Rs", "eps3y")
+        // A transparent 3-year profit-variability measure: population standard
+        // deviation divided by absolute mean, expressed as a percentage (CV).
+        // It is only emitted when three consecutive annual values are present.
+        rowFor(pnlRows, "Net Profit")?.drop(1)?.take(3)?.map { asNumber(it) }?.let { values ->
+            if (values.size == 3 && values.all { it != null }) {
+                val nums = values.filterNotNull()
+                val mean = nums.average()
+                if (mean != 0.0 && mean.isFinite()) {
+                    val variance = nums.map { (it - mean) * (it - mean) }.average()
+                    val cv = kotlin.math.sqrt(variance) / kotlin.math.abs(mean) * 100.0
+                    if (cv.isFinite()) f.put("profitVariance3y", cv)
+                    f.put("profitVarianceMethod", "3-year population standard deviation / absolute mean × 100")
+                }
+            }
+        }
+        // PEG uses the reported EPS CAGR when available, then profit CAGR as a
+        // documented fallback. Growth must be positive; never divide by zero.
+        if (!f.has("peg")) {
+            val growth = f.optDouble("eps3y", Double.NaN).takeIf { it.isFinite() && it > 0.0 }
+                ?: f.optDouble("profit3y", Double.NaN).takeIf { it.isFinite() && it > 0.0 }
+            val pe = f.optDouble("pe", Double.NaN)
+            if (growth != null && pe.isFinite() && pe > 0.0) {
+                f.put("peg", pe / growth)
+                f.put("pegMethod", if (f.has("eps3y")) "P/E divided by 3-year EPS CAGR (%)" else "P/E divided by 3-year profit CAGR (%)")
+            }
+        }
         // Derived ratios must use the newest fiscal column; never skip a blank latest cell.
         val currentAssets = rowFor(balanceRows, "Current Assets")?.getOrNull(1)?.let { asNumber(it) }
         val currentLiabilities = rowFor(balanceRows, "Current Liabilities")?.getOrNull(1)?.let { asNumber(it) }
@@ -1131,6 +1157,13 @@ private class NativeProvider(private val appAssets: AssetManager) {
         val closes = (0 until rows.length()).mapNotNull { index ->
             rows.optJSONObject(index)?.optDouble("close", Double.NaN)?.takeIf { it.isFinite() && it > 0.0 }
         }
+        if (closes.size >= 50) {
+            val dma50 = closes.takeLast(50).average()
+            if (dma50.isFinite() && dma50 > 0.0) {
+                market.put("dma50", dma50)
+                market.put("dma50Source", quote.optString("historyProvider", quote.optString("provider", "Daily OHLCV")))
+            }
+        }
         if (closes.size >= 200) {
             val dma200 = closes.takeLast(200).average()
             if (dma200.isFinite() && dma200 > 0.0) {
@@ -1152,6 +1185,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
             market.put("technicalMetricsSource", quote.optString("historyProvider", quote.optString("provider", "Daily OHLCV")))
         }
         if (includeFundamentals) {
+            if (market.has("dma50")) f.put("dma50", market.get("dma50"))
             if (market.has("dma200")) f.put("dma200", market.get("dma200"))
             if (market.has("rsi14")) f.put("rsi14", market.get("rsi14"))
         }
