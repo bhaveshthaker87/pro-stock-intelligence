@@ -1139,10 +1139,15 @@ private class NativeProvider(private val appAssets: AssetManager) {
             }
         }
         if (closes.size >= 15) {
-            val changes = closes.takeLast(15).zipWithNext { a, b -> b - a }
-            val avgGain = changes.map { maxOf(it, 0.0) }.average()
-            val avgLoss = changes.map { maxOf(-it, 0.0) }.average()
-            val rsi = if (avgLoss == 0.0) 100.0 else 100.0 - (100.0 / (1.0 + avgGain / avgLoss))
+            val changes = closes.zipWithNext { a, b -> b - a }
+            val seed = changes.take(14)
+            var averageGain = seed.map { maxOf(it, 0.0) }.average()
+            var averageLoss = seed.map { maxOf(-it, 0.0) }.average()
+            for (change in changes.drop(14)) {
+                averageGain = ((averageGain * 13.0) + maxOf(change, 0.0)) / 14.0
+                averageLoss = ((averageLoss * 13.0) + maxOf(-change, 0.0)) / 14.0
+            }
+            val rsi = if (averageLoss == 0.0) 100.0 else 100.0 - (100.0 / (1.0 + averageGain / averageLoss))
             if (rsi.isFinite()) market.put("rsi14", rsi)
             market.put("technicalMetricsSource", quote.optString("historyProvider", quote.optString("provider", "Daily OHLCV")))
         }
