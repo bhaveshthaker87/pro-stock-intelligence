@@ -36,13 +36,14 @@ class V4092IntegratedRecoveryTests(unittest.TestCase):
         self.assertNotIn("yahooChart(", combined)
         self.assertNotIn("yahooChart(", history)
         self.assertNotIn("yahooChart(", api_quote)
-        self.assertIn("OFFICIAL_NSE_EOD_UNAVAILABLE", combined)
+        self.assertIn("OFFICIAL_NSE_EOD_UNAVAILABLE", source)
         self.assertIn("NSE_EOD_HISTORY_NOT_BUNDLED", history)
 
     def test_no_fake_live_data_on_missing_gateway(self):
         source = NATIVE.read_text(encoding="utf-8")
         self.assertIn("Yahoo/Moneycontrol fallback is disabled", source)
         self.assertIn("No price or candle is fabricated", source)
+        self.assertIn("No third-party fallback is used", source)
 
 if __name__ == "__main__":
     unittest.main()
