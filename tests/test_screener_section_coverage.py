@@ -43,6 +43,25 @@ class ScreenerSectionCoverageTests(unittest.TestCase):
         self.assertNotIn("Number(f.price)/Number(f.eps)", html)
         self.assertIn("validated TTM profit", html)
 
+    def test_native_provider_uses_shared_fundamentals_cache(self):
+        source = NATIVE.read_text(encoding="utf-8")
+        self.assertIn("ConcurrentHashMap<String, CachedFundamentals>", source)
+        self.assertIn("fundamentalsCacheTtlMs", source)
+        self.assertIn('put("cacheStatus", "HIT")', source)
+        self.assertIn('put("cacheStatus", "BYPASS_ON_ERROR")', source)
+
+    def test_backend_publishes_single_versioned_normalized_dataset(self):
+        source = NATIVE.read_text(encoding="utf-8")
+        for key in ("normalizedData", "schemaVersion", "market", "fundamentals",
+                    "financials", "coverage", "generatedAtEpochMs"):
+            self.assertIn(f'put("{key}"', source)
+
+    def test_dashboard_consumes_normalized_dataset_for_all_financial_views(self):
+        html = HTML.read_text(encoding="utf-8")
+        self.assertIn("d?.normalizedData||d||{}", html)
+        self.assertIn("canonical.market||d.market||{}", html)
+        self.assertIn("canonical.financials||{}", html)
+
 
 if __name__ == "__main__":
     unittest.main()
