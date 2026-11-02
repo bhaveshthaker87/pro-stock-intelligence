@@ -859,6 +859,28 @@ private class NativeProvider(private val appAssets: AssetManager) {
         val cashFlowRows = sectionTableRows(html, "cash-flow")
         val ratioTableRows = sectionTableRows(html, "ratios")
         val peerRows = sectionTableRows(html, "peers")
+        // Derive Industry P/E only from the actual peer table returned on this
+        // company page. Never substitute the stock's own P/E or an unrelated sector average.
+        fun normHeader(value: String): String = value.lowercase(Locale.ROOT).replace(Regex("[^a-z0-9]+"), " ").trim()
+        if (!f.has("industryPE") && peerRows.size > 1) {
+            val header = peerRows.first()
+            val peColumn = header.indexOfFirst { normHeader(it) in setOf("stock p e", "p e", "pe", "price to earnings") }
+            if (peColumn >= 0) {
+                val peerPes = peerRows.drop(1).mapNotNull { row ->
+                    row.getOrNull(peColumn)?.let { asNumber(it) }?.takeIf { it > 0.0 }
+                }.sorted()
+                if (peerPes.size >= 3) {
+                    val mid = peerPes.size / 2
+                    val median = if (peerPes.size % 2 == 0) (peerPes[mid - 1] + peerPes[mid]) / 2.0 else peerPes[mid]
+                    if (median.isFinite() && median > 0.0) {
+                        f.put("industryPE", median)
+                        f.put("industryPEMethod", "Median P/E of valid peers in the Screener peer table; n=" + peerPes.size)
+                        f.put("metricMeta", JSONObject().put("industryPE",
+                            JSONObject().put("source", "Screener.in peer table").put("period", "Peer-table reporting period not labelled")))
+                    }
+                }
+            }
+        }
         fun rowFor(rows: List<List<String>>, label: String): List<String>? =
             rows.drop(1).firstOrNull { row ->
                 val key = row.firstOrNull()?.trim().orEmpty()
@@ -977,6 +999,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
         if (!f.has("roce")) qualityFlags.put("ROCE_UNAVAILABLE")
         f.put("name", pageTitle).put("symbol", s).put("sector", stockSector(s)).put("provider", "Screener.in")
             .put("sourceUrl", pageUrl).put("fetchedAtEpochMs", fetchedAt)
+            .put("reportingPeriodStatus", "Provider-reported periods are retained in source tables; top-ratio fields have no explicit period unless metricMeta supplies one")
             .put("fundamentalStatus", if (available >= 6) "PAGE_VALIDATED_PARTIAL_FIELDS_MAY_BE_MISSING" else "PAGE_VALIDATED_LOW_COVERAGE")
             .put("availableFundamentalFields", available).put("expectedFundamentalFields", fieldKeys.size)
             .put("qualityFlags", qualityFlags)
