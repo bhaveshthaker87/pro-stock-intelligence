@@ -1232,33 +1232,22 @@ private class NativeProvider(private val appAssets: AssetManager) {
 
     private fun combined(raw: String, includeFundamentals: Boolean): JSONObject {
         val s = canonical(raw)
-        // Run independent providers concurrently. Yahoo failures must never prevent
-        // Screener fundamentals from returning, which was a root cause of blank cards.
+        // Keep quote/history independent from Screener fundamentals. Only an
+        // authorized HTTPS gateway or validated official NSE EOD bundle is accepted.
+        // Yahoo Finance and Moneycontrol are deliberately not quote/chart providers.
         val executor = Executors.newFixedThreadPool(2)
-        // Quote and candle data fail closed until an authorized NSE feed is configured.
         val quoteFuture = executor.submit<JSONObject> {
             try {
-                if (gatewayConfigured()) {
-                    nseQuote(raw)
-                } else {
-                    try { yahooChart(raw, "1y") }
-                    catch (yahooError: Exception) {
-                        try {
-                            eodQuote(raw).put("fallbackWarning", "Yahoo Finance unavailable: " + (yahooError.message ?: "request failed"))
-                        } catch (nseError: Exception) {
-                            throw IOException("Yahoo Finance unavailable (" + (yahooError.message ?: "request failed") + "); official NSE EOD unavailable (" + (nseError.message ?: "no bundled data") + ")")
-                        }
-                    }
-                }
+                if (gatewayConfigured()) nseQuote(raw) else eodQuote(raw)
             } catch (e: Exception) {
                 JSONObject().put("symbol", s)
                     .put("provider", "Unavailable")
-                    .put("status", if (gatewayConfigured()) "PROVIDER_GATEWAY_VALIDATION_FAILED" else "YAHOO_AND_NSE_DATA_UNAVAILABLE")
+                    .put("status", if (gatewayConfigured()) "PROVIDER_GATEWAY_VALIDATION_FAILED" else "OFFICIAL_NSE_EOD_UNAVAILABLE")
                     .put("rows", JSONArray())
                     .put("historyProvider", "Unavailable")
                     .put("historyStatus", "HISTORICAL_DATA_UNAVAILABLE")
                     .put("providerError", e.message ?: "Market data unavailable")
-                    .put("marketDataDisclaimer", "No verified quote or historical data is currently available. Last verified local snapshots, if present, remain unchanged.")
+                    .put("marketDataDisclaimer", "No authorized quote gateway or validated official NSE EOD bundle is available. Yahoo/Moneycontrol fallback is disabled; no price or candle is fabricated.")
             }
         }
         val fundamentalFuture = executor.submit<JSONObject> {
