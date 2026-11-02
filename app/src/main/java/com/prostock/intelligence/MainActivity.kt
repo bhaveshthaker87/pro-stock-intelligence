@@ -1069,6 +1069,56 @@ private class NativeProvider(private val appAssets: AssetManager) {
         return f
     }
 
+    /** Batch audit uses the user's existing in-app Screener session; no credentials leave the device. */
+    private fun screenerAudit30(): JSONObject {
+        val symbols = listOf("RELIANCE","TCS","HDFCBANK","ICICIBANK","INFY","SBIN","BHARTIARTL","ITC","LT","BAJFINANCE",
+            "HINDUNILVR","MARUTI","SUNPHARMA","TITAN","NTPC","POWERGRID","AXISBANK","KOTAKBANK","TATASTEEL","ONGC",
+            "M&M","WIPRO","HCLTECH","TECHM","ULTRACEMCO","ASIANPAINT","BEL","HAL","TRENT","ADANIPORTS")
+        val rows = JSONArray()
+        var blocked = false
+        var successfulPages = 0
+        for (symbol in symbols) {
+            val fetchedAt = System.currentTimeMillis()
+            val row = JSONObject().put("symbol", symbol).put("source", "Screener.in company page")
+                .put("sourceUrl", "https://www.screener.in/company/$symbol/").put("fetchedAtEpochMs", fetchedAt)
+            try {
+                if (blocked || screener403Observed) throw IOException("Screener access blocked; remaining requests stopped")
+                val f = screener(symbol)
+                successfulPages++
+                val metricKeys = listOf("industryPE", "piotroski", "peg", "pledged")
+                val metrics = JSONObject()
+                metricKeys.forEach { key ->
+                    val value = if (f.has(key) && !f.isNull(key)) f.opt(key) else JSONObject.NULL
+                    val meta = f.optJSONObject("metricMeta")?.optJSONObject(key) ?: JSONObject()
+                    metrics.put(key, JSONObject().put("value", value)
+                        .put("status", if (value !== JSONObject.NULL) "PAGE_VALUE_PARSED" else "UNAVAILABLE_NOT_REPORTED")
+                        .put("source", meta.optString("source", "Screener.in company page"))
+                        .put("period", meta.optString("period", f.optString("reportingPeriodStatus", "PERIOD_NOT_LABELLED")))
+                        .put("unit", when(key) { "industryPE","peg" -> "ratio"; "piotroski" -> "score_0_to_9"; else -> "percent" })
+                        .put("method", f.optString(key + "Method", "Reported directly by Screener where present")))
+                }
+                row.put("name", f.optString("name", symbol)).put("status", f.optString("fundamentalStatus", "PAGE_VALIDATED"))
+                    .put("metrics", metrics).put("availableMetricCount", metricKeys.count { f.has(it) && !f.isNull(it) })
+            } catch (e: Exception) {
+                val message = e.message ?: "Screener request failed"
+                if (message.contains("403") || screener403Observed) blocked = true
+                row.put("status", if (blocked) "ACCESS_BLOCKED_403" else "FETCH_FAILED")
+                    .put("error", message).put("metrics", JSONObject().put("industryPE", JSONObject().put("status","UNAVAILABLE"))
+                        .put("piotroski", JSONObject().put("status","UNAVAILABLE"))
+                        .put("peg", JSONObject().put("status","UNAVAILABLE"))
+                        .put("pledged", JSONObject().put("status","UNAVAILABLE")))
+            }
+            rows.put(row)
+            if (blocked) break
+        }
+        return JSONObject().put("source", "Screener.in authenticated company-page requests")
+            .put("startedAtEpochMs", System.currentTimeMillis()).put("requestedStocks", symbols.size)
+            .put("attemptedStocks", rows.length()).put("successfulPages", successfulPages)
+            .put("accessBlocked", blocked).put("complete", rows.length() == symbols.size && !blocked)
+            .put("metrics", JSONArray().put("industryPE").put("piotroski").put("peg").put("pledged"))
+            .put("rows", rows).put("note", "A page response validates only fields parsed on that page. Missing values remain unavailable; reporting periods are never inferred.")
+    }
+
     private fun screenerCookieHeader(): String {
         // Match the same canonical host/path used by screener(raw). Never combine
         // cookies from www and bare-domain jars: duplicate sessionid values can
@@ -1955,6 +2005,10 @@ private class NativeProvider(private val appAssets: AssetManager) {
                     val data = combined(raw, true)
                     if (p == "/api/bootstrap") data.put("diagnostics", JSONObject().put("quoteProvider", if (gatewayConfigured()) "Authorized gateway configured; each response must pass source/timestamp validation" else "Unavailable — authorized NSE/vendor gateway not configured; no third-party fallback").put("fundamentalProvider", if (data.optJSONObject("fundamentals")?.has("providerError") == true) "Unavailable" else "Screener.in page parser; actual field coverage must be reviewed"))
                     JSONObject().put("ok", true).put("data", data).toString()
+                }
+                "/api/screener/audit30" -> {
+                    if (!screenerLoggedIn()) throw IOException("Screener login is not active. Sign in on the official page first.")
+                    JSONObject().put("ok", true).put("data", screenerAudit30()).toString()
                 }
                 "/api/screener/live" -> {
                     if (!screenerLoggedIn()) throw IOException("Screener login is not active. Tap Screener Login first.")
