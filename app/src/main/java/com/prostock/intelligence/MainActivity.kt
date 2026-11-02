@@ -1013,7 +1013,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
             cookieDetected -> "Screener session cookie found. Checking access once against a company page before using fundamentals."
             else -> "Tap Connect Screener to open the official login page. Sign in there; the app will check the session when you return."
         }
-        return JSONObject().put("connected", validated).put("loggedIn", validated).put("cookieDetected", cookieDetected)
+        return JSONObject().put("connected", validated).put("loggedIn", cookieDetected).put("sessionAuthenticated", false).put("cookieDetected", cookieDetected)
             .put("blockedBy403", blocked).put("validated", validated).put("requestValidated", validated)
             .put("status", if (blocked) "HTTP_403_FORBIDDEN" else if (validated) "CONNECTED_VERIFIED" else if (cookieDetected) "SESSION_UNVERIFIED" else "LOGIN_REQUIRED")
             .put("httpStatus", if (blocked) 403 else if (validated) 200 else JSONObject.NULL)
@@ -1036,7 +1036,8 @@ private class NativeProvider(private val appAssets: AssetManager) {
             status.put("connected", true).put("loggedIn", true).put("validated", true)
                 .put("requestValidated", true).put("httpStatus", 200)
                 .put("status", "CONNECTED_VERIFIED")
-                .put("message", "Screener company page validated successfully. Fundamental fields can still be missing; review field coverage per stock.")
+                .put("sessionAuthenticated", false)
+                .put("message", "Screener company-page request succeeded with a session cookie present. This proves page access, not that subscription-only endpoints accepted the login; each returned field is still subject to coverage and period checks.")
                 .put("sampleSymbol", "INFY")
                 .put("sampleFieldCount", sample.keys().asSequence().count { it !in setOf("name", "symbol", "sector", "provider", "sourceUrl", "fetchedAtEpochMs", "fundamentalStatus", "availableFundamentalFields", "expectedFundamentalFields", "qualityFlags") })
             status
