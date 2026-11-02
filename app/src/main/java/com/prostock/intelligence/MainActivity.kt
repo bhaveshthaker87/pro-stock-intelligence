@@ -1398,35 +1398,6 @@ private class NativeProvider(private val appAssets: AssetManager) {
 
     private fun historyData(raw: String, range: String): JSONObject {
         val symbol = canonical(raw)
-        if (!gatewayConfigured()) {
-            try {
-                val yahoo = yahooChart(raw, range)
-                val rows = yahoo.optJSONArray("historyRows") ?: throw IOException("Yahoo Finance history rows missing")
-                return JSONObject().put("symbol", symbol).put("rows", rows)
-                    .put("provider", "Yahoo Finance").put("historyProvider", "Yahoo Finance daily OHLCV")
-                    .put("historyStatus", "YAHOO_FINANCE_DAILY_HISTORY")
-                    .put("marketDataStatus", "UNVERIFIED_SNAPSHOT").put("chartMode", "OHLCV")
-                    .put("statusText", "Yahoo Finance daily OHLCV • not exchange-certified real-time")
-                    .put("rangeRequested", range).put("interval", "1d")
-                    .put("quoteTimestamp", yahoo.optLong("quoteTimestamp", 0L))
-                    .put("sourceDisclaimer", "Yahoo Finance daily history. Validate against official exchange data before trading.")
-            } catch (yahooError: Exception) {
-                val localRows = readBundledNseEod(symbol)
-                if (localRows.length() >= 2) {
-                    val latest = localRows.optJSONObject(localRows.length() - 1)
-                    return JSONObject().put("symbol", symbol).put("rows", localRows)
-                        .put("provider", "NSE CM-UDiFF Common Bhavcopy Final")
-                        .put("historyProvider", "NSE official EOD bhavcopy bundled with app")
-                        .put("historyStatus", "VALIDATED_OFFICIAL_NSE_EOD")
-                        .put("marketDataStatus", "EOD").put("chartMode", "OHLCV")
-                        .put("statusText", "Official NSE daily OHLCV • EOD only • latest session " + (latest?.optString("tradingDate") ?: "unknown") + " • Yahoo fallback unavailable")
-                        .put("rangeRequested", range).put("interval", "1d")
-                        .put("quoteTimestamp", latest?.optLong("time", 0L)?.div(1000L) ?: JSONObject.NULL)
-                        .put("sourceDisclaimer", "Official NSE EOD history; Yahoo Finance request failed: " + (yahooError.message ?: "unavailable"))
-                }
-                throw IOException("Yahoo Finance history unavailable: " + (yahooError.message ?: "request failed"))
-            }
-        }
         if (gatewayConfigured()) {
             val data = gatewayGet("/v1/history", mapOf("symbol" to symbol, "range" to range))
             if (canonical(data.optString("symbol")) != symbol) throw IOException("History provider returned a different symbol; candles rejected")
@@ -2077,26 +2048,13 @@ private class NativeProvider(private val appAssets: AssetManager) {
                 }
                 "/api/quote", "/api/fast" -> {
                     val quote = try {
-                        if (gatewayConfigured()) {
-                            nseQuote(raw)
-                        } else {
-                            try {
-                                // Keep the dashboard quote route consistent with combined analysis:
-                                // Yahoo is an explicitly unverified snapshot; NSE EOD is the fallback.
-                                yahooChart(raw, "1y")
-                            } catch (yahooError: Exception) {
-                                try {
-                                    eodQuote(raw).put("fallbackWarning", "Yahoo Finance unavailable: " + (yahooError.message ?: "request failed"))
-                                } catch (nseError: Exception) {
-                                    throw IOException("Yahoo Finance unavailable (" + (yahooError.message ?: "request failed") + "); official NSE EOD unavailable (" + (nseError.message ?: "no bundled data") + ")")
-                                }
-                            }
-                        }
+                        if (gatewayConfigured()) nseQuote(raw) else eodQuote(raw)
                     } catch (e: Exception) {
-                        JSONObject().put("symbol", s).put("status", if (gatewayConfigured()) "PROVIDER_GATEWAY_VALIDATION_FAILED" else "YAHOO_AND_NSE_DATA_UNAVAILABLE")
+                        JSONObject().put("symbol", s)
+                            .put("status", if (gatewayConfigured()) "PROVIDER_GATEWAY_VALIDATION_FAILED" else "OFFICIAL_NSE_EOD_UNAVAILABLE")
                             .put("provider", "Unavailable").put("price", JSONObject.NULL)
                             .put("quoteTimestamp", JSONObject.NULL)
-                            .put("marketDataDisclaimer", if (gatewayConfigured()) "Configured provider gateway failed validation; price is unavailable. No fallback is used." else "Yahoo Finance and bundled official NSE EOD data are unavailable; no price is fabricated.")
+                            .put("marketDataDisclaimer", "No authorized quote gateway or validated NSE EOD reference is available. No Yahoo/Moneycontrol fallback and no price is fabricated.")
                             .put("providerError", e.message ?: "Verified quote unavailable")
                     }
                     quote.put("rows", JSONArray()).put("historyProvider", "Unavailable")
