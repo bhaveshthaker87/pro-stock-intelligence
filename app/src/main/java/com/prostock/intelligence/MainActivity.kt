@@ -1151,7 +1151,13 @@ private class NativeProvider(private val appAssets: AssetManager) {
                 }
             }
         }
-        val rows = quote.optJSONArray("rows") ?: JSONArray()
+        // Yahoo chart responses expose daily candles as historyRows; the authorized
+        // gateway exposes rows. Normalize both shapes once so chart and indicators use
+        // the exact same validated OHLCV series. Fall back only to bundled official NSE EOD.
+        val rows = quote.optJSONArray("rows")
+            ?: quote.optJSONArray("historyRows")
+            ?: readBundledNseEod(s)
+        quote.put("rows", rows)
         // Calculate technical metrics from the same daily OHLCV series used by the chart.
         // Require 200 closes for 200-DMA; do not estimate missing history.
         val closes = (0 until rows.length()).mapNotNull { index ->
