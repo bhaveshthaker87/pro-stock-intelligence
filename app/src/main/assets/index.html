@@ -2012,6 +2012,7 @@ $('clearImportedCsv')?.addEventListener('click',()=>{try{localStorage.removeItem
 $('useImportedCsv')?.addEventListener('change',()=>{refreshCsvModalStatus();if(window.sym){toast($('useImportedCsv').checked?'CSV fallback enabled; applying imported data…':'CSV fallback disabled; refreshing provider data…');runAnalysis().then(()=>loadChart(activeRange||'1y'));}});refreshCsvModalStatus();
 
 </script>
+<script src="options-signals.js"></script>
 
 <style id="v4081-header-hit-target-fix">
 /* Keep the sticky header from sitting on top of market-panel controls after
