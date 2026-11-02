@@ -75,7 +75,8 @@ class ScreenerSectionCoverageTests(unittest.TestCase):
     def test_screener_status_does_not_claim_subscription_authentication(self):
         source = NATIVE.read_text(encoding="utf-8")
         self.assertIn('.put("sessionAuthenticated", false)', source)
-        self.assertIn("proves page access, not that subscription-only endpoints accepted the login", source)
+        self.assertIn("Subscription-only access is not proven by this public-page probe", source)
+        self.assertIn('.put("subscriptionAccessVerified", false)', source)
 
 
 if __name__ == "__main__":
