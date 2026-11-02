@@ -891,6 +891,60 @@ private class NativeProvider(private val appAssets: AssetManager) {
             val value = row.getOrNull(1)?.let { asNumber(it) }
             if (value != null) f.put(key, value)
         }
+        // Piotroski F-score (0-9): calculate only when all nine inputs can be
+        // be reconstructed from the same two annual reporting columns. Never publish
+        // a partial score as a complete 0-9 result.
+        fun annual(rows: List<List<String>>, labels: List<String>, col: Int): Double? {
+            val row = rows.drop(1).firstOrNull { r ->
+                val label = normHeader(r.firstOrNull().orEmpty())
+                labels.any { label == normHeader(it) || label.startsWith(normHeader(it) + " ") }
+            } ?: return null
+            return row.getOrNull(col)?.let { asNumber(it) }
+        }
+        val salesNow = annual(pnlRows, listOf("Sales", "Revenue from Operations"), 1)
+        val salesPrev = annual(pnlRows, listOf("Sales", "Revenue from Operations"), 2)
+        val netNow = annual(pnlRows, listOf("Net Profit"), 1)
+        val netPrev = annual(pnlRows, listOf("Net Profit"), 2)
+        val opNow = annual(cashFlowRows, listOf("Cash from Operating Activity", "Cash Flow from Operating Activities", "Operating Cash Flow"), 1)
+        val opPrev = annual(cashFlowRows, listOf("Cash from Operating Activity", "Cash Flow from Operating Activities", "Operating Cash Flow"), 2)
+        val assetsNow = annual(balanceRows, listOf("Total Assets"), 1)
+        val assetsPrev = annual(balanceRows, listOf("Total Assets"), 2)
+        val currentAssetsNow = annual(balanceRows, listOf("Current Assets"), 1)
+        val currentAssetsPrev = annual(balanceRows, listOf("Current Assets"), 2)
+        val currentLiabNow = annual(balanceRows, listOf("Current Liabilities"), 1)
+        val currentLiabPrev = annual(balanceRows, listOf("Current Liabilities"), 2)
+        val debtNow = annual(balanceRows, listOf("Borrowings", "Long Term Borrowings", "Long Term Debt"), 1)
+        val debtPrev = annual(balanceRows, listOf("Borrowings", "Long Term Borrowings", "Long Term Debt"), 2)
+        val shareCapitalNow = annual(balanceRows, listOf("Share Capital"), 1)
+        val shareCapitalPrev = annual(balanceRows, listOf("Share Capital"), 2)
+        val grossNow = annual(pnlRows, listOf("Gross Profit"), 1)
+        val grossPrev = annual(pnlRows, listOf("Gross Profit"), 2)
+        val roaNow = if (netNow != null && assetsNow != null && assetsNow > 0) netNow / assetsNow else null
+        val roaPrev = if (netPrev != null && assetsPrev != null && assetsPrev > 0) netPrev / assetsPrev else null
+        val cfoPositive = opNow?.let { it > 0.0 }
+        val cfoExceedsNet = if (opNow != null && netNow != null) opNow > netNow else null
+        val roaImproved = if (roaNow != null && roaPrev != null) roaNow > roaPrev else null
+        val leverageReduced = if (debtNow != null && debtPrev != null && assetsNow != null && assetsPrev != null && assetsNow > 0 && assetsPrev > 0)
+            debtNow / assetsNow < debtPrev / assetsPrev else null
+        val currentRatioImproved = if (currentAssetsNow != null && currentAssetsPrev != null && currentLiabNow != null && currentLiabPrev != null && currentLiabNow > 0 && currentLiabPrev > 0)
+            currentAssetsNow / currentLiabNow > currentAssetsPrev / currentLiabPrev else null
+        val noShareIssue = if (shareCapitalNow != null && shareCapitalPrev != null) shareCapitalNow <= shareCapitalPrev else null
+        val grossMarginImproved = if (grossNow != null && grossPrev != null && salesNow != null && salesPrev != null && salesNow > 0 && salesPrev > 0)
+            grossNow / salesNow > grossPrev / salesPrev else null
+        val assetTurnoverImproved = if (salesNow != null && salesPrev != null && assetsNow != null && assetsPrev != null && assetsNow > 0 && assetsPrev > 0)
+            salesNow / assetsNow > salesPrev / assetsPrev else null
+        val piotroskiInputs = listOf(
+            netNow?.let { it > 0.0 }, cfoPositive, roaImproved, cfoExceedsNet,
+            leverageReduced, currentRatioImproved, noShareIssue, grossMarginImproved, assetTurnoverImproved
+        )
+        if (piotroskiInputs.all { it != null }) {
+            f.put("piotroski", piotroskiInputs.count { it == true })
+            f.put("piotroskiMethod", "Piotroski F-score 0-9 from two consecutive annual Screener P&L, balance-sheet and cash-flow periods")
+            f.put("metricMeta", JSONObject(f.optJSONObject("metricMeta")?.toString() ?: "{}").put("piotroski",
+                JSONObject().put("source", "Calculated from Screener annual financial statements").put("period", "Latest two reported annual periods")))
+        } else {
+            f.put("piotroskiStatus", "UNAVAILABLE_MISSING_REQUIRED_ANNUAL_INPUTS")
+        }
         setLatestFromTable(pnlRows, "Net Profit", "netProfit")
         // EPS is commonly present in the profit/loss table, not in the top-ratios list.
         // Prefer the explicit ratio value when present; otherwise use the latest reported EPS cell.
@@ -976,7 +1030,8 @@ private class NativeProvider(private val appAssets: AssetManager) {
                 if (n != null) {
                     if (label == "promoters" || label.startsWith("promoters ")) f.put("promoter", n)
                     if (label == "public" || label.startsWith("public ")) f.put("public", n)
-                    if (label.contains("pledged")) f.put("pledged", n)
+                    // Screener may label this as promoter pledge/pledged shares/encumbered.
+                    if (label.contains("pledg") || label.contains("encumber")) f.put("pledged", n)
                 }
             }
         }
