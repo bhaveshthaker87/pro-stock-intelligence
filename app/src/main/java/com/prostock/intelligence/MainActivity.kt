@@ -1478,114 +1478,8 @@ private class NativeProvider(private val appAssets: AssetManager) {
         return JSONArray().apply { byDate.values.forEach { put(it) } }
     }
 
-    // Yahoo Finance chart adapter: public market snapshot + daily OHLCV fallback.
-    // Yahoo does not guarantee exchange-certified real-time delivery; every response is
-    // labelled as an unverified Yahoo snapshot and timestamp-checked before use.
-    private val yahooCache = mutableMapOf<String, Pair<Long, String>>()
-
-    private fun yahooTicker(raw: String): String {
-        val input = raw.trim().uppercase(Locale.ROOT)
-        if (input.matches(Regex("^\\^[A-Z0-9]+$"))) return input
-        if (input.endsWith(".BO") || input.endsWith(".NS")) return input
-        val symbol = canonical(input)
-        if (symbol.isBlank()) throw IOException("Enter a valid NSE/BSE symbol")
-        return "$symbol.NS"
-    }
-
-    private fun yahooChart(raw: String, range: String = "1y"): JSONObject {
-        val ticker = yahooTicker(raw)
-        val safeRange = when (range.lowercase(Locale.ROOT)) {
-            "1m", "1mo" -> "1mo"
-            "3m", "3mo" -> "3mo"
-            "6m", "6mo" -> "6mo"
-            "2y" -> "2y"
-            "5y" -> "5y"
-            "max" -> "max"
-            else -> "1y"
-        }
-        val key = "$ticker|$safeRange"
-        val now = System.currentTimeMillis()
-        synchronized(yahooCache) {
-            val cached = yahooCache[key]
-            if (cached != null && now >= cached.first && now - cached.first < 60_000L) {
-                return JSONObject(cached.second)
-            }
-        }
-        val encoded = URLEncoder.encode(ticker, "UTF-8")
-        val url = URL("https://query1.finance.yahoo.com/v8/finance/chart/$encoded?range=$safeRange&interval=1d&events=div%2Csplits")
-        val connection = url.openConnection() as HttpURLConnection
-        connection.connectTimeout = 7000
-        connection.readTimeout = 10000
-        connection.requestMethod = "GET"
-        connection.setRequestProperty("Accept", "application/json")
-        connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/126.0 Mobile Safari/537.36")
-        try {
-            val code = connection.responseCode
-            if (code !in 200..299) throw IOException("Yahoo Finance returned HTTP $code for $ticker")
-            val body = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
-            if (body.length > 8_000_000) throw IOException("Yahoo Finance history response exceeded the 8 MB safety limit")
-            val root = JSONObject(body).optJSONObject("chart") ?: throw IOException("Yahoo Finance response has no chart object")
-            val error = root.optJSONObject("error")
-            if (error != null && !error.isNull("code")) throw IOException("Yahoo Finance: " + error.optString("description", "symbol unavailable"))
-            val result = root.optJSONArray("result")?.optJSONObject(0) ?: throw IOException("Yahoo Finance returned no data for $ticker")
-            val meta = result.optJSONObject("meta") ?: throw IOException("Yahoo Finance response is missing exchange metadata")
-            val resolved = meta.optString("symbol").uppercase(Locale.ROOT)
-            if (resolved.isBlank() || resolved != ticker) throw IOException("Yahoo Finance symbol mismatch: requested $ticker, received $resolved")
-            val timestamps = result.optJSONArray("timestamp") ?: throw IOException("Yahoo Finance returned no daily timestamps")
-            val indicators = result.optJSONObject("indicators") ?: throw IOException("Yahoo Finance response is missing OHLCV indicators")
-            val quote = indicators.optJSONArray("quote")?.optJSONObject(0) ?: throw IOException("Yahoo Finance response is missing OHLCV quote data")
-            val opens = quote.optJSONArray("open") ?: throw IOException("Yahoo Finance response is missing open prices")
-            val highs = quote.optJSONArray("high") ?: throw IOException("Yahoo Finance response is missing high prices")
-            val lows = quote.optJSONArray("low") ?: throw IOException("Yahoo Finance response is missing low prices")
-            val closes = quote.optJSONArray("close") ?: throw IOException("Yahoo Finance response is missing close prices")
-            val volumes = quote.optJSONArray("volume") ?: throw IOException("Yahoo Finance response is missing volume")
-            val rows = JSONArray()
-            var previous = Long.MIN_VALUE
-            for (i in 0 until timestamps.length()) {
-                val time = timestamps.optLong(i, 0L)
-                val o = opens.optDouble(i, Double.NaN)
-                val h = highs.optDouble(i, Double.NaN)
-                val l = lows.optDouble(i, Double.NaN)
-                val c = closes.optDouble(i, Double.NaN)
-                val v = volumes.optDouble(i, Double.NaN)
-                if (time <= previous || !finite(o) || !finite(h) || !finite(l) || !finite(c) || !finite(v) ||
-                    minOf(o, h, l, c) <= 0.0 || h < maxOf(o, c, l) || l > minOf(o, c, h) || v < 0.0) continue
-                rows.put(JSONObject().put("time", time * 1000L).put("date", time * 1000L)
-                    .put("open", o).put("high", h).put("low", l).put("close", c).put("volume", v))
-                previous = time
-            }
-            if (rows.length() < 2) throw IOException("Yahoo Finance returned fewer than two valid daily OHLCV rows")
-            val regularTime = meta.optLong("regularMarketTime", 0L)
-            val price = meta.optDouble("regularMarketPrice", Double.NaN)
-            val previousClose = meta.optDouble("chartPreviousClose", meta.optDouble("previousClose", Double.NaN))
-            val lastRow = rows.optJSONObject(rows.length() - 1) ?: throw IOException("Yahoo Finance latest candle is invalid")
-            val priceTimestamp = if (regularTime > 0L) regularTime else (lastRow.optLong("time") / 1000L)
-            val ageSeconds = System.currentTimeMillis() / 1000L - priceTimestamp
-            if (priceTimestamp <= 0L || ageSeconds < -60L || ageSeconds > 5L * 24L * 60L * 60L)
-                throw IOException("Yahoo Finance quote timestamp is missing, future-dated or older than five days")
-            val currentPrice = if (finite(price) && price > 0.0) price else lastRow.optDouble("close", Double.NaN)
-            if (!finite(currentPrice) || currentPrice <= 0.0) throw IOException("Yahoo Finance returned no valid current/reference price")
-            val output = JSONObject().put("symbol", canonical(raw)).put("yahooSymbol", ticker)
-                .put("price", currentPrice).put("currency", meta.optString("currency", "INR"))
-                .put("provider", "Yahoo Finance").put("source", "Yahoo Finance chart endpoint")
-                .put("status", "YAHOO_FINANCE_SNAPSHOT").put("marketDataStatus", "UNVERIFIED_SNAPSHOT")
-                .put("quoteTimestamp", priceTimestamp).put("quoteAsOf", java.time.Instant.ofEpochSecond(priceTimestamp).toString())
-                .put("marketDataDisclaimer", "Yahoo Finance snapshot. Not exchange-certified real-time; verify before trading.")
-                .put("isExchangeCertifiedRealtime", false).put("historyRows", rows)
-                .put("historyProvider", "Yahoo Finance daily OHLCV").put("historyStatus", "YAHOO_FINANCE_DAILY_HISTORY")
-                .put("currency", meta.optString("currency", "INR"))
-            if (finite(previousClose) && previousClose > 0.0) {
-                output.put("previousClose", previousClose)
-                output.put("dayChangePct", ((currentPrice - previousClose) / previousClose) * 100.0)
-            }
-            if (meta.has("fiftyTwoWeekHigh")) output.put("high52", meta.optDouble("fiftyTwoWeekHigh"))
-            if (meta.has("fiftyTwoWeekLow")) output.put("low52", meta.optDouble("fiftyTwoWeekLow"))
-            synchronized(yahooCache) { yahooCache[key] = Pair(now, output.toString()) }
-            return output
-        } finally {
-            connection.disconnect()
-        }
-    }
+    // No unlicensed third-party quote/chart adapters are retained. Quotes and candles
+    // come only from the authorized gateway or validated official NSE EOD bundle.
 
     private fun eodQuote(raw: String): JSONObject {
         val symbol = canonical(raw)
@@ -2018,7 +1912,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
         val s = canonical(raw)
         return try {
             when (p) {
-                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.91 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK").put("data", JSONObject().put("ok", true).put("providerGatewayConfigured", gatewayConfigured()).put("quoteStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_FEED_NOT_CONFIGURED").put("historyStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_HISTORY_NOT_CONFIGURED").put("indicesStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_INDEX_FEED_NOT_CONFIGURED").put("eventsStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_EVENTS_FEED_NOT_CONFIGURED").put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
+                "/api/health" -> JSONObject().put("ok", true).put("engine", "V40.92 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK").put("data", JSONObject().put("ok", true).put("providerGatewayConfigured", gatewayConfigured()).put("quoteStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_FEED_NOT_CONFIGURED").put("historyStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_HISTORY_NOT_CONFIGURED").put("indicesStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_INDEX_FEED_NOT_CONFIGURED").put("eventsStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_EVENTS_FEED_NOT_CONFIGURED").put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
                 "/api/providers/status" -> JSONObject().put("ok", true).put("data", providerStatus(raw)).toString()
                 "/api/screener/status" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
                 "/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerConnectionTest()).toString()
