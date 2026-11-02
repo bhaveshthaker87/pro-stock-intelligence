@@ -79,13 +79,30 @@ class ScreenerSectionCoverageTests(unittest.TestCase):
         self.assertIn('.put("subscriptionAccessVerified", false)', source)
 
 
-    def test_v4111_piotroski_is_only_published_when_all_nine_annual_inputs_exist(self):
+    def test_piotroski_prefers_screener_reported_score_and_calculates_only_as_fallback(self):
         source = NATIVE.read_text(encoding="utf-8")
-        for token in ("Piotroski F-score (0-9)", "piotroskiInputs.all { it != null }",
-                      "UNAVAILABLE_MISSING_REQUIRED_ANNUAL_INPUTS",
-                      "Calculated from Screener annual financial statements",
-                      "shareCapitalNow <= shareCapitalPrev"):
+        self.assertIn('"piotroski score" to "piotroski"', source)
+        self.assertIn('if (!f.has("piotroski") && piotroskiInputs.all { it != null })', source)
+        self.assertIn('Reported directly by Screener company-page ratios', source)
+        self.assertIn("UNAVAILABLE_MISSING_REQUIRED_ANNUAL_INPUTS", source)
+        self.assertIn("Calculated from Screener annual financial statements", source)
+        self.assertIn("shareCapitalNow <= shareCapitalPrev", source)
+
+    def test_peg_uses_eps_growth_only_and_never_profit_growth(self):
+        source = NATIVE.read_text(encoding="utf-8")
+        self.assertIn('"peg ratio" to "peg"', source)
+        self.assertIn('f.optDouble("eps3y"', source)
+        self.assertIn("P/E divided by 3-year EPS CAGR (%)", source)
+        self.assertNotIn('f.optDouble("profit3y"', source)
+        self.assertIn("UNAVAILABLE_REQUIRES_POSITIVE_EPS_CAGR", source)
+
+    def test_four_screener_top_ratio_fields_are_mapped_and_industry_pe_has_peer_fallback(self):
+        source = NATIVE.read_text(encoding="utf-8")
+        for token in ('"industry pe" to "industryPE"', '"piotroski score" to "piotroski"',
+                      '"peg ratio" to "peg"', '"pledged percentage" to "pledged"'):
             self.assertIn(token, source)
+        self.assertIn("Median P/E of valid peers in the Screener peer table", source)
+        self.assertIn('label.contains("pledg") || label.contains("encumber")', source)
 
     def test_v4111_pledge_parser_accepts_pledged_and_encumbered_labels(self):
         source = NATIVE.read_text(encoding="utf-8")
