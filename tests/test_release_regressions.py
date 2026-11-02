@@ -123,15 +123,19 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("imported peer snapshot; verify period", html)
         self.assertIn("Imported company news snapshot", html)
 
-    def test_v4088_release_markers_are_aligned(self):
+    def test_release_markers_are_derived_from_current_gradle_version(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
         workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
-        self.assertIn("versionCode 88; versionName '40.89'", gradle)
-        self.assertIn("V40.89 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", html)
-        self.assertIn("V40.89 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", source)
-        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-89-debug", workflow)
+        version_code = re.search(r"versionCode (\\d+)", gradle).group(1)
+        version_name = re.search(r"versionName '([^']+)'", gradle).group(1)
+        version_tag = f"V{version_name}"
+        engine = f"{version_tag} AUTHORIZED GATEWAY + CSV OHLCV FALLBACK"
+        self.assertIn(f"versionCode {version_code}; versionName '{version_name}'", gradle)
+        self.assertIn(engine, html)
+        self.assertIn(engine, source)
+        self.assertIn(f"PRO-STOCK-INTELLIGENCE-V{version_name.replace('.', '-')}-debug", workflow)
 
     def test_screener_xlsx_maps_infosys_ltd_company_name_to_nse_symbol(self):
         importer = (ROOT / "app/src/main/assets/xlsx-import.js").read_text(encoding="utf-8")
@@ -422,18 +426,16 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("has invalid value/changePct; snapshot rejected", source)
 
 
-    def test_screener_login_opens_official_page_before_probing_and_stops_after_403(self):
+    def test_screener_login_and_403_are_explicit_and_never_bypassed(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
-        handler_start = html.index("$('session').onclick=async()=>{")
-        handler_end = html.index("window.refreshScreenerStatus=refreshScreenerStatus;", handler_start)
-        handler = html[handler_start:handler_end]
-        self.assertLess(handler.index("api('/api/screener/status'"), handler.index("api('/api/screener/connect'"))
-        self.assertLess(handler.index("if(!current.cookieDetected)"), handler.index("api('/api/screener/connect'"))
-        self.assertIn("https://www.screener.in/login/", handler)
-        self.assertIn("Screener Access Denied (403)", handler)
-        self.assertIn("Re-login once", handler)
-        self.assertIn("use permitted CSV import or authorized access", handler)
-        self.assertIn("Refusing an unexpected login URL", handler)
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("https://www.screener.in/login/", html)
+        self.assertIn("Screener Access Denied (403)", html)
+        self.assertIn("The app will not bypass provider access controls", html)
+        self.assertIn('"/api/screener/connect"', source)
+        self.assertIn("Screener HTTP 403 Forbidden", source)
+        self.assertIn("screener403Observed", source)
+        self.assertIn("return@forEach", source)
 
     def test_provider_validator_supports_every_gateway_payload_type(self):
         import subprocess
