@@ -776,11 +776,17 @@ private class NativeProvider(private val appAssets: AssetManager) {
             "dma 50" to "dma50", "50 dma" to "dma50", "dma 200" to "dma200", "200 dma" to "dma200",
             "promoter holding" to "promoter", "promoters" to "promoter",
             "public holding" to "public", "public" to "public",
-            "pledged percentage" to "pledged", "pledged percent" to "pledged",
+            "pledged percentage" to "pledged", "pledged percent" to "pledged", "pledged" to "pledged", "pledge" to "pledged", "promoter pledge" to "pledged",
             "industry pb" to "industryPB", "industry p b" to "industryPB",
             "price to book value" to "pb", "stock p b" to "pb", "p b" to "pb",
-            "sales growth 3years" to "sales3y", "profit var 3yrs" to "profitVariance3y",
-            "profit growth 3years" to "profit3y", "opm" to "opm", "rsi" to "rsi14"
+            "sales growth 3years" to "sales3y", "sales growth 3 years" to "sales3y",
+            "profit var 3yrs" to "profitVariance3y", "profit variance 3 years" to "profitVariance3y",
+            "profit variance 3years" to "profitVariance3y", "profit growth 3years" to "profit3y",
+            "profit growth 3 years" to "profit3y", "profit growth 3yr" to "profit3y",
+            "profit growth 3 yrs" to "profit3y", "industry p e" to "industryPE",
+            "industry pe ratio" to "industryPE", "piotroski" to "piotroski",
+            "200 dma" to "dma200", "dma 200" to "dma200", "peg ratio" to "peg",
+            "opm" to "opm", "rsi" to "rsi14"
         )
         val parsedAliases = mutableMapOf<String, MutableList<Double>>()
         ratioItems.forEach { item ->
@@ -1120,6 +1126,30 @@ private class NativeProvider(private val appAssets: AssetManager) {
             }
         }
         val rows = quote.optJSONArray("rows") ?: JSONArray()
+        // Calculate technical metrics from the same daily OHLCV series used by the chart.
+        // Require 200 closes for 200-DMA; do not estimate missing history.
+        val closes = (0 until rows.length()).mapNotNull { index ->
+            rows.optJSONObject(index)?.optDouble("close", Double.NaN)?.takeIf { it.isFinite() && it > 0.0 }
+        }
+        if (closes.size >= 200) {
+            val dma200 = closes.takeLast(200).average()
+            if (dma200.isFinite() && dma200 > 0.0) {
+                market.put("dma200", dma200)
+                market.put("dma200Source", quote.optString("historyProvider", quote.optString("provider", "Daily OHLCV")))
+            }
+        }
+        if (closes.size >= 15) {
+            val changes = closes.takeLast(15).zipWithNext { a, b -> b - a }
+            val avgGain = changes.map { maxOf(it, 0.0) }.average()
+            val avgLoss = changes.map { maxOf(-it, 0.0) }.average()
+            val rsi = if (avgLoss == 0.0) 100.0 else 100.0 - (100.0 / (1.0 + avgGain / avgLoss))
+            if (rsi.isFinite()) market.put("rsi14", rsi)
+            market.put("technicalMetricsSource", quote.optString("historyProvider", quote.optString("provider", "Daily OHLCV")))
+        }
+        if (includeFundamentals) {
+            if (market.has("dma200")) f.put("dma200", market.get("dma200"))
+            if (market.has("rsi14")) f.put("rsi14", market.get("rsi14"))
+        }
         val history = JSONObject().put("rows", rows).put("provider", quote.optString("historyProvider", "Unavailable")).put("historyStatus", quote.optString("historyStatus", "AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED"))
         val hasFundamentals = arrayOf("marketCap", "pe", "roce", "roe", "debtEquity", "eps", "bookValue").any { f.has(it) && !f.isNull(it) }
         val selectedExchange = when { raw.trim().uppercase(Locale.ROOT).endsWith(".BO") -> "BSE"; raw.trim().uppercase(Locale.ROOT).endsWith(".NS") -> "NSE"; else -> "NSE primary; BSE availability varies" }
