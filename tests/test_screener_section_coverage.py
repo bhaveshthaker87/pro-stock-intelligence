@@ -79,5 +79,16 @@ class ScreenerSectionCoverageTests(unittest.TestCase):
         self.assertIn('.put("subscriptionAccessVerified", false)', source)
 
 
+    def test_v4110_industry_pe_uses_peer_median_and_chart_ticks_are_mobile_safe(self):
+        source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("Median P/E of valid peers in the Screener peer table", source)
+        self.assertIn("peerPes.size >= 3", source)
+        self.assertIn("Peer-table reporting period not labelled", source)
+        html = HTML.read_text(encoding="utf-8")
+        self.assertIn("Math.min(5,Math.floor(plotW/170))", html)
+        self.assertIn("c.textAlign=k===0?'left':k===ticks?'right':'center'", html)
+        self.assertIn("Period not supplied", html)
+        self.assertIn("Official NSE EOD supplies closing prices only", html)
+
 if __name__ == "__main__":
     unittest.main()
