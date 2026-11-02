@@ -79,6 +79,18 @@ class ScreenerSectionCoverageTests(unittest.TestCase):
         self.assertIn('.put("subscriptionAccessVerified", false)', source)
 
 
+    def test_v4111_piotroski_is_only_published_when_all_nine_annual_inputs_exist(self):
+        source = NATIVE.read_text(encoding="utf-8")
+        for token in ("Piotroski F-score (0-9)", "piotroskiInputs.all { it != null }",
+                      "UNAVAILABLE_MISSING_REQUIRED_ANNUAL_INPUTS",
+                      "Calculated from Screener annual financial statements",
+                      "shareCapitalNow <= shareCapitalPrev"):
+            self.assertIn(token, source)
+
+    def test_v4111_pledge_parser_accepts_pledged_and_encumbered_labels(self):
+        source = NATIVE.read_text(encoding="utf-8")
+        self.assertIn('label.contains("pledg") || label.contains("encumber")', source)
+
     def test_v4110_industry_pe_uses_peer_median_and_chart_ticks_are_mobile_safe(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("Median P/E of valid peers in the Screener peer table", source)
