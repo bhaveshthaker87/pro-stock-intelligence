@@ -826,6 +826,9 @@ private class NativeProvider(private val appAssets: AssetManager) {
         val qRows = sectionTableRows(html, "quarters")
         val ownershipRows = sectionTableRows(html, "shareholding")
         val balanceRows = sectionTableRows(html, "balance-sheet")
+        val cashFlowRows = sectionTableRows(html, "cash-flow")
+        val ratioTableRows = sectionTableRows(html, "ratios")
+        val peerRows = sectionTableRows(html, "peers")
         fun rowFor(rows: List<List<String>>, label: String): List<String>? =
             rows.drop(1).firstOrNull { row ->
                 val key = row.firstOrNull()?.trim().orEmpty()
@@ -894,6 +897,10 @@ private class NativeProvider(private val appAssets: AssetManager) {
         val latestInterest = rowFor(pnlRows, "Interest")?.getOrNull(1)?.let { asNumber(it) }
         if (latestOperating != null && latestInterest != null && latestInterest > 0) f.put("interestCoverage", latestOperating / latestInterest)
         if (pnlRows.isNotEmpty()) f.put("pnl", jsonRows(pnlRows))
+        if (balanceRows.isNotEmpty()) f.put("balanceSheet", jsonRows(balanceRows))
+        if (cashFlowRows.isNotEmpty()) f.put("cashFlow", jsonRows(cashFlowRows))
+        if (ratioTableRows.isNotEmpty()) f.put("ratios", jsonRows(ratioTableRows))
+        if (peerRows.isNotEmpty()) f.put("peerComparison", jsonRows(peerRows))
         if (qRows.isNotEmpty()) {
             val qData = quarterlyRows(qRows)
             f.put("quarterly", qData)
@@ -922,8 +929,17 @@ private class NativeProvider(private val appAssets: AssetManager) {
             }
         }
         val fetchedAt = System.currentTimeMillis()
-        val fieldKeys = listOf("price", "marketCap", "pe", "industryPE", "peg", "pb", "industryPB", "faceValue", "piotroski", "dma50", "dma200", "promoter", "public", "pledged", "bookValue", "dividendYield", "roce", "roe", "debtEquity", "eps", "netProfit", "operatingProfit", "opm", "sales3y", "profit3y", "profitVariance3y", "eps3y", "currentRatio", "interestCoverage", "rsi14", "high52", "low52", "quarterly", "shareholding")
-        val available = fieldKeys.count { f.has(it) && !f.isNull(it) }
+        val fieldKeys = listOf("price", "marketCap", "pe", "industryPE", "peg", "pb", "industryPB", "faceValue", "piotroski", "dma50", "dma200", "promoter", "public", "pledged", "bookValue", "dividendYield", "roce", "roe", "debtEquity", "eps", "netProfit", "operatingProfit", "opm", "sales3y", "profit3y", "profitVariance3y", "eps3y", "currentRatio", "interestCoverage", "rsi14", "high52", "low52", "quarterly", "shareholding", "pnl", "balanceSheet", "cashFlow", "ratios", "peerComparison")
+        val available = fieldKeys.count { f.has(it) && !f.isNull(it) && (f.optJSONArray(it)?.length() ?: 1) > 0 }
+        val sectionCoverage = JSONObject()
+            .put("profitLoss", pnlRows.isNotEmpty())
+            .put("quarterly", qRows.isNotEmpty())
+            .put("balanceSheet", balanceRows.isNotEmpty())
+            .put("cashFlow", cashFlowRows.isNotEmpty())
+            .put("shareholding", ownershipRows.isNotEmpty())
+            .put("financialRatios", ratioTableRows.isNotEmpty())
+            .put("peerComparison", peerRows.isNotEmpty())
+        f.put("sectionCoverage", sectionCoverage)
         val qualityFlags = JSONArray()
         if (available < 6) qualityFlags.put("LOW_FUNDAMENTAL_COVERAGE")
         if (!f.has("pe")) qualityFlags.put("PE_UNAVAILABLE_OR_NON_POSITIVE")
@@ -1077,10 +1093,22 @@ private class NativeProvider(private val appAssets: AssetManager) {
     }
 
     private fun coreCoverage(f: JSONObject): JSONObject {
-        val keys = arrayOf("marketCap", "pe", "roce", "roe", "debtEquity", "eps", "bookValue")
+        val keys = arrayOf("marketCap", "pe", "roce", "roe", "debtEquity", "eps", "bookValue",
+            "netProfit", "operatingProfit", "dividendYield", "promoter", "public", "high52", "low52")
+        val fields = JSONObject()
         var count = 0
-        keys.forEach { if (f.has(it) && !f.isNull(it)) count++ }
-        return JSONObject().put("coreFields", count).put("coreTotal", keys.size)
+        keys.forEach { key ->
+            val present = f.has(key) && !f.isNull(key)
+            fields.put(key, present)
+            if (present) count++
+        }
+        val sections = f.optJSONObject("sectionCoverage") ?: JSONObject()
+        return JSONObject()
+            .put("coreFields", count)
+            .put("coreTotal", keys.size)
+            .put("fields", fields)
+            .put("sections", sections)
+            .put("coveragePercent", if (keys.isEmpty()) 0 else (count * 100 / keys.size))
     }
 
     private fun combined(raw: String, includeFundamentals: Boolean): JSONObject {
