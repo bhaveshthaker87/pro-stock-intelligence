@@ -937,11 +937,17 @@ private class NativeProvider(private val appAssets: AssetManager) {
             netNow?.let { it > 0.0 }, cfoPositive, roaImproved, cfoExceedsNet,
             leverageReduced, currentRatioImproved, noShareIssue, grossMarginImproved, assetTurnoverImproved
         )
-        if (piotroskiInputs.all { it != null }) {
+        if (!f.has("piotroski") && piotroskiInputs.all { it != null }) {
             f.put("piotroski", piotroskiInputs.count { it == true })
-            f.put("piotroskiMethod", "Piotroski F-score 0-9 from two consecutive annual Screener P&L, balance-sheet and cash-flow periods")
+            f.put("piotroskiMethod", "Calculated Piotroski F-score 0-9 from two consecutive annual Screener P&L, balance-sheet and cash-flow periods")
             f.put("metricMeta", JSONObject(f.optJSONObject("metricMeta")?.toString() ?: "{}").put("piotroski",
                 JSONObject().put("source", "Calculated from Screener annual financial statements").put("period", "Latest two reported annual periods")))
+        } else if (f.has("piotroski")) {
+            // Prefer Screener's explicitly reported score; do not overwrite it with a
+            // partial or differently-perioded reconstruction from annual statements.
+            f.put("piotroskiMethod", "Reported directly by Screener company-page ratios")
+            f.put("metricMeta", JSONObject(f.optJSONObject("metricMeta")?.toString() ?: "{}").put("piotroski",
+                JSONObject().put("source", "Screener.in company-page top ratios").put("period", "Provider-reported; period not labelled")))
         } else {
             f.put("piotroskiStatus", "UNAVAILABLE_MISSING_REQUIRED_ANNUAL_INPUTS")
         }
@@ -984,15 +990,17 @@ private class NativeProvider(private val appAssets: AssetManager) {
                 }
             }
         }
-        // PEG uses the reported EPS CAGR when available, then profit CAGR as a
-        // documented fallback. Growth must be positive; never divide by zero.
+        // PEG must use EPS growth, not profit growth. Profit growth can diverge
+        // materially from per-share growth because of dilution/buybacks and is not a
+        // valid substitute. Preserve Screener's reported PEG; derive only from EPS CAGR.
         if (!f.has("peg")) {
             val growth = f.optDouble("eps3y", Double.NaN).takeIf { it.isFinite() && it > 0.0 }
-                ?: f.optDouble("profit3y", Double.NaN).takeIf { it.isFinite() && it > 0.0 }
             val pe = f.optDouble("pe", Double.NaN)
             if (growth != null && pe.isFinite() && pe > 0.0) {
                 f.put("peg", pe / growth)
-                f.put("pegMethod", if (f.has("eps3y")) "P/E divided by 3-year EPS CAGR (%)" else "P/E divided by 3-year profit CAGR (%)")
+                f.put("pegMethod", "P/E divided by 3-year EPS CAGR (%)")
+            } else {
+                f.put("pegStatus", "UNAVAILABLE_REQUIRES_POSITIVE_EPS_CAGR")
             }
         }
         // Derived ratios must use the newest fiscal column; never skip a blank latest cell.
