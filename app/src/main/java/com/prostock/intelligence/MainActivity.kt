@@ -519,7 +519,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
      * A missing field stays missing and retains the parser/source error.
      */
     private fun fundamentalsWithDownstox(raw: String): JSONObject {
-        // Shared read-through cache: every screen sees the same Screener snapshot.
+        // A missing field stays missing. Shared read-through cache: every screen sees the same Screener snapshot.
         // Never cache authorization failures; a fresh login must be able to recover.
         val symbol = canonical(raw)
         val now = System.currentTimeMillis()
