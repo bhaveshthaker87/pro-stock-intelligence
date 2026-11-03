@@ -423,8 +423,8 @@ jobs:
           test -s "$APK"
           apksigner verify --verbose --print-certs "$APK"
           BADGING="$(aapt dump badging "$APK")"
-          echo "$BADGING" | grep -Fq "package: name='com.prostock.intelligence' versionCode='92' versionName='41.00'" || {
-            echo "::error::Release APK package/version metadata does not match V41.00 (versionCode 92)."
+          echo "$BADGING" | grep -Fq "package: name='com.prostock.intelligence' versionCode='93' versionName='42.00'" || {
+            echo "::error::Release APK package/version metadata does not match V42.00 (versionCode 93)."
             exit 1
           }
           sha256sum "$APK" | tee "$APK.sha256"
@@ -432,7 +432,7 @@ jobs:
             echo "## Signed production APK"
             echo "**Status: SIGNATURE AND PACKAGE METADATA VERIFIED**"
             echo "- Application ID: com.prostock.intelligence"
-            echo "- Version: 41.00 (92)"
+            echo "- Version: 42.00 (93)"
             echo "- SHA-256 checksum generated."
             echo "- Runtime installation/launch verification is performed by the emulator smoke step."
           } >> "$GITHUB_STEP_SUMMARY"
