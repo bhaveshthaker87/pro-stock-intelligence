@@ -59,7 +59,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
         version_name = re.search(r"versionName '([^']+)'", gradle).group(1)
-        engine = f"V{version_name} AUTHORIZED GATEWAY + CSV OHLCV FALLBACK"
+        engine = f"V{version_name} OFFICIAL NSE/BSE RSS + AUTHORIZED MARKET DATA"
         self.assertIn(engine, html)
         self.assertIn(f'"engine", "{engine}"', source)
 
@@ -77,7 +77,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         version_code = re.search(r"versionCode (\d+)", gradle).group(1)
         version_name = re.search(r"versionName '([^']+)'", gradle).group(1)
         version_tag = f"V{version_name}"
-        engine = f"{version_tag} AUTHORIZED GATEWAY + CSV OHLCV FALLBACK"
+        engine = f"{version_tag} OFFICIAL NSE/BSE RSS + AUTHORIZED MARKET DATA"
         self.assertIn(engine, html)
         self.assertIn(f'"engine", "{engine}"', source)
         self.assertIn(f"versionCode {version_code}; versionName '{version_name}'", gradle)
@@ -123,15 +123,19 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("imported peer snapshot; verify period", html)
         self.assertIn("Imported company news snapshot", html)
 
-    def test_v4088_release_markers_are_aligned(self):
+    def test_release_markers_are_derived_from_current_gradle_version(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
         workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
-        self.assertIn("versionCode 88; versionName '40.89'", gradle)
-        self.assertIn("V40.89 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", html)
-        self.assertIn("V40.89 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", source)
-        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-89-debug", workflow)
+        version_code = re.search(r"versionCode (\d+)", gradle).group(1)
+        version_name = re.search(r"versionName '([^']+)'", gradle).group(1)
+        version_tag = f"V{version_name}"
+        engine = f"{version_tag} OFFICIAL NSE/BSE RSS + AUTHORIZED MARKET DATA"
+        self.assertIn(f"versionCode {version_code}; versionName '{version_name}'", gradle)
+        self.assertIn(engine, html)
+        self.assertIn(engine, source)
+        self.assertIn(f"PRO-STOCK-INTELLIGENCE-V{version_name.replace('.', '-')}-debug", workflow)
 
     def test_screener_xlsx_maps_infosys_ltd_company_name_to_nse_symbol(self):
         importer = (ROOT / "app/src/main/assets/xlsx-import.js").read_text(encoding="utf-8")
@@ -406,7 +410,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn('else "NOT_CONFIGURED"', source)
         self.assertIn('AUTHORIZED_NSE_FEED_NOT_CONFIGURED', source)
-        self.assertIn('Corporate events unavailable: configure an authorized HTTPS provider gateway', source)
+        self.assertIn('"eventsStatus", "OFFICIAL_NSE_BSE_RSS_CONFIGURED_RUNTIME_VALIDATION_REQUIRED"', source)
 
 
     def test_gateway_configuration_is_not_mislabeled_as_health_verified(self):
@@ -422,18 +426,16 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("has invalid value/changePct; snapshot rejected", source)
 
 
-    def test_screener_login_opens_official_page_before_probing_and_stops_after_403(self):
+    def test_screener_login_and_403_are_explicit_and_never_bypassed(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
-        handler_start = html.index("$('session').onclick=async()=>{")
-        handler_end = html.index("window.refreshScreenerStatus=refreshScreenerStatus;", handler_start)
-        handler = html[handler_start:handler_end]
-        self.assertLess(handler.index("api('/api/screener/status'"), handler.index("api('/api/screener/connect'"))
-        self.assertLess(handler.index("if(!current.cookieDetected)"), handler.index("api('/api/screener/connect'"))
-        self.assertIn("https://www.screener.in/login/", handler)
-        self.assertIn("Screener Access Denied (403)", handler)
-        self.assertIn("Re-login once", handler)
-        self.assertIn("use permitted CSV import or authorized access", handler)
-        self.assertIn("Refusing an unexpected login URL", handler)
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("https://www.screener.in/login/", html)
+        self.assertIn("Screener Access Denied (403)", html)
+        self.assertIn("The app will not bypass provider access controls", html)
+        self.assertIn('"/api/screener/connect"', source)
+        self.assertIn("Screener HTTP 403 Forbidden", source)
+        self.assertIn("screener403Observed", source)
+        self.assertIn("return@forEach", source)
 
     def test_provider_validator_supports_every_gateway_payload_type(self):
         import subprocess
@@ -479,14 +481,13 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("REQUIRE_LIVE_PROVIDER_GATEWAY", workflow)
         self.assertIn("does not qualify as a live-data release", workflow)
 
-    def test_imported_event_csv_fallback_is_explicit_and_source_aware(self):
+    def test_corporate_events_are_rendered_from_direct_exchange_feed_without_csv_upload(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
-        self.assertIn("psiEventCsvParse", html)
-        self.assertIn("psi_imported_corporate_events_v1", html)
-        self.assertIn("eventCsvImportBtn", html)
-        self.assertIn("Imported CSV snapshot", html)
-        self.assertIn("an empty list does not mean no events exist", html)
-        self.assertIn("financial-results", html)
+        self.assertIn("Official NSE/BSE feeds", html)
+        self.assertIn("api('/api/company-events?symbol='", html)
+        self.assertNotIn("eventCsvImportBtn", html)
+        self.assertNotIn("Import Events CSV", html)
+        self.assertIn("filing link", html)
 
     def test_screener_reference_price_is_visible_but_never_mislabelled_live(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
@@ -538,13 +539,18 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("NSE_INDEX_FEED_NOT_CONFIGURED", method)
         self.assertNotIn("downstoxMarketIndices(specs)", method)
 
-    def test_active_news_route_uses_only_official_nse_source_link(self):
+    def test_news_dividend_results_use_direct_official_exchange_rss(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        start = source.index('"/api/news" -> {')
-        end = source.index('"/api/company-events" -> {', start)
-        route = source[start:end]
-        self.assertIn("corporate-filings-announcements", route)
-        self.assertNotIn("downstoxAnnouncements(raw)", route)
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        for feed in ("Online_announcements.xml", "Corporate_action.xml", "Board_Meetings.xml", "FinancialResultsFeed.aspx", "CorpActionFeed.aspx"):
+            self.assertIn(feed, source)
+        self.assertIn('"/api/news" -> exchangeFeedResponse(s, "NEWS")', source)
+        self.assertIn('"/api/dividend-stocks" -> exchangeFeedResponse("", "DIVIDENDS")', source)
+        self.assertIn('"/api/upcoming-results" -> exchangeFeedResponse("", "RESULTS")', source)
+        self.assertIn("fetchOfficialRss", source)
+        self.assertIn("verifiedSource", source)
+        self.assertNotIn("eventCsvImportBtn", html)
+        self.assertNotIn("Imported CSV snapshot", html)
 
     def test_screener_price_is_not_repromoted_to_live_during_full_data_merge(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
