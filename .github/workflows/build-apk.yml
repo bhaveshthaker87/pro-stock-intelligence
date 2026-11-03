@@ -509,16 +509,10 @@ jobs:
           ls -l /dev/kvm
           echo "KVM hardware acceleration is available."
 
-      - name: Verify ADB before emulator launch
-        shell: bash
-        run: |
-          set -euo pipefail
-          # Do not kill/restart ADB here: android-emulator-runner owns the ADB
-          # lifecycle. A second server restart can detach the action from its AVD.
-          adb version
-          adb start-server
-          adb devices -l
-
+      # The emulator action must own ADB startup and device registration.
+      # Starting ADB before its AVD exists can leave the action polling a detached
+      # server (emulator-5554 never appears). Device readiness is checked inside
+      # android-smoke-test.sh after the action has booted its emulator.
       - name: Run Android emulator smoke test and capture screenshot
         uses: reactivecircus/android-emulator-runner@v2
         timeout-minutes: 25
