@@ -124,6 +124,7 @@ jobs:
         env:
           PROVIDER_GATEWAY_BASE_URL_VAR: ${{ vars.PROVIDER_GATEWAY_BASE_URL }}
           PROVIDER_GATEWAY_BASE_URL_SECRET: ${{ secrets.PROVIDER_GATEWAY_BASE_URL }}
+          GATEWAY_API_TOKEN: ${{ secrets.PROVIDER_GATEWAY_API_TOKEN }}
           REQUIRE_LIVE_PROVIDER_GATEWAY: ${{ vars.REQUIRE_LIVE_PROVIDER_GATEWAY }}
           REQUIRE_LIVE_DATA_INPUT: ${{ inputs.require_live_data }}
           BUILD_SIGNED_RELEASE_INPUT: ${{ inputs.build_signed_release }}
@@ -157,11 +158,13 @@ jobs:
           print("Gateway URL configuration: present; value intentionally redacted.")
           PY
           mkdir -p /tmp/psi-provider
-          curl --fail --silent --show-error --max-time 15 "$PROVIDER_GATEWAY_BASE_URL/v1/quote?symbol=INFY" -o /tmp/psi-provider/quote.json
-          curl --fail --silent --show-error --max-time 20 "$PROVIDER_GATEWAY_BASE_URL/v1/history?symbol=INFY&range=1y" -o /tmp/psi-provider/history.json
-          curl --fail --silent --show-error --max-time 15 "$PROVIDER_GATEWAY_BASE_URL/v1/events?eventType=ALL" -o /tmp/psi-provider/events.json
-          curl --fail --silent --show-error --max-time 15 "$PROVIDER_GATEWAY_BASE_URL/v1/dividends" -o /tmp/psi-provider/dividends.json
-          curl --fail --silent --show-error --max-time 15 "$PROVIDER_GATEWAY_BASE_URL/v1/indices" -o /tmp/psi-provider/indices.json
+          auth_args=()
+          if [ -n "${GATEWAY_API_TOKEN:-}" ]; then auth_args=(-H "Authorization: Bearer $GATEWAY_API_TOKEN"); fi
+          curl --retry 2 --retry-delay 2 --retry-all-errors --fail --silent --show-error --max-time 15 "${auth_args[@]}" "$PROVIDER_GATEWAY_BASE_URL/v1/quote?symbol=INFY" -o /tmp/psi-provider/quote.json
+          curl --retry 2 --retry-delay 2 --retry-all-errors --fail --silent --show-error --max-time 20 "${auth_args[@]}" "$PROVIDER_GATEWAY_BASE_URL/v1/history?symbol=INFY&range=1y" -o /tmp/psi-provider/history.json
+          curl --retry 2 --retry-delay 2 --retry-all-errors --fail --silent --show-error --max-time 15 "${auth_args[@]}" "$PROVIDER_GATEWAY_BASE_URL/v1/events?eventType=ALL" -o /tmp/psi-provider/events.json
+          curl --retry 2 --retry-delay 2 --retry-all-errors --fail --silent --show-error --max-time 15 "${auth_args[@]}" "$PROVIDER_GATEWAY_BASE_URL/v1/dividends" -o /tmp/psi-provider/dividends.json
+          curl --retry 2 --retry-delay 2 --retry-all-errors --fail --silent --show-error --max-time 15 "${auth_args[@]}" "$PROVIDER_GATEWAY_BASE_URL/v1/indices" -o /tmp/psi-provider/indices.json
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -320,6 +323,7 @@ jobs:
         env:
           GATEWAY_VAR: ${{ vars.PROVIDER_GATEWAY_BASE_URL }}
           GATEWAY_SECRET: ${{ secrets.PROVIDER_GATEWAY_BASE_URL }}
+          GATEWAY_TOKEN: ${{ secrets.PROVIDER_GATEWAY_API_TOKEN }}
           KEYSTORE_B64: ${{ secrets.PSI_KEYSTORE_BASE64 }}
           STORE_PASSWORD: ${{ secrets.PSI_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.PSI_KEY_ALIAS }}
@@ -364,8 +368,8 @@ jobs:
           # Validate the store password and enumerate aliases without logging sensitive values.
           keytool -list -keystore "$KEYSTORE" -storepass "$PSI_KEYSTORE_PASSWORD" >/dev/null
           keytool -list -keystore "$KEYSTORE" -storepass "$PSI_KEYSTORE_PASSWORD" -alias "$PSI_KEY_ALIAS" >/dev/null
-          # Verify that the alias accepts the configured private-key password without exposing it.
-          keytool -keypasswd -keystore "$KEYSTORE" -storepass "$PSI_KEYSTORE_PASSWORD" -alias "$PSI_KEY_ALIAS" -keypass "$PSI_KEY_PASSWORD" -new "$PSI_KEY_PASSWORD" >/dev/null 2>&1
+          # The subsequent Gradle release signing + apksigner verification validates the private-key password.
+          # Avoid keytool -keypasswd: PKCS12 keystores do not support changing/verifying a distinct key password.
           echo "PSI_KEYSTORE_FILE=$KEYSTORE" >> "$GITHUB_ENV"
           echo "Android signing store and requested alias validated; secret values redacted."
 
