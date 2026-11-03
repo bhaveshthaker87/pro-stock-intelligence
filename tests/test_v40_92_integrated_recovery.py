@@ -7,8 +7,8 @@ NATIVE = ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt"
 GRADLE = ROOT / "app/build.gradle"
 WORKFLOW = ROOT / ".github/workflows/build-apk.yml"
 
-class V4092IntegratedRecoveryTests(unittest.TestCase):
-    def test_version_is_aligned(self):
+class V4100IntegratedRecoveryTests(unittest.TestCase):
+    def test_v4100_version_is_aligned(self):
         gradle = GRADLE.read_text(encoding="utf-8")
         workflow = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("versionName '41.00'", gradle)
