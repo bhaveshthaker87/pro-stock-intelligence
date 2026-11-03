@@ -2046,8 +2046,22 @@ private class NativeProvider(private val appAssets: AssetManager) {
         }.take(150)
         val rows = JSONArray()
         filtered.forEach { item ->
-            rows.put(JSONObject().put("title", item.title).put("description", item.description)
-                .put("link", item.link).put("publishedAt", item.published)
+            val text = item.title + " " + item.description
+            val company = item.title.substringBefore(" - ").substringBefore(" (").trim().ifBlank { item.source }
+            val type = when {
+                text.contains("DIVIDEND", true) -> "DIVIDEND"
+                text.contains("RESULT", true) -> "RESULTS"
+                text.contains("BOARD MEETING", true) -> "BOARD_MEETING"
+                text.contains("BONUS", true) -> "BONUS"
+                text.contains("SPLIT", true) -> "SPLIT"
+                else -> item.category
+            }
+            rows.put(JSONObject().put("title", item.title).put("event", item.title)
+                .put("description", item.description).put("link", item.link)
+                .put("date", item.published).put("publishedAt", item.published)
+                .put("company", company).put("type", type)
+                .put("dividend", if (type == "DIVIDEND") item.title else "")
+                .put("ratio", "").put("recordDate", "")
                 .put("source", item.source).put("category", item.category)
                 .put("symbol", needle).put("verifiedSource", true))
         }
