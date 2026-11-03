@@ -14,10 +14,12 @@ class ScreenerReconciliationTests(unittest.TestCase):
             self.assertTrue(all(r["status"] == "NOT_TESTED" for r in rows))
             self.assertEqual(len(SYMBOLS), 30)
             self.assertEqual(len(METRICS), 12)
-            self.assertIn("currentPrice", METRICS)
-            self.assertIn("dividendYield", METRICS)
-            self.assertIn("salesOrProfitGrowth", METRICS)
-            self.assertNotIn("shareholding", METRICS)
+            self.assertEqual(set(METRICS), {
+                "marketCap", "pe", "industryPE", "eps", "bookValue", "pb",
+                "roe", "roce", "debtEquity", "salesGrowth3Y", "profitGrowth3Y", "shareholding"
+            })
+            self.assertNotIn("currentPrice", METRICS)
+            self.assertNotIn("dividendYield", METRICS)
 
     def test_unverified_template_is_partial_not_pass(self):
         with tempfile.TemporaryDirectory() as d:
