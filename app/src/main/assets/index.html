@@ -83,7 +83,7 @@ body{background:linear-gradient(180deg,#eef5fa,#f8fbfd);color:var(--text)}
  .tvtoolbar-pro .tvmaincontrols,.tvtoolbar-pro .tvrightcontrols{flex-wrap:wrap!important}
 }
 
-/* V41.00 mobile density + truthful provider states */
+/* V42.00 mobile density + truthful provider states */
 #session.red{background:#b42318!important;border-color:#b42318!important;color:#fff!important}
 @media(max-width:760px){
  .indices{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important;padding:8px 10px!important;white-space:normal!important;overflow:visible!important}
@@ -114,9 +114,9 @@ body{background:linear-gradient(180deg,#eef5fa,#f8fbfd);color:var(--text)}
  .researchMetric{min-width:0!important;overflow-wrap:anywhere!important;padding:10px!important}
  .researchMetric b{font-size:16px!important;line-height:1.35!important;overflow-wrap:anywhere!important}
 }
-/* V41.00 compact no-data chart state */
+/* V42.00 compact no-data chart state */
 @media(max-width:760px){.tvpane{height:auto!important;min-height:0!important}.pricepane .canvas{height:150px!important;max-height:150px!important}.rsipane .rsi{height:65px!important;max-height:65px!important}.tvfooter{font-size:10px!important;line-height:1.35!important;flex-wrap:wrap!important}.tvtimebar{flex-wrap:wrap!important}.tvtimeleft{flex-wrap:wrap!important}.tvindicator{font-size:10px!important;line-height:1.35!important}}
-/* V41.00: force compact index tiles in the actual mobile market-pulse markup */
+/* V42.00: force compact index tiles in the actual mobile market-pulse markup */
 @media(max-width:760px){
  .indices{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important;padding:8px 10px!important;overflow:visible!important;white-space:normal!important}
  .indices .icard{box-sizing:border-box!important;display:grid!important;grid-template-columns:minmax(0,1fr)!important;align-content:start!important;gap:2px!important;min-width:0!important;width:100%!important;min-height:94px!important;height:auto!important;flex:none!important;padding:8px 9px!important;border-radius:12px!important;box-shadow:none!important}
@@ -132,7 +132,7 @@ body{background:linear-gradient(180deg,#eef5fa,#f8fbfd);color:var(--text)}
 /* V40.80.1 mobile market-pulse compactness: horizontal ticker cards prevent the index section dominating the screen. */
 @media(max-width:760px){#indices{display:flex!important;flex-wrap:nowrap!important;align-items:stretch!important;gap:8px!important;padding:8px 10px!important;overflow-x:auto!important;overflow-y:hidden!important;scroll-snap-type:x proximity!important;-webkit-overflow-scrolling:touch!important}#indices .market-head{flex:0 0 100%!important;width:100%!important}#indices .icard{flex:0 0 148px!important;width:148px!important;min-width:148px!important;max-width:148px!important;min-height:112px!important;padding:9px!important;scroll-snap-align:start!important}#indices .ivalue{font-size:18px!important;line-height:1.15!important}#indices .idata{font-size:9px!important;line-height:1.2!important;margin-top:4px!important;max-width:none!important}#indices .itime{font-size:9px!important;line-height:1.15!important;margin-top:3px!important}#indices .isource{display:none!important}#indices .market-subtitle{max-width:100%!important;white-space:normal!important}#indices .market-refresh{min-height:34px!important;padding:7px 10px!important}}
 
-/* V41.00 professional layout + heading visibility fixes */
+/* V42.00 professional layout + heading visibility fixes */
 :root{--navy:#102a43;--blue:#1769d2;--cyan:#0e9fba;--line:#d9e4ee;--muted:#60758a;--text:#172f46;--shadow:0 5px 20px rgba(20,52,82,.06)}
 html{scroll-padding-top:132px;scroll-behavior:smooth}
 body{background:#f3f6fa!important;color:#172f46!important;font-size:14px!important;line-height:1.45}
@@ -235,7 +235,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition:none!important;animation:none!important}}
 
-/* V41.00 regression fix: keep desktop stock actions visible and avoid sticky-header click interception */
+/* V42.00 regression fix: keep desktop stock actions visible and avoid sticky-header click interception */
 .top{position:relative!important;top:auto!important;z-index:20!important}
 .actions{display:flex!important;flex-direction:column;align-items:flex-end;gap:7px;min-width:104px}
 .actions .btn{display:inline-flex!important;align-items:center;justify-content:center;min-height:34px;height:auto!important;white-space:normal;line-height:1.25;padding:8px 11px!important}
@@ -244,7 +244,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 @media(max-width:760px){.actions{display:flex!important;flex-direction:row;flex-wrap:wrap;grid-column:1/-1}.actions .btn{flex:1 1 auto;min-width:0}}
 .querySectionHead,.intelHead{position:static!important;top:auto!important}
 
-/* V41.00 compact, consistent section headings and dashboard spacing */
+/* V42.00 compact, consistent section headings and dashboard spacing */
 :root{--section-gap:10px}
 .container{padding:6px 16px 20px}
 .researchTitle,.summarySectionLabel,.querySectionHead,.intelHead{margin:8px 0 6px!important;gap:8px!important}
@@ -271,7 +271,7 @@ h1,h2,h3,h4{line-height:1.28;margin-block:7px}
  h1,h2,h3,h4{margin-block:6px}
 }
 
-/* V41.00 usability refresh: visible identity, calmer navigation and explicit Screener sign-in steps */
+/* V42.00 usability refresh: visible identity, calmer navigation and explicit Screener sign-in steps */
 .top{height:auto!important;min-height:76px!important;display:grid!important;grid-template-columns:minmax(220px,310px) auto minmax(320px,1fr) auto!important;align-items:center!important;gap:10px!important;padding:10px 16px!important}
 .brand{width:auto!important;min-width:0!important;display:flex!important;align-items:center!important;gap:10px!important}
 .brandLogo{width:48px!important;height:48px!important;flex:0 0 48px!important}
@@ -1137,11 +1137,11 @@ const DASHBOARD_VERSION='V42.00';
 </script>
 <script>
 const $=id=>document.getElementById(id);
-const CLIENT_ENGINE_VERSION='V41.00 OFFICIAL NSE/BSE RSS + AUTHORIZED MARKET DATA';
+const CLIENT_ENGINE_VERSION='V42.00 OFFICIAL NSE/BSE RSS + AUTHORIZED MARKET DATA';
 async function verifyEngineVersion(){try{const r=await fetch('/api/health?ts='+Date.now(),{cache:'no-store'});const j=await r.json();const live=String(j.engine||'');const data=j.data||{};const tag=document.querySelector('.taglive');if(!live.startsWith(CLIENT_ENGINE_VERSION)){if(tag)tag.textContent='SERVER '+(live.split(' PRO')[0]||'VERSION MISMATCH');toast('App UI/API version mismatch. Rebuild APK from the matching project version.');return;}if(tag){tag.textContent=data.providerGatewayConfigured?'GATEWAY CONFIGURED · HEALTH CHECK PENDING':'OFFICIAL RSS · MARKET FEED NOT CONFIGURED';tag.title=data.providerGatewayConfigured?'Gateway URL exists; this does not prove quote/history/index/events work. Check Sources & Screener for provider diagnostics.':'Official NSE/BSE RSS announcements are retrieved separately from market prices. RSS availability does not mean live quotes, complete calendars or full financial statements. Quotes and intraday candles require an authorized market-data gateway; missing data remains unavailable.';tag.style.borderColor=data.providerGatewayConfigured?'#d97706':'#ef4444';tag.style.color=data.providerGatewayConfigured?'#fde68a':'#fecaca';}}catch(e){const tag=document.querySelector('.taglive');if(tag){tag.textContent='DATA STATUS UNKNOWN';tag.title='Could not confirm provider configuration. Do not assume live data is available.';}}}
 const api=async (u,timeoutMs)=>{const ctl=new AbortController();const path=String(u).split('?')[0];const budget=timeoutMs||({ '/api/fast':5000,'/api/history':11000,'/api/analyze':19000,'/api/peers':20000,'/api/news':7000,'/api/quote':4500,'/api/indices':25000,'/api/search-suggestions':5000,'/api/bootstrap':13000,'/api/company-events':7500}[path]||9000);const timer=setTimeout(()=>ctl.abort(),budget);try{const r=await fetch(u,{cache:'no-store',signal:ctl.signal});const j=await r.json();if(!j.ok)throw Error(j.error||'Request failed');return j.data}finally{clearTimeout(timer)}};
 verifyEngineVersion();
-window.__PSI_BOOT_VERSION='V41.00';
+window.__PSI_BOOT_VERSION='V42.00';
 function toast(msg){const t=$('toast');if(!t)return;t.textContent=msg;t.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.classList.remove('show'),2200)}
 function clock(){$('clock').textContent=new Date().toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'})}setInterval(clock,1000);clock();
 const localStocks=[
@@ -1216,7 +1216,8 @@ function scoreData(f){
   criterion('P/E vs Industry',f.pe!=null&&f.industryPE!=null?f.pe/f.industryPE:null,'< 1.20x',f.pe!=null&&f.industryPE!=null&&f.pe<(1.2*f.industryPE)),
   criterion('P/B',f.pb,'Reference',f.pb!=null,undefined,false),
   criterion('P/B vs Industry',f.pb!=null&&f.industryPB!=null?f.pb/f.industryPB:null,'< 1.00x',f.pb!=null&&f.industryPB!=null&&f.pb<f.industryPB),
-  criterion('PEG Ratio',f.peg,'Reference',f.peg!=null,undefined,false),
+  criterion('PEG Ratio',f.peg,'0–1.50x',f.peg!=null&&f.peg>0&&f.peg<1.5),
+  criterion('Dividend Yield',f.dividendYield,'> 0%',f.dividendYield!=null&&f.dividendYield>0),
   criterion('Book Value',f.bookValue,'Reference',f.bookValue!=null,undefined,false),
   criterion('EPS',f.eps,'Reference',f.eps!=null,undefined,false),
   criterion('Dividend Yield',f.dividendYield,'Reference',f.dividendYield!=null,undefined,false),
@@ -2077,7 +2078,7 @@ $('dataSourcesBtn')?.addEventListener('click',()=>{refreshProviderDiagnostics();
 
 
 <style id="psi-easy-first-screen">
-/* V41.00: simple first-run experience; advanced modules remain available on demand. */
+/* V42.00: simple first-run experience; advanced modules remain available on demand. */
 body.psi-easy-mode .indices{display:none!important}
 body.psi-easy-mode .top{height:auto!important;min-height:68px!important;flex-wrap:wrap!important;gap:8px!important;padding:10px 14px!important}
 body.psi-easy-mode .brand{width:auto!important;flex:1 1 100%!important;font-size:19px!important}
