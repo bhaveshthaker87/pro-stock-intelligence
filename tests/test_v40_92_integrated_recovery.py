@@ -8,12 +8,12 @@ GRADLE = ROOT / "app/build.gradle"
 WORKFLOW = ROOT / ".github/workflows/build-apk.yml"
 
 class V4100IntegratedRecoveryTests(unittest.TestCase):
-    def test_v4100_version_is_aligned(self):
+    def test_v4200_version_is_aligned(self):
         gradle = GRADLE.read_text(encoding="utf-8")
         workflow = WORKFLOW.read_text(encoding="utf-8")
-        self.assertIn("versionName '41.00'", gradle)
-        self.assertIn("versionCode 92", gradle)
-        self.assertIn("PRO-STOCK-INTELLIGENCE-V41-00-debug", workflow)
+        self.assertIn("versionName '42.00'", gradle)
+        self.assertIn("versionCode 93", gradle)
+        self.assertIn("PRO-STOCK-INTELLIGENCE-V42-00-debug", workflow)
 
     def test_screener_metrics_have_explicit_source_logic(self):
         source = NATIVE.read_text(encoding="utf-8")
@@ -40,12 +40,12 @@ class V4100IntegratedRecoveryTests(unittest.TestCase):
         self.assertIn("OFFICIAL_NSE_EOD_UNAVAILABLE", source)
         self.assertIn("NSE_EOD_HISTORY_NOT_BUNDLED", history)
 
-    def test_chartink_is_user_driven_and_not_claimed_as_undocumented_api(self):
+    def test_chartink_is_only_opened_as_an_external_user_driven_page(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
-        self.assertIn("Chartink scan export (if available)", html)
         self.assertIn("openChartinkScanner", html)
-        self.assertIn("not an undocumented API scraper", html)
-        self.assertIn("chartink.com/screener/", html)
+        self.assertIn("window.location.href='https://chartink.com/screener/'", html)
+        self.assertNotIn("chartink.com/api", html)
+        self.assertNotIn("fetchChartinkResults", html)
 
     def test_complete_stock_metric_matrix_is_rendered_with_missing_states_and_provenance(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
