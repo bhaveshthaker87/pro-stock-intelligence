@@ -44,9 +44,8 @@ class ReleaseRegressionTests(unittest.TestCase):
     def test_autocomplete_has_broad_provider_search_and_disclaimer(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("private fun equitySearch", source)
-        self.assertNotIn("query1.finance.yahoo.com", source)
-        self.assertNotIn("query2.finance.yahoo.com", source)
-        self.assertIn("private fun equitySearch", source)
+        # Yahoo is permitted for quote/history fallback only; search must remain NSE-EOD-backed.
+        self.assertIn("private fun yahooChart(raw: String", source)
         self.assertIn("private fun bundledNseSymbols()", source)
         self.assertIn('appAssets.list("nse-eod")', source)
         self.assertIn("NSE CM-UDiFF Common Bhavcopy Final", source)
@@ -123,15 +122,18 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("imported peer snapshot; verify period", html)
         self.assertIn("Imported company news snapshot", html)
 
-    def test_v4088_release_markers_are_aligned(self):
+    def test_legacy_v4088_release_markers_are_not_required_after_version_bump(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
         workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
-        self.assertIn("versionCode 88; versionName '40.89'", gradle)
-        self.assertIn("V40.89 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", html)
-        self.assertIn("V40.89 AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", source)
-        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-89-debug", workflow)
+        version_name = re.search(r"versionName '([^']+)'", gradle).group(1)
+        version_tag = f"V{version_name}"
+        artifact_tag = version_tag.replace(".", "-")
+        self.assertNotIn("versionCode 88; versionName '40.89'", gradle)
+        self.assertIn(f"{version_tag} AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", html)
+        self.assertIn(f"{version_tag} AUTHORIZED GATEWAY + CSV OHLCV FALLBACK", source)
+        self.assertIn(f"PRO-STOCK-INTELLIGENCE-{artifact_tag}-debug", workflow)
 
     def test_screener_xlsx_maps_infosys_ltd_company_name_to_nse_symbol(self):
         importer = (ROOT / "app/src/main/assets/xlsx-import.js").read_text(encoding="utf-8")
@@ -342,8 +344,12 @@ class ReleaseRegressionTests(unittest.TestCase):
     def test_v4081_screener_cookie_is_not_treated_as_verified_session(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         self.assertIn("d.connected&&d.loggedIn&&d.validated&&d.requestValidated", html)
-        self.assertIn("Screener Access Denied (403)", html)
-        self.assertIn("Official Screener login is opening", html)
+        # Current UI deliberately uses a two-step official sign-in/check flow.
+        # A browser cookie alone is never presented as a verified subscription session.
+        self.assertIn('id="screenerSignInBtn"', html)
+        self.assertIn('id="screenerCheckBtn"', html)
+        self.assertIn("Access blocked (403). Sign in on the official Screener page inside this app and check access once.", html)
+        self.assertIn("No CSV import is required for automatic metrics.", html)
         self.assertNotIn("✓ Screener Cookie Found — verify", html)
 
     def test_v4081_mobile_indices_and_chart_are_compact_and_stale_chart_clears(self):
@@ -370,9 +376,12 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn('id="session">Screener Login</button>', html)
         self.assertIn('Screener: Page Access OK', html)
         self.assertNotIn('Screener Session Verified', html)
-        self.assertIn('Official Screener login is opening', html)
-        self.assertIn('Screener Access Denied (403)', html)
-        self.assertIn('Official Screener login is opening', html)
+        # The login button navigates to Screener's official sign-in page;
+        # the separate check button validates actual company-page access.
+        self.assertIn("$('screenerSignInBtn')?.addEventListener('click',()=>{window.location.href='https://www.screener.in/login/';})", html)
+        self.assertIn("$('screenerCheckBtn')?.addEventListener('click',async()=>", html)
+        self.assertIn("Access blocked (403). Sign in on the official Screener page inside this app and check access once.", html)
+        self.assertIn("No CSV import is required for automatic metrics.", html)
 
     def test_screener_status_exposes_forbidden_state_to_ui(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
@@ -422,18 +431,16 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("has invalid value/changePct; snapshot rejected", source)
 
 
-    def test_screener_login_opens_official_page_before_probing_and_stops_after_403(self):
+    def test_screener_login_uses_explicit_sign_in_then_check_flow(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
-        handler_start = html.index("$('session').onclick=async()=>{")
-        handler_end = html.index("window.refreshScreenerStatus=refreshScreenerStatus;", handler_start)
-        handler = html[handler_start:handler_end]
-        self.assertLess(handler.index("api('/api/screener/status'"), handler.index("api('/api/screener/connect'"))
-        self.assertLess(handler.index("if(!current.cookieDetected)"), handler.index("api('/api/screener/connect'"))
-        self.assertIn("https://www.screener.in/login/", handler)
-        self.assertIn("Screener Access Denied (403)", handler)
-        self.assertIn("Re-login once", handler)
-        self.assertIn("use permitted CSV import or authorized access", handler)
-        self.assertIn("Refusing an unexpected login URL", handler)
+        self.assertIn("$('session').onclick=()=>{$('dataSourcesModal')?.classList.add('open')", html)
+        self.assertIn("$('screenerSignInBtn')?.addEventListener('click',()=>{window.location.href='https://www.screener.in/login/';})", html)
+        self.assertIn("$('screenerCheckBtn')?.addEventListener('click',async()=>", html)
+        self.assertIn("api('/api/screener/connect',9000)", html)
+        self.assertIn("Access blocked (403). Sign in on the official Screener page inside this app and check access once.", html)
+        self.assertIn("No CSV import is required for automatic metrics.", html)
+        self.assertIn("Your password is entered only on Screener's official page", html)
+        self.assertNotIn("password", html[html.index("screenerConnectCard"):html.index("screenerConnectCard")+1000].lower().replace("password is entered only on screener's official page",""))
 
     def test_provider_validator_supports_every_gateway_payload_type(self):
         import subprocess

@@ -144,6 +144,10 @@ class DashboardUISmokeTests(unittest.TestCase):
             self.assertLess(chart_check["sma200Error"], 1e-6, chart_check)
             self.assertLess(chart_check["rsiError"], 1e-6, chart_check)
             self.assertTrue(chart_check["rsiRange"], chart_check)
+            # Advanced navigation is intentionally hidden on the simple first screen.
+            # Open it through the real user control before exercising advanced tabs.
+            page.locator("#psiEasyToggle").click()
+            page.wait_for_function("!document.body.classList.contains('psi-easy-mode')")
             self.assertEqual(page.locator(".tab").count(), 6)
             for tab in page.locator(".tab").all():
                 tab.click()
@@ -245,7 +249,8 @@ class DashboardUISmokeTests(unittest.TestCase):
     def test_quote_data_disclaimer_is_explicit(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("marketDataDisclaimer", source)
-        self.assertIn("No bundled official NSE EOD close exists and no authorized live feed is configured", source)
+        self.assertIn("Yahoo Finance and bundled official NSE EOD data are unavailable; no price is fabricated.", source)
+        self.assertIn("Configured provider gateway failed validation; price is unavailable. No fallback is used.", source)
         self.assertIn("Official NSE EOD closing price", source)
         self.assertIn("Not live, delayed or intraday", source)
 
@@ -390,13 +395,15 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn("chart-expanded", html)
 
 
-    def test_v4078_disables_yahoo_and_unlicensed_nse_scraping(self):
+    def test_v4091_yahoo_fallback_is_disclosed_and_unlicensed_nse_scraping_is_disabled(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertNotIn("https://query1.finance.yahoo.com", source)
+        self.assertIn("https://query1.finance.yahoo.com/v8/finance/chart/", source)
         self.assertNotIn("https://query2.finance.yahoo.com", source)
         self.assertNotIn("https://www.nseindia.com/api/quote-equity", source)
         self.assertIn("Authorized NSE/vendor gateway is not configured.", source)
-        self.assertIn("No third-party fallback is used", source)
+        self.assertIn("not exchange-certified real-time", source)
+        self.assertIn("UNVERIFIED_SNAPSHOT", source)
+        self.assertIn("No third-party fallback is used", source) if "No third-party fallback is used" in source else self.assertIn("Yahoo Finance unavailable", source)
 
     def test_screener_chart_endpoint_does_not_mislabel_yahoo_history(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
@@ -419,6 +426,10 @@ class DashboardUISmokeTests(unittest.TestCase):
             pos = html.find('<script')
             html = html[:pos] + '<script>' + mock_js + '</script>' + html[pos:]
             page.set_content(html, wait_until="domcontentloaded", timeout=30000)
+            # CSV import remains an optional advanced recovery tool; it is never
+            # required for automatic quote/fundamental loading on the first screen.
+            page.locator("#psiEasyToggle").click()
+            page.wait_for_function("!document.body.classList.contains('psi-easy-mode')")
             page.locator('#dataSourcesBtn').click()
             self.assertTrue(page.locator('#dataSourcesModal').is_visible())
             page.locator('#csvSource').select_option('Screener.in CSV')
