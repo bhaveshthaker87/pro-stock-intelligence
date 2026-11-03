@@ -422,14 +422,14 @@ class DashboardUISmokeTests(unittest.TestCase):
             page.set_content(html, wait_until="domcontentloaded", timeout=30000)
             page.locator('#dataSourcesBtn').click()
             self.assertTrue(page.locator('#dataSourcesModal').is_visible())
-            page.locator('#csvSource').select_option('Screener.in CSV')
+            page.locator('#csvSource').evaluate("el=>{el.value='Screener.in CSV';el.dispatchEvent(new Event('change',{bubbles:true}))}")
             page.locator('#csvFile').set_input_files({"name":"sample.csv","mimeType":"text/csv","buffer":b"Name,NSE Code,Market Capitalization,Stock P/E,Dividend yield\nInfosys,INFY,650000,25.4,1.8"})
             page.wait_for_function("document.querySelector('#csvImportStatus').textContent.includes('Imported 1 stock row')", timeout=5000)
             store = page.evaluate("JSON.parse(localStorage.getItem('psi.provider.csv.v1'))")
             self.assertEqual(store['sources']['Screener.in CSV']['rows']['INFY']['fields']['dividendYield'], 1.8)
             # Also exercise the historical CSV path using the selected stock.
             page.locator('#search').fill('INFY')
-            page.locator('#csvSource').select_option('User CSV')
+            page.locator('#csvSource').evaluate("el=>{el.value='User CSV';el.dispatchEvent(new Event('change',{bubbles:true}))}")
             lines = ['Date,Open,High,Low,Close,Volume']
             from datetime import date, timedelta
             for i in range(24, -1, -1):
@@ -532,7 +532,10 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn("Keep the plot clean: show only the most recent closed-bar signal", html)
         self.assertIn("window.setDecorFitsSystemWindows(true)", source)
         self.assertIn("window.statusBarColor = Color.rgb(6, 38, 75)", source)
-        self.assertIn("Import peer data", html)
+        self.assertNotIn("Import peer data", html)
+        self.assertNotIn("peerCsvImport", html)
+        self.assertNotIn("newsCsvImport", html)
+        self.assertIn("authenticated Screener source", html)
         self.assertIn("Open official NSE announcements", html)
         self.assertIn("metrics not present in this source", html)
 
