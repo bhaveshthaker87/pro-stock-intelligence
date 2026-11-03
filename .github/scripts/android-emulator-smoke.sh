@@ -34,7 +34,7 @@ avdmanager create avd --force -n "$AVD_NAME" -k "$IMAGE_ID" -d pixel_2 <<< "no"
 emulator -avd "$AVD_NAME" -port 5554 -no-window -no-audio -no-boot-anim -no-snapshot-load -no-snapshot-save -gpu swiftshader_indirect -memory 4096 -cores 4 -camera-back none -accel on > "$OUT/psi-emulator-startup.txt" 2>&1 &
 EMULATOR_PID=$!
 adb start-server
-adb wait-for-device
+# Poll ADB and boot state in the bounded loop below; do not block forever in wait-for-device.
 booted=0
 for attempt in $(seq 1 120); do
   state="$(adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
