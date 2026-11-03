@@ -1339,7 +1339,7 @@ function renderKeyMetricMatrix(d){
     }).join('');
     return tiles?'<div class="metricGroup"><h5>'+safename(group)+'</h5><div class="metricGrid">'+tiles+'</div></div>':'';
   }).join('');
-  const missingSummary=missing.length?'<details class="ratioMissing"><summary>'+missing.length+' metrics not present in this source</summary><div class="ratioMissingList">'+missing.map(x=>'<span>'+safename(x)+'</span>').join('')+'</div><small>Unavailable values are intentionally omitted from the metric cards. Verify provider access and reporting period; no missing value is treated as zero or estimated.</small></details>':'';
+  const missingSummary=missing.length?'<details class="ratioMissing"><summary>'+missing.length+' metrics not present in this source</summary><div class="ratioMissingList">'+missing.map(x=>'<span>'+safename(x)+'</span>').join('')+'</div><small>Not returned by current source: unavailable values are intentionally omitted from the metric cards. Verify provider access and reporting period; no missing value is treated as zero or estimated.</small></details>':'';
   return '<section class="metricMatrix"><div class="metricMatrixHead"><div><h4>Complete Stock Metrics Matrix</h4><p>Market, valuation, quality, growth, ownership and technical indicators</p></div><span>Missing values are never estimated</span></div>'+sections+missingSummary+'</section>';
 }
 
