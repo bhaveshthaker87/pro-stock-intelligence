@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Create and validate a source-traceable 30-stock x 12-metric Screener reconciliation CSV.
+"""Validate source-traceable 30-stock x 12-metric Screener reconciliation.
 
-This tool never fetches Screener, bypasses access controls, or fabricates values.
-A generated template is entirely NOT_TESTED until populated from authorized exports.
+This tool never fetches Screener or bypasses access controls. A generated template
+is NOT_TESTED until populated with values from an authorized Screener session/export.
 """
 from __future__ import annotations
-import argparse, csv, math, sys
+import argparse, csv, math, re, sys
+from datetime import datetime
 from pathlib import Path
 
 SYMBOLS = [
@@ -13,13 +14,29 @@ SYMBOLS = [
  "HINDUNILVR","MARUTI","SUNPHARMA","TITAN","NTPC","POWERGRID","AXISBANK","KOTAKBANK","TATASTEEL","ONGC",
  "M&M","WIPRO","HCLTECH","TECHM","ULTRACEMCO","ASIANPAINT","BEL","HAL","TRENT","ADANIPORTS"
 ]
+# Twelve fields aligned to the approved reconciliation scope. Screener currentPrice
+# is a page snapshot/reference value and must never be represented as a live quote.
 METRICS = {
- "marketCap":"INR_CRORE", "pe":"RATIO", "industryPE":"RATIO", "eps":"INR_PER_SHARE",
- "bookValue":"INR_PER_SHARE", "pb":"RATIO", "roe":"PERCENT", "roce":"PERCENT",
- "debtEquity":"RATIO", "sales3y":"PERCENT", "profit3y":"PERCENT", "shareholding":"PERCENT"
+ "marketCap":"INR_CRORE", "currentPrice":"INR_PER_SHARE", "pe":"RATIO",
+ "industryPE":"RATIO", "eps":"INR_PER_SHARE", "bookValue":"INR_PER_SHARE",
+ "pb":"RATIO", "roe":"PERCENT", "roce":"PERCENT", "debtEquity":"RATIO",
+ "dividendYield":"PERCENT", "salesOrProfitGrowth":"PERCENT"
 }
 STATUSES={"VERIFIED_MATCH","VERIFIED_DIFFERENCE","ACCESS_BLOCKED_403","SOURCE_UNAVAILABLE","DATA_MISSING","SYMBOL_MAPPING_ERROR","UNIT_MISMATCH","PERIOD_MISMATCH","NOT_TESTED"}
-FIELDS=["symbol","company_name","metric","app_value","screener_value","difference","source","period","unit","status","evidence_ref"]
+FIELDS=[
+ "symbol","company_name","metric","app_value","screener_value","difference","tolerance",
+ "source","source_url","source_timestamp","app_retrieved_at","period","unit","currency",
+ "status","evidence_ref","failure_reason"
+]
+
+def parse_timestamp(value, field):
+ if not value or not str(value).strip(): raise ValueError(f"{field} is required for verified records")
+ try:
+  dt=datetime.fromisoformat(str(value).strip().replace("Z","+00:00"))
+ except ValueError as exc:
+  raise ValueError(f"{field} must be ISO-8601") from exc
+ if dt.tzinfo is None or dt.utcoffset() is None: raise ValueError(f"{field} must include timezone")
+ return dt
 
 def write_template(path):
  path=Path(path); path.parent.mkdir(parents=True,exist_ok=True)
@@ -27,13 +44,17 @@ def write_template(path):
   w=csv.DictWriter(f,fieldnames=FIELDS); w.writeheader()
   for symbol in SYMBOLS:
    for metric,unit in METRICS.items():
-    w.writerow({"symbol":symbol,"company_name":"","metric":metric,"app_value":"","screener_value":"","difference":"","source":"PENDING_AUTHORIZED_SCREENER_EXPORT","period":"UNSPECIFIED_IN_EXPORT","unit":unit,"status":"NOT_TESTED","evidence_ref":""})
+    w.writerow({"symbol":symbol,"company_name":"","metric":metric,"source":"AUTHORIZED_SCREENER_EXPORT_REQUIRED",
+      "period":"UNSPECIFIED","unit":unit,"currency":"INR","status":"NOT_TESTED",
+      "failure_reason":"Awaiting authorized source export"})
  return path
 
 def number(value):
  if value is None or str(value).strip()=="": return None
+ raw=str(value).strip().replace("₹","").replace(",","").replace("%","").replace(" ","")
+ if raw.startswith("(") and raw.endswith(")"): raw="-"+raw[1:-1]
  try:
-  n=float(str(value).replace(",",""))
+  n=float(raw)
   return n if math.isfinite(n) else None
  except ValueError: return None
 
@@ -43,7 +64,8 @@ def validate(path, require_complete=False):
   missing=set(FIELDS)-set(reader.fieldnames or [])
   if missing: raise ValueError("Missing columns: "+", ".join(sorted(missing)))
   rows=list(reader)
- if len(rows)!=len(SYMBOLS)*len(METRICS): raise ValueError(f"Expected exactly 360 metric records; found {len(rows)}")
+ expected=len(SYMBOLS)*len(METRICS)
+ if len(rows)!=expected: raise ValueError(f"Expected exactly {expected} metric records; found {len(rows)}")
  seen=set(); counts={s:0 for s in STATUSES}
  for i,r in enumerate(rows,2):
   symbol=(r.get("symbol") or "").strip().upper(); metric=(r.get("metric") or "").strip()
@@ -60,19 +82,28 @@ def validate(path, require_complete=False):
   if r["unit"].strip()!=METRICS[metric]: raise ValueError(f"Row {i}: unit mismatch for {metric}; expected {METRICS[metric]}")
   if status in {"VERIFIED_MATCH","VERIFIED_DIFFERENCE"}:
    a=number(r.get("app_value")); s=number(r.get("screener_value")); d=number(r.get("difference"))
+   tol=number(r.get("tolerance"))
    if a is None or s is None or d is None: raise ValueError(f"Row {i}: verified record requires numeric app, Screener and difference values")
+   if tol is None or tol < 0: raise ValueError(f"Row {i}: verified record requires non-negative numeric tolerance")
    if not math.isclose(d,a-s,rel_tol=1e-7,abs_tol=1e-6): raise ValueError(f"Row {i}: difference does not equal app_value - screener_value")
-   if not (r.get("evidence_ref") or "").strip(): raise ValueError(f"Row {i}: verified record requires evidence_ref")
-   match=math.isclose(a,s,rel_tol=1e-6,abs_tol=1e-5)
-   if (status=="VERIFIED_MATCH")!=match: raise ValueError(f"Row {i}: verification status conflicts with numeric difference")
- if len(seen)!=360: raise ValueError("One or more stock/metric combinations are missing")
+   if not (r.get("evidence_ref") or "").strip() or not (r.get("source_url") or "").strip():
+    raise ValueError(f"Row {i}: verified record requires source_url and evidence_ref")
+   parse_timestamp(r.get("source_timestamp"),f"Row {i} source_timestamp")
+   parse_timestamp(r.get("app_retrieved_at"),f"Row {i} app_retrieved_at")
+   match=abs(a-s)<=tol
+   if (status=="VERIFIED_MATCH")!=match: raise ValueError(f"Row {i}: verification status conflicts with tolerance")
+ if len(seen)!=expected: raise ValueError("One or more stock/metric combinations are missing")
  verified=counts["VERIFIED_MATCH"]+counts["VERIFIED_DIFFERENCE"]
- result={"status":"PASS" if verified==360 else "PARTIAL","records":len(rows),"verified":verified,"unverified":360-verified,"statusCounts":counts}
- if require_complete and verified!=360: raise ValueError(f"Release gate blocked: {verified}/360 metrics independently verified; {360-verified} remain unverified")
+ result={"status":"PASS" if verified==expected else "PARTIAL","records":len(rows),"verified":verified,
+         "unverified":expected-verified,"statusCounts":counts}
+ if require_complete and verified!=expected:
+  raise ValueError(f"Release gate blocked: {verified}/{expected} metrics independently verified; {expected-verified} remain unverified")
  return result
 
 def main():
- ap=argparse.ArgumentParser(); ap.add_argument("--template-out"); ap.add_argument("--input"); ap.add_argument("--require-complete",action="store_true"); a=ap.parse_args()
+ ap=argparse.ArgumentParser(description=__doc__)
+ ap.add_argument("--template-out"); ap.add_argument("--input"); ap.add_argument("--require-complete",action="store_true")
+ a=ap.parse_args()
  try:
   if a.template_out:
    p=write_template(a.template_out); print(f"Created NOT_TESTED template: {p} (360 rows)"); return 0
