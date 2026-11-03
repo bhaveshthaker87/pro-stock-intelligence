@@ -1115,10 +1115,13 @@ private class NativeProvider(private val appAssets: AssetManager) {
                 val message = e.message ?: "Screener request failed"
                 if (message.contains("403") || screener403Observed) blocked = true
                 row.put("status", if (blocked) "ACCESS_BLOCKED_403" else "FETCH_FAILED")
-                    .put("error", message).put("metrics", JSONObject().put("industryPE", JSONObject().put("status","UNAVAILABLE"))
-                        .put("piotroski", JSONObject().put("status","UNAVAILABLE"))
-                        .put("peg", JSONObject().put("status","UNAVAILABLE"))
-                        .put("pledged", JSONObject().put("status","UNAVAILABLE")))
+                    .put("error", message).put("metrics", JSONObject().apply {
+                        listOf("marketCap", "pe", "industryPE", "eps", "bookValue", "pb", "roe", "roce",
+                            "debtEquity", "sales3y", "profit3y", "shareholding").forEach { key ->
+                            put(key, JSONObject().put("value", JSONObject.NULL).put("status", if (blocked) "ACCESS_BLOCKED_403" else "UNAVAILABLE")
+                                .put("source", "Screener.in company page").put("period", "NOT_FETCHED").put("unit", "NOT_VERIFIED"))
+                        }
+                    })
             }
             rows.put(row)
             if (blocked) break
@@ -1127,7 +1130,8 @@ private class NativeProvider(private val appAssets: AssetManager) {
             .put("startedAtEpochMs", System.currentTimeMillis()).put("requestedStocks", symbols.size)
             .put("attemptedStocks", rows.length()).put("successfulPages", successfulPages)
             .put("accessBlocked", blocked).put("complete", rows.length() == symbols.size && !blocked)
-            .put("metrics", JSONArray().put("industryPE").put("piotroski").put("peg").put("pledged"))
+            .put("metrics", JSONArray().put("marketCap").put("pe").put("industryPE").put("eps").put("bookValue").put("pb")
+                .put("roe").put("roce").put("debtEquity").put("sales3y").put("profit3y").put("shareholding"))
             .put("rows", rows).put("note", "A page response validates only fields parsed on that page. Missing values remain unavailable; reporting periods are never inferred.")
     }
 
