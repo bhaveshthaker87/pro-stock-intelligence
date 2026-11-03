@@ -632,10 +632,6 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertNotIn('html.indexOf("</div>", start)', source)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
     def test_emulator_runner_owns_adb_startup_before_device_registration(self):
         workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
         emulator_step = workflow.index("uses: reactivecircus/android-emulator-runner@v2")
@@ -643,3 +639,7 @@ if __name__ == "__main__":
         self.assertNotIn("adb start-server", prefix)
         self.assertIn("The emulator action must own ADB startup", prefix)
         self.assertIn("adb wait-for-device", (ROOT / ".github/scripts/android-smoke-test.sh").read_text(encoding="utf-8"))
+
+
+if __name__ == "__main__":
+    unittest.main()
