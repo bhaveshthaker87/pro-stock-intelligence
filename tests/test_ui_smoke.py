@@ -482,7 +482,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         html = HTML.read_text(encoding="utf-8")
         self.assertIn("intelEventsLiveAvailable=d.liveData===true", html)
         self.assertIn("This is not confirmation that no events are scheduled", html)
-        self.assertIn("Official exchange results-announcement feeds are unavailable", html)
+        self.assertIn("No result or board-meeting notices were returned by the official feeds. This is not proof that no result dates are scheduled.", html)
         self.assertIn("No dividend candidates were returned", html)
 
     def test_mobile_chart_controls_wrap_without_toolbar_overlap(self):
@@ -521,7 +521,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn('put("feedAvailable", successfulSources.isNotEmpty())', source)
         self.assertIn('put("liveData", false)', source)
         self.assertIn("Empty results mean no rows were returned, not that no events exist.", source)
-        self.assertIn("This is not confirmation that no event exists.", source)
+        self.assertIn("no empty result is represented as confirmation that no event exists.", source)
 
     def test_professional_source_status_and_chart_overprint_regressions(self):
         html = HTML.read_text(encoding="utf-8")
