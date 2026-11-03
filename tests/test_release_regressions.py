@@ -59,7 +59,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
         version_name = re.search(r"versionName '([^']+)'", gradle).group(1)
-        engine = f"V{version_name} AUTHORIZED GATEWAY + CSV OHLCV FALLBACK"
+        engine = f"V{version_name} OFFICIAL NSE/BSE RSS + AUTHORIZED MARKET DATA"
         self.assertIn(engine, html)
         self.assertIn(f'"engine", "{engine}"', source)
 
@@ -410,7 +410,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn('else "NOT_CONFIGURED"', source)
         self.assertIn('AUTHORIZED_NSE_FEED_NOT_CONFIGURED', source)
-        self.assertIn('Corporate events unavailable: configure an authorized HTTPS provider gateway', source)
+        self.assertIn('"eventsStatus", "OFFICIAL_NSE_BSE_RSS_CONFIGURED_RUNTIME_VALIDATION_REQUIRED"', source)
 
 
     def test_gateway_configuration_is_not_mislabeled_as_health_verified(self):
