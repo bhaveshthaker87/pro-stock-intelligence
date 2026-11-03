@@ -2145,91 +2145,11 @@ private class NativeProvider(private val appAssets: AssetManager) {
                 }
                 "/api/resolve-stock" -> JSONObject().put("ok", true).put("data", JSONObject().put("symbol", s).put("name", stockName(s)).put("sector", stockSector(s))).toString()
                 "/api/peers" -> JSONObject().put("ok", true).put("data", peerComparison(s)).toString()
-                "/api/news" -> {
-                    // Do not mix third-party announcement feeds into an NSE/Screener-only app.
-                    // NSE filings are linked as the authoritative source; no feed is claimed until
-                    // an approved, documented data-access method is implemented and validated.
-                    JSONObject().put("ok", true).put("data",
-                        JSONObject().put("symbol", s).put("news", JSONArray())
-                            .put("provider", "NSE official filings — source link")
-                            .put("marketDataStatus", "OFFICIAL_SOURCE_LINK_ONLY")
-                            .put("sourceUrl", "https://www.nseindia.com/companies-listing/corporate-filings-announcements")
-                            .put("statusText", "No embedded news feed is configured. Open the official NSE corporate announcements page to verify filings. No third-party news data is used.")
-                    ).toString()
-                }
-                "/api/company-events" -> {
-                    if (gatewayConfigured()) {
-                        val d = gatewayEvents("/v1/events", s, q["type"] ?: "ALL")
-                        JSONObject().put("ok", true).put("data", d.put("symbol", s).put("name", stockName(s))).toString()
-                    } else JSONObject().put("ok", true).put("data",
-                        JSONObject().put("symbol", s).put("name", stockName(s)).put("rows", JSONArray())
-                            .put("provider", "Unavailable")
-                            .put("statusText", "Corporate events unavailable: configure an authorized HTTPS provider gateway. No events are fabricated.")
-                            .put("liveData", false)).toString()
-                }
-                "/api/dividend-stocks" -> {
-                    if (gatewayConfigured()) {
-                        val d = gatewayGet("/v1/dividends")
-                        val rows = d.optJSONArray("rows") ?: throw IOException("Dividend gateway payload missing rows")
-                        val source = d.optString("source").trim()
-                        val asOfText = d.optString("asOf")
-                        val asOf = parseGatewayTime(asOfText)
-                        val ageMs = System.currentTimeMillis() - asOf
-                        if (source.isBlank() || ageMs < -300_000L || ageMs > 72 * 60 * 60 * 1000L)
-                            throw IOException("Dividend feed source/timestamp is missing, stale or more than 5 minutes in the future")
-                        val numericFields = listOf("CMP Rs.", "Div Yld %", "Mar Cap Rs.Cr.", "ROCE %")
-                        for (i in 0 until rows.length()) {
-                            val row = rows.optJSONObject(i) ?: throw IOException("Dividend row $i is not a JSON object")
-                            if (row.optString("company").isBlank() || row.optString("symbol").isBlank())
-                                throw IOException("Dividend row $i must include company and symbol")
-                            for (field in numericFields) {
-                                if (row.has(field) && !row.isNull(field)) {
-                                    val value = row.optDouble(field, Double.NaN)
-                                    if (!value.isFinite()) throw IOException("Dividend row $i has invalid numeric field '$field'")
-                                    if (field == "CMP Rs." && value <= 0.0) throw IOException("Dividend row $i CMP must be positive")
-                                    if (field == "Div Yld %" && value < 0.0) throw IOException("Dividend row $i dividend yield cannot be negative")
-                                    if (field == "Mar Cap Rs.Cr." && value < 0.0) throw IOException("Dividend row $i market cap cannot be negative")
-                                }
-                            }
-                        }
-                        JSONObject().put("ok", true).put("data", JSONObject().put("rows", rows).put("provider", source)
-                            .put("asOf", d.optString("asOf")).put("liveData", true)
-                            .put("statusText", "Provider dividend candidates • source: $source • as of ${d.optString("asOf")}. Verify official filings before investing.")
-                            .put("partial", d.optBoolean("partial", false))).toString()
-                    } else {
-                        // A Screener dividend-yield scan is not a dividend events/history feed.
-                        // Fail closed rather than presenting candidate stocks as dividend records.
-                        JSONObject().put("ok", true).put("data", JSONObject()
-                            .put("rows", JSONArray())
-                            .put("provider", "Unavailable")
-                            .put("status", "UNAVAILABLE_AUTHORIZED_DIVIDEND_SOURCE_REQUIRED")
-                            .put("statusText", "Verified dividend feed unavailable. Connect an authorized dividend gateway or import an official exchange/company dividend CSV snapshot. No candidate scan is presented as dividend history.")
-                            .put("officialUrl", "https://www.nseindia.com/companies-listing/corporate-filings-actions")
-                            .put("liveData", false)
-                            .put("partial", true)).toString()
-                    }
-                }
-                "/api/upcoming-events" -> {
-                    if (gatewayConfigured()) JSONObject().put("ok", true).put("data", gatewayEvents("/v1/events", "", "ALL")
-                        .put("officialUrl", "https://www.nseindia.com/companies-listing/corporate-filings-event-calendar")
-                        .put("resultsUrl", "https://www.nseindia.com/companies-listing/corporate-filings-financial-results")).toString()
-                    else JSONObject().put("ok", true).put("data", JSONObject().put("rows", JSONArray())
-                        .put("statusText", "Live calendar unavailable: configure an authorized HTTPS provider gateway. This is not confirmation that no events are scheduled.")
-                        .put("provider", "Unavailable").put("officialUrl", "https://www.nseindia.com/companies-listing/corporate-filings-event-calendar")
-                        .put("resultsUrl", "https://www.nseindia.com/companies-listing/corporate-filings-financial-results").put("liveData", false)).toString()
-                }
-                "/api/upcoming-results" -> {
-                    if (gatewayConfigured()) JSONObject().put("ok", true).put("data", gatewayEvents("/v1/events", "", "RESULTS")
-                        .put("sourcesChecked", JSONArray().put("Configured authorized provider gateway"))
-                        .put("officialUrl", "https://www.nseindia.com/companies-listing/corporate-filings-event-calendar")
-                        .put("resultsUrl", "https://www.nseindia.com/companies-listing/corporate-filings-financial-results")).toString()
-                    else JSONObject().put("ok", true).put("data", JSONObject().put("rows", JSONArray())
-                        .put("sourcesChecked", JSONArray().put("Provider gateway not configured"))
-                        .put("providerErrors", JSONArray().put("Authorized live corporate-actions/results gateway not configured"))
-                        .put("statusText", "Live results calendar is not connected. This is not confirmation that no result dates are scheduled.")
-                        .put("officialUrl", "https://www.nseindia.com/companies-listing/corporate-filings-event-calendar")
-                        .put("resultsUrl", "https://www.nseindia.com/companies-listing/corporate-filings-financial-results").put("liveData", false)).toString()
-                }
+                "/api/news" -> exchangeFeedResponse(s, "NEWS")
+                "/api/company-events" -> exchangeFeedResponse(s, "EVENTS")
+                "/api/dividend-stocks" -> exchangeFeedResponse("", "DIVIDENDS")
+                "/api/upcoming-events" -> exchangeFeedResponse("", "EVENTS")
+                "/api/upcoming-results" -> exchangeFeedResponse("", "RESULTS")
                 "/api/cache-clear" -> JSONObject().put("ok", true).put("data", JSONObject().put("cleared", false).put("cacheConfigured", false).put("message", "No persistent provider cache is configured; fresh provider requests will be attempted.")).toString()
                 else -> JSONObject().put("ok", false).put("error", "Mobile API endpoint not implemented: $p").toString()
             }
