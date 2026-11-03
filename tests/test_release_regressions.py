@@ -14,6 +14,8 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("PSI_KEY_ALIAS", workflow)
         self.assertIn("PSI_KEY_PASSWORD", workflow)
         self.assertIn("apksigner verify --verbose", workflow)
+        self.assertIn('keytool -list -keystore "$KEYSTORE" -storepass "$PSI_KEYSTORE_PASSWORD" -alias "$PSI_KEY_ALIAS"', workflow)
+        self.assertIn('PROVIDER_GATEWAY_BASE_URL_SECRET: ${{ secrets.PROVIDER_GATEWAY_BASE_URL }}', workflow)
         self.assertIn("assembleRelease", workflow)
         self.assertIn("build_signed_release", workflow)
         self.assertIn("signingConfigs", gradle)
