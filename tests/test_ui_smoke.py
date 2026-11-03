@@ -363,11 +363,12 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn("Generate APK SHA-256 checksum", workflow)
         self.assertIn("Upload APK and checksum", workflow)
         self.assertIn("Run Android lint", workflow)
-        # Device/emulator and experimental-provider checks are intentionally not
-        # release-blocking: hosted emulator instability must not block a usable APK.
+        # Device/emulator checks are mandatory release gates; experimental provider tests
+        # remain explicitly separate until an authorized provider is configured.
         self.assertIn("Run Android emulator smoke test and capture screenshot", workflow)
-        self.assertIn("reactivecircus/android-emulator-runner@v2", workflow)
-        self.assertIn("Run Android emulator smoke test and capture screenshot", workflow)
+        self.assertIn("bash .github/scripts/android-emulator-smoke.sh", workflow)
+        self.assertIn("bash .github/scripts/install-android-emulator-sdk.sh", workflow)
+        self.assertNotIn("reactivecircus/android-emulator-runner@v2", workflow)
         self.assertNotIn("Test experimental NSE gateway", workflow)
 
     def test_source_claims_disclose_unintegrated_moneycontrol_and_history(self):
