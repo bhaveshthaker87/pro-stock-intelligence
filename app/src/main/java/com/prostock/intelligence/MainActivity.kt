@@ -1087,7 +1087,17 @@ private class NativeProvider(private val appAssets: AssetManager) {
                 if (blocked || screener403Observed) throw IOException("Screener access blocked; remaining requests stopped")
                 val f = screener(symbol)
                 successfulPages++
-                val metricKeys = listOf("industryPE", "piotroski", "peg", "pledged")
+                // Reconcile the twelve requested financial metrics individually.
+                // Keep source periods/units explicit and never convert missing data to zero.
+                val metricKeys = listOf("marketCap", "pe", "industryPE", "eps", "bookValue", "pb",
+                    "roe", "roce", "debtEquity", "sales3y", "profit3y", "shareholding")
+                val units = mapOf(
+                    "marketCap" to "INR_CRORE", "pe" to "ratio", "industryPE" to "ratio",
+                    "eps" to "INR_PER_SHARE", "bookValue" to "INR_PER_SHARE", "pb" to "ratio",
+                    "roe" to "percent", "roce" to "percent", "debtEquity" to "ratio",
+                    "sales3y" to "percent_3Y_GROWTH", "profit3y" to "percent_3Y_GROWTH",
+                    "shareholding" to "provider_reported_table"
+                )
                 val metrics = JSONObject()
                 metricKeys.forEach { key ->
                     val value = if (f.has(key) && !f.isNull(key)) f.opt(key) else JSONObject.NULL
@@ -1096,7 +1106,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
                         .put("status", if (value !== JSONObject.NULL) "PAGE_VALUE_PARSED" else "UNAVAILABLE_NOT_REPORTED")
                         .put("source", meta.optString("source", "Screener.in company page"))
                         .put("period", meta.optString("period", f.optString("reportingPeriodStatus", "PERIOD_NOT_LABELLED")))
-                        .put("unit", when(key) { "industryPE","peg" -> "ratio"; "piotroski" -> "score_0_to_9"; else -> "percent" })
+                        .put("unit", units[key] ?: "NOT_SPECIFIED")
                         .put("method", f.optString(key + "Method", "Reported directly by Screener where present")))
                 }
                 row.put("name", f.optString("name", symbol)).put("status", f.optString("fundamentalStatus", "PAGE_VALIDATED"))
