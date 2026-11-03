@@ -42,6 +42,8 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertNotIn("while [ \"$attempt\" -lt 4 ]; do", workflow)
         emulator_runner = (ROOT / ".github/scripts/android-emulator-smoke.sh").read_text(encoding="utf-8")
         self.assertIn('PSI_SMOKE_APK="app/build/outputs/apk/release/app-release.apk"', emulator_runner)
+        emulator_runner = (ROOT / ".github/scripts/android-emulator-smoke.sh").read_text(encoding="utf-8")
+        self.assertIn('PSI_SMOKE_APK="app/build/outputs/apk/release/app-release.apk"', emulator_runner)
 
     def test_emulator_screenshot_does_not_write_to_sdcard(self):
         script = (ROOT / ".github/scripts/android-smoke-test.sh").read_text(encoding="utf-8")
