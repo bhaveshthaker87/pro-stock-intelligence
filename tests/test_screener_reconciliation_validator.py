@@ -10,7 +10,7 @@ class ScreenerReconciliationTests(unittest.TestCase):
    self.assertEqual(len(rows),360)
    self.assertEqual(len({(r["symbol"],r["metric"]) for r in rows}),360)
    self.assertTrue(all(r["status"]=="NOT_TESTED" for r in rows))
-   self.assertEqual(len(SYMBOLS),30); self.assertEqual(len(METRICS),12)
+   self.assertEqual(len(SYMBOLS),30); self.assertEqual(len(METRICS),12)\n   self.assertIn("currentPrice", METRICS); self.assertIn("dividendYield", METRICS)\n   self.assertIn("salesOrProfitGrowth", METRICS); self.assertNotIn("shareholding", METRICS)
 
  def test_unverified_template_is_partial_not_pass(self):
   with tempfile.TemporaryDirectory() as d:
@@ -25,7 +25,7 @@ class ScreenerReconciliationTests(unittest.TestCase):
   with tempfile.TemporaryDirectory() as d:
    p=write_template(Path(d)/"audit.csv")
    with p.open(newline="",encoding="utf-8") as f: rows=list(csv.DictReader(f))
-   r=rows[0]; r.update(app_value="100",screener_value="100",difference="0",status="VERIFIED_MATCH",evidence_ref="authorized-export.xlsx#sheet=Data Sheet")
+   r=rows[0]; r.update(app_value="100",screener_value="100",difference="0",tolerance="0.01",status="VERIFIED_MATCH",source_url="https://www.screener.in/company/INFY/",source_timestamp="2026-11-03T10:00:00+05:30",app_retrieved_at="2026-11-03T10:01:00+05:30",evidence_ref="authorized-export.xlsx#sheet=Data Sheet")
    with p.open("w",newline="",encoding="utf-8") as f:
     w=csv.DictWriter(f,fieldnames=FIELDS); w.writeheader(); w.writerows(rows)
    self.assertEqual(validate(p)["verified"],1)
