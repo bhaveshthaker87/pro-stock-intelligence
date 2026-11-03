@@ -72,8 +72,15 @@ def audit(root: Path):
       "status":"PASS" if passed==len(SYMBOLS) else "PARTIAL_INSUFFICIENT_HISTORY","formulaContract":"SMA simple rolling mean; RSI Wilder-14; one-sided causal Gaussian NW lookback=40 bandwidth=12 envelope=2.5 weighted mean absolute deviation",
       "rows":results}
 
+def write_report(report, output_path):
+    """Write an audit report, creating its parent directory when needed."""
+    output=Path(output_path)
+    output.parent.mkdir(parents=True,exist_ok=True)
+    output.write_text(json.dumps(report,indent=2),encoding="utf-8")
+    return output
+
 if __name__=="__main__":
     ap=argparse.ArgumentParser();ap.add_argument("--data-dir",default="data/nse/eod");ap.add_argument("--output",default="chart-parity-report.json");args=ap.parse_args()
-    report=audit(Path(args.data_dir));output=Path(args.output);output.parent.mkdir(parents=True,exist_ok=True);output.write_text(json.dumps(report,indent=2),encoding="utf-8")
+    report=audit(Path(args.data_dir));write_report(report,args.output)
     print(f"Chart parity audit: {report['status']} — {report['calculatedSymbols']}/{report['targetSymbols']} symbols have >=200 validated official NSE EOD bars")
     print(f"Report: {args.output}")
