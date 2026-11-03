@@ -22,4 +22,5 @@ class LegacySpreadsheetImportRemovalTests(unittest.TestCase):
         native = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("/api/history", native)
         self.assertIn("jsonResponse", native)
-        self.assertIn("official NSE EOD", html.lower() if "official NSE EOD" in html else "official nse eod")
+        self.assertIn("OFFICIAL_NSE_EOD_UNAVAILABLE", native)
+        self.assertIn("NSE_EOD_HISTORY_NOT_BUNDLED", native)
