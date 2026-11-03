@@ -39,6 +39,13 @@ class V4092IntegratedRecoveryTests(unittest.TestCase):
         self.assertIn("OFFICIAL_NSE_EOD_UNAVAILABLE", source)
         self.assertIn("NSE_EOD_HISTORY_NOT_BUNDLED", history)
 
+    def test_chartink_is_user_driven_and_not_claimed_as_undocumented_api(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("Chartink scan export (if available)", html)
+        self.assertIn("openChartinkScanner", html)
+        self.assertIn("not an undocumented API scraper", html)
+        self.assertIn("chartink.com/screener/", html)
+
     def test_no_fake_live_data_on_missing_gateway(self):
         source = NATIVE.read_text(encoding="utf-8")
         self.assertIn("Yahoo/Moneycontrol fallback is disabled", source)
