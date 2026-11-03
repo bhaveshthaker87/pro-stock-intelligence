@@ -343,7 +343,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         html = (Path(__file__).parents[1] / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         self.assertNotIn("dataConfidence:'AUTHENTICATED'", html)
         self.assertIn("NATIVE ENGINE", html)
-        self.assertIn("Corporate events unavailable: configure an authorized HTTPS provider gateway.", source)
+        self.assertIn('"eventsStatus", "OFFICIAL_NSE_BSE_RSS_CONFIGURED_RUNTIME_VALIDATION_REQUIRED"', source)
 
 
     def test_provider_gateway_contract_and_validator_are_present(self):
@@ -482,7 +482,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         html = HTML.read_text(encoding="utf-8")
         self.assertIn("intelEventsLiveAvailable=d.liveData===true", html)
         self.assertIn("This is not confirmation that no events are scheduled", html)
-        self.assertIn("Live results calendar is not connected", html)
+        self.assertIn("Official exchange results-announcement feeds are unavailable", html)
         self.assertIn("No dividend candidates were returned", html)
 
     def test_mobile_chart_controls_wrap_without_toolbar_overlap(self):
@@ -518,8 +518,10 @@ class DashboardUISmokeTests(unittest.TestCase):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("Event feed source is missing", source)
         self.assertIn("Event feed timestamp is stale or in the future", source)
+        self.assertIn('put("feedAvailable", successfulSources.isNotEmpty())', source)
+        self.assertIn('put("liveData", false)', source)
         self.assertIn("Empty results mean no rows were returned, not that no events exist.", source)
-        self.assertIn("This is not confirmation that no result dates are scheduled.", source)
+        self.assertIn("This is not confirmation that no event exists.", source)
 
     def test_professional_source_status_and_chart_overprint_regressions(self):
         html = HTML.read_text(encoding="utf-8")
