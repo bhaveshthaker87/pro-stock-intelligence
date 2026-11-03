@@ -1043,6 +1043,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
         val symbols = listOf("RELIANCE","TCS","HDFCBANK","ICICIBANK","INFY","SBIN","BHARTIARTL","ITC","LT","BAJFINANCE",
             "HINDUNILVR","MARUTI","SUNPHARMA","TITAN","NTPC","POWERGRID","AXISBANK","KOTAKBANK","TATASTEEL","ONGC",
             "M&M","WIPRO","HCLTECH","TECHM","ULTRACEMCO","ASIANPAINT","BEL","HAL","TRENT","ADANIPORTS")
+        val startedAt = System.currentTimeMillis()
         val rows = JSONArray()
         var blocked = false
         var successfulPages = 0
@@ -1091,10 +1092,9 @@ private class NativeProvider(private val appAssets: AssetManager) {
                     })
             }
             rows.put(row)
-            if (blocked) break
         }
         return JSONObject().put("source", "Screener.in authenticated company-page requests")
-            .put("startedAtEpochMs", System.currentTimeMillis()).put("requestedStocks", symbols.size)
+            .put("startedAtEpochMs", startedAt).put("completedAtEpochMs", System.currentTimeMillis()).put("requestedStocks", symbols.size)
             .put("attemptedStocks", rows.length()).put("successfulPages", successfulPages)
             .put("accessBlocked", blocked).put("complete", rows.length() == symbols.size && !blocked)
             .put("metrics", JSONArray().put("marketCap").put("pe").put("industryPE").put("eps").put("bookValue").put("pb")
