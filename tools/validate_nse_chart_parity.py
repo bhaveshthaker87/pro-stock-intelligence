@@ -74,6 +74,6 @@ def audit(root: Path):
 
 if __name__=="__main__":
     ap=argparse.ArgumentParser();ap.add_argument("--data-dir",default="data/nse/eod");ap.add_argument("--output",default="chart-parity-report.json");args=ap.parse_args()
-    report=audit(Path(args.data_dir));Path(args.output).write_text(json.dumps(report,indent=2),encoding="utf-8")
+    report=audit(Path(args.data_dir));output=Path(args.output);output.parent.mkdir(parents=True,exist_ok=True);output.write_text(json.dumps(report,indent=2),encoding="utf-8")
     print(f"Chart parity audit: {report['status']} — {report['calculatedSymbols']}/{report['targetSymbols']} symbols have >=200 validated official NSE EOD bars")
     print(f"Report: {args.output}")
