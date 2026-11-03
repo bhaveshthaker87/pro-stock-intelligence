@@ -1188,7 +1188,7 @@ function money(n){return numOk(n)?'₹'+Number(n).toLocaleString('en-IN',{maximu
 function pct(n){return numOk(n)?Number(n).toFixed(1)+'%':'—'}
 function actual(v,type){if(!numOk(v))return '—'; if(type==='money')return money(v); if(type==='pct')return pct(v); if(type==='ratio')return (+v).toFixed(2)+'x'; return fmt(v)}
 function criterion(name,value,rule,pass,display,scored=true){return [name,value,rule,pass,value!=null&&Number.isFinite(+value),display,scored]}
-function scoreGroup(arr){const scored=arr.filter(x=>x[6]!==false);const available=scored.filter(x=>x[4]);const passed=available.filter(x=>x[3]).length;const coverage=scored.length?available.length/scored.length:0;const score=(available.length>=4&&coverage>=0.6)?passed/available.length*10:null;return {score,available:available.length,passed,coverage,arr,reference:arr.filter(x=>x[6]===false)}}
+function scoreGroup(arr){const scored=arr.filter(x=>x[6]!==false);const available=scored.filter(x=>x[4]);const passed=available.filter(x=>x[3]).length;const coverage=scored.length?available.length/scored.length:0;const score=(available.length>=3&&coverage>=0.6)?passed/available.length*10:null;return {score,available:available.length,passed,coverage,arr,reference:arr.filter(x=>x[6]===false)}}
 function scoreData(f){
  // P/E must remain a TTM valuation metric; never derive it from one quarter's EPS.
  if(f&&f.pe==null&&numOk(f.marketCap)&&numOk(f.ttmProfit)&&Number(f.ttmProfit)>0)f.pe=Number(f.marketCap)/Number(f.ttmProfit);
@@ -1220,8 +1220,7 @@ function scoreData(f){
   criterion('Dividend Yield',f.dividendYield,'> 0%',f.dividendYield!=null&&f.dividendYield>0),
   criterion('Book Value',f.bookValue,'Reference',f.bookValue!=null,undefined,false),
   criterion('EPS',f.eps,'Reference',f.eps!=null,undefined,false),
-  criterion('Dividend Yield',f.dividendYield,'Reference',f.dividendYield!=null,undefined,false),
-  criterion('Face Value',f.faceValue,'Reference',f.faceValue!=null,undefined,false),
+    criterion('Face Value',f.faceValue,'Reference',f.faceValue!=null,undefined,false),
  ];
  const t=[
   criterion('Current Price',f.price,'₹50–₹3,000',f.price!=null&&f.price>50&&f.price<3000),
