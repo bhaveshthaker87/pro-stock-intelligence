@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-APK="app/build/outputs/apk/debug/app-debug.apk"
+APK="${PSI_SMOKE_APK:-app/build/outputs/apk/debug/app-debug.apk}"
 PACKAGE="com.prostock.intelligence"
 ACTIVITY="com.prostock.intelligence/.MainActivity"
 mkdir -p app/build/outputs
