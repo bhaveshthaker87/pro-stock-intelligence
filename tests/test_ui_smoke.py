@@ -480,7 +480,7 @@ class DashboardUISmokeTests(unittest.TestCase):
 
     def test_unavailable_calendar_is_not_rendered_as_verified_empty(self):
         html = HTML.read_text(encoding="utf-8")
-        self.assertIn("intelEventsLiveAvailable=d.liveData===true", html)
+        self.assertIn("intelEventsLiveAvailable=d.feedAvailable===true", html)
         self.assertIn("This is not confirmation that no events are scheduled", html)
         self.assertIn("No result or board-meeting notices were returned by the official feeds. This is not proof that no result dates are scheduled.", html)
         self.assertIn("No dividend candidates were returned", html)
