@@ -22,7 +22,7 @@ _GRADLE = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
 VERSION_CODE = re.search(r"versionCode (\d+)", _GRADLE).group(1)
 VERSION_NAME = re.search(r"versionName '([^']+)'", _GRADLE).group(1)
 VERSION_TAG = f"V{VERSION_NAME}"
-ENGINE = f"{VERSION_TAG} AUTHORIZED GATEWAY + CSV OHLCV FALLBACK"
+ENGINE = f"{VERSION_TAG} AUTHORIZED GATEWAY + OFFICIAL NSE EOD ONLY"
 
 
 def launch_chromium(playwright):
@@ -403,49 +403,17 @@ class DashboardUISmokeTests(unittest.TestCase):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("Screener.in does not expose a documented chart-data API", source)
 
-    def test_csv_import_modal_parses_and_persists_authorized_export(self):
-        errors = []
-        with sync_playwright() as p:
-            browser = launch_chromium(p)
-            page = browser.new_page(viewport={"width": 1440, "height": 1000})
-            page.on("pageerror", lambda e: errors.append(str(e)))
-            html = HTML.read_text(encoding="utf-8")
-            importer = (Path(__file__).parents[1] / "app/src/main/assets/csv-import.js").read_text(encoding="utf-8")
-            html = html.replace('<script src="csv-import.js"></script>', '<script>\n' + importer + '\n</script>')
-            mock_js = '''
-              Object.defineProperty(window,"localStorage",{value:{_s:{},getItem(k){return this._s[k]??null},setItem(k,v){this._s[k]=String(v)},removeItem(k){delete this._s[k]}}});
-              const MOCK_API = ''' + json.dumps(self.mock_api, separators=(",", ":")) + ''';
-              window.fetch=(u,opts)=>{const path=String(u).split("?")[0];const key=Object.keys(MOCK_API).find(k=>path.endsWith(k));const value=key?MOCK_API[key]:{ok:false,error:"unmocked "+path};return Promise.resolve(new Response(JSON.stringify(value),{status:200,headers:{"Content-Type":"application/json"}}));};
-            '''
-            pos = html.find('<script')
-            html = html[:pos] + '<script>' + mock_js + '</script>' + html[pos:]
-            page.set_content(html, wait_until="domcontentloaded", timeout=30000)
-            page.locator('#dataSourcesBtn').click()
-            self.assertTrue(page.locator('#dataSourcesModal').is_visible())
-            page.locator('#csvSource').evaluate("el=>{el.value='Screener.in CSV';el.dispatchEvent(new Event('change',{bubbles:true}))}")
-            page.locator('#csvFile').set_input_files({"name":"sample.csv","mimeType":"text/csv","buffer":b"Name,NSE Code,Market Capitalization,Stock P/E,Dividend yield\nInfosys,INFY,650000,25.4,1.8"})
-            page.wait_for_function("document.querySelector('#csvImportStatus').textContent.includes('Imported 1 stock row')", timeout=5000)
-            store = page.evaluate("JSON.parse(localStorage.getItem('psi.provider.csv.v1'))")
-            self.assertEqual(store['sources']['Screener.in CSV']['rows']['INFY']['fields']['dividendYield'], 1.8)
-            # Also exercise the historical CSV path using the selected stock.
-            page.locator('#search').fill('INFY')
-            page.locator('#csvSource').evaluate("el=>{el.value='User CSV';el.dispatchEvent(new Event('change',{bubbles:true}))}")
-            lines = ['Date,Open,High,Low,Close,Volume']
-            from datetime import date, timedelta
-            for i in range(24, -1, -1):
-                day = date(2025, 1, 1) + timedelta(days=i)
-                close = 100 + i
-                lines.append(f'{day.isoformat()},{close-1},{close+2},{close-2},{close},1000')
-            page.locator('#csvFile').set_input_files({"name":"infy-history.csv","mimeType":"text/csv","buffer":("\n".join(lines)).encode()})
-            page.wait_for_function("document.querySelector('#csvImportStatus').textContent.includes('Imported 0 stock row(s) and 25 historical bar(s)')", timeout=5000)
-            page.locator('#dataSourcesClose').click()
-            page.locator('#analyze').click()
-            page.wait_for_function("document.querySelector('#providerStatus').textContent.includes('CSV fallback:')", timeout=12000)
-            self.assertIn('1 missing field(s) filled', page.locator('#providerStatus').inner_text())
-            page.wait_for_function("window.chartRows && window.chartRows.length === 25", timeout=12000)
-            self.assertIn('user-imported historical CSV', page.locator('#chartStatus').inner_text())
-            self.assertEqual(errors, [])
-            browser.close()
+    def test_csv_xlsx_upload_and_import_fallback_are_absent(self):
+        html = HTML.read_text(encoding="utf-8")
+        native = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertNotIn('id="csvFile"', html)
+        self.assertNotIn('id="csvSource"', html)
+        self.assertNotIn('id="csvImportStatus"', html)
+        self.assertNotIn("PSICsvImport", html)
+        self.assertNotIn("PSIXlsxImport", html)
+        self.assertNotIn("mergeImportedCsvData", html)
+        self.assertNotIn("onShowFileChooser", native)
+        self.assertNotIn("csvPickerRequestCode", native)
 
     def test_brand_logo_asset_header_and_android_launcher_icon_exist(self):
         root = Path(__file__).parents[1]
