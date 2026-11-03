@@ -507,27 +507,20 @@ jobs:
           ls -l /dev/kvm
           echo "KVM hardware acceleration is available."
 
-      # The emulator action must own ADB startup and device registration.
-      # Starting ADB before its AVD exists can leave the action polling a detached
-      # server (emulator-5554 never appears). Device readiness is checked inside
-      # android-smoke-test.sh after the action has booted its emulator.
+      - name: Install and validate pinned Android emulator SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash .github/scripts/install-android-emulator-sdk.sh
+
       - name: Run Android emulator smoke test and capture screenshot
-        uses: reactivecircus/android-emulator-runner@v2
-        timeout-minutes: 25
-        with:
-          api-level: 34
-          target: google_apis
-          arch: x86_64
-          profile: pixel_2
-          emulator-boot-timeout: 600
-          disable-animations: true
-          disable-spellchecker: true
-          # Restore adequate resources: 2 GB / 2 cores caused a 15-minute boot
-          # on the hosted runner and left too little time for app validation.
-          emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot-load -no-snapshot-save -gpu swiftshader_indirect -memory 4096 -cores 4 -camera-back none
-          # The action executes script lines independently; keep the conditional on one shell line.
-          script: |
-            BUILD_SIGNED_RELEASE="${{ inputs.build_signed_release || 'false' }}"; if [ "$BUILD_SIGNED_RELEASE" = "true" ]; then PSI_SMOKE_APK="app/build/outputs/apk/release/app-release.apk" bash .github/scripts/android-smoke-test.sh; else bash .github/scripts/android-smoke-test.sh; fi
+        shell: bash
+        timeout-minutes: 20
+        env:
+          BUILD_SIGNED_RELEASE: ${{ inputs.build_signed_release || 'false' }}
+        run: |
+          set -euo pipefail
+          bash .github/scripts/android-emulator-smoke.sh
 
       - name: Upload emulator dashboard screenshot and diagnostics
         if: always() && hashFiles('app/build/outputs/psi-emulator-logcat.txt') != ''
