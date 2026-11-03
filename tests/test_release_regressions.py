@@ -627,6 +627,16 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertNotIn("csv-import.js", workflow)
         self.assertNotIn("xlsx-import.js", workflow)
 
+    def test_valuation_factor_scores_relative_pe_pb_peg_and_dividend_yield(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("criterion('P/E vs Industry'", html)
+        self.assertIn("criterion('P/B vs Industry'", html)
+        self.assertIn("criterion('PEG Ratio',f.peg,'0–1.50x'", html)
+        self.assertIn("criterion('Dividend Yield',f.dividendYield,'> 0%'", html)
+        self.assertIn("(available.length>=3&&coverage>=0.6)", html)
+        valuation = html[html.index("const v=["):html.index("const t=[")]
+        self.assertEqual(valuation.count("criterion('Dividend Yield'"), 1)
+
 
 if __name__ == "__main__":
     unittest.main()
