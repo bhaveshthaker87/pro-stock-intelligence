@@ -34,7 +34,7 @@ if ! valid_image; then
   installed=0
   for attempt in 1 2 3; do
     echo "Installing $IMAGE_ID (attempt $attempt/3)"
-    if yes | "$SDKMANAGER" --install "$IMAGE_ID" --channel=0 --verbose; then
+    if "$SDKMANAGER" --install "$IMAGE_ID" --channel=0 --verbose; then
       if valid_image; then installed=1; break; fi
       echo "::warning::sdkmanager returned success but system-image integrity validation failed."
     else
