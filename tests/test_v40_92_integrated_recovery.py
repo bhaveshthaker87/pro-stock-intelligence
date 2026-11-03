@@ -46,6 +46,12 @@ class V4092IntegratedRecoveryTests(unittest.TestCase):
         self.assertIn("not an undocumented API scraper", html)
         self.assertIn("chartink.com/screener/", html)
 
+    def test_complete_stock_metric_matrix_is_rendered_with_missing_states_and_provenance(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        for token in ("Complete Stock Metrics Matrix", "industryPE", "piotroski", "pledged", "sales3y", "profit3y", "eps3y", "dma200", "RSI 14", "Source:", "Not returned by current source"):
+            self.assertIn(token, html)
+        self.assertIn("renderKeyMetricMatrix(d)", html)
+
     def test_no_fake_live_data_on_missing_gateway(self):
         source = NATIVE.read_text(encoding="utf-8")
         self.assertIn("Yahoo/Moneycontrol fallback is disabled", source)
