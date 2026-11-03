@@ -2071,9 +2071,9 @@ private class NativeProvider(private val appAssets: AssetManager) {
             .put("provider", successfulSources.joinToString(" + ").ifBlank { "Unavailable" })
             .put("sourcesChecked", JSONArray().put("NSE official RSS").put("BSE official RSS"))
             .put("sourceErrors", JSONArray().apply { errors.forEach { put(it) } })
-            .put("status", status).put("liveData", successfulSources.isNotEmpty())
+            .put("status", status).put("feedAvailable", successfulSources.isNotEmpty()).put("liveData", false)
             .put("asOf", java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.ROOT).format(java.util.Date()))
-            .put("statusText", if (successfulSources.isNotEmpty()) "Official exchange RSS records shown in app. Open each filing link for the complete exchange disclosure; feeds may be delayed and are not a complete historical database." else "Official exchange feeds could not be reached. Retry later; no empty result is represented as confirmation that no event exists.")
+            .put("statusText", if (successfulSources.isNotEmpty()) "Official NSE/BSE exchange RSS announcements retrieved. This is not a live market-data feed; publication may be delayed and the feed is not a complete historical database. Open each filing link for the full disclosure." else "Official NSE/BSE exchange feeds could not be reached. Retry later; no empty result is represented as confirmation that no event exists.")
         return JSONObject().put("ok", true).put("data", data).toString()
     }
 
