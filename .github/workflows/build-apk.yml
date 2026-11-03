@@ -123,6 +123,9 @@ jobs:
         shell: bash
         env:
           PROVIDER_GATEWAY_BASE_URL: ${{ vars.PROVIDER_GATEWAY_BASE_URL }}
+          PSI_KEYSTORE_PASSWORD: ${{ secrets.PSI_KEYSTORE_PASSWORD }}
+          PSI_KEY_ALIAS: ${{ secrets.PSI_KEY_ALIAS }}
+          PSI_KEY_PASSWORD: ${{ secrets.PSI_KEY_PASSWORD }}
           REQUIRE_LIVE_PROVIDER_GATEWAY: ${{ vars.REQUIRE_LIVE_PROVIDER_GATEWAY }}
           REQUIRE_LIVE_DATA_INPUT: ${{ inputs.require_live_data }}
           BUILD_SIGNED_RELEASE_INPUT: ${{ inputs.build_signed_release }}
@@ -255,10 +258,48 @@ jobs:
               raise SystemExit("Official NSE EOD history is empty or implausibly narrow; refusing an incomplete-market APK build.")
           PY
 
+      - name: Prepare persistent signing key when configured
+        shell: bash
+        env:
+          PSI_KEYSTORE_BASE64: ${{ secrets.PSI_KEYSTORE_BASE64 }}
+          PSI_KEYSTORE_PASSWORD: ${{ secrets.PSI_KEYSTORE_PASSWORD }}
+          PSI_KEY_ALIAS: ${{ secrets.PSI_KEY_ALIAS }}
+          PSI_KEY_PASSWORD: ${{ secrets.PSI_KEY_PASSWORD }}
+          BUILD_SIGNED_RELEASE_INPUT: ${{ inputs.build_signed_release }}
+        run: |
+          set -euo pipefail
+          values=(PSI_KEYSTORE_BASE64 PSI_KEYSTORE_PASSWORD PSI_KEY_ALIAS PSI_KEY_PASSWORD)
+          present=0
+          for name in "${values[@]}"; do
+            [ -n "${!name:-}" ] && present=$((present + 1))
+          done
+          if [ "$present" -eq 0 ]; then
+            if [ "${BUILD_SIGNED_RELEASE_INPUT:-false}" = "true" ]; then
+              echo "::error::Signed release requested, but persistent signing secrets are not configured. Follow ANDROID_SIGNING_SETUP.md once."
+              exit 1
+            fi
+            echo "::notice::No persistent release key configured; producing the standard CI debug-signed APK."
+            exit 0
+          fi
+          if [ "$present" -ne 4 ]; then
+            echo "::error::Signing secrets are partially configured. Configure all four or remove all four."
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/android-signing"
+          printf '%s' "$PSI_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/android-signing/release.keystore"
+          keytool -list -keystore "$RUNNER_TEMP/android-signing/release.keystore" -storepass "$PSI_KEYSTORE_PASSWORD" -alias "$PSI_KEY_ALIAS" >/dev/null
+          echo "PSI_KEYSTORE_FILE=$RUNNER_TEMP/android-signing/release.keystore" >> "$GITHUB_ENV"
+          echo "Persistent keystore validated. Debug and release variants will use the same certificate."
+
       - name: Build debug APK
         shell: bash
         env:
           PROVIDER_GATEWAY_BASE_URL: ${{ vars.PROVIDER_GATEWAY_BASE_URL }}
+          # Step-scoped secrets must be re-exposed here: GITHUB_ENV only persists
+          # PSI_KEYSTORE_FILE, not the secrets from the earlier preparation step.
+          PSI_KEYSTORE_PASSWORD: ${{ secrets.PSI_KEYSTORE_PASSWORD }}
+          PSI_KEY_ALIAS: ${{ secrets.PSI_KEY_ALIAS }}
+          PSI_KEY_PASSWORD: ${{ secrets.PSI_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           # Maven Central can temporarily throttle hosted runners (HTTP 429).
