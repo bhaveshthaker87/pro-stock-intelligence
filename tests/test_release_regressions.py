@@ -131,7 +131,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         version_code = re.search(r"versionCode (\d+)", gradle).group(1)
         version_name = re.search(r"versionName '([^']+)'", gradle).group(1)
         version_tag = f"V{version_name}"
-        engine = f"{version_tag} AUTHORIZED GATEWAY + CSV OHLCV FALLBACK"
+        engine = f"{version_tag} OFFICIAL NSE/BSE RSS + AUTHORIZED MARKET DATA"
         self.assertIn(f"versionCode {version_code}; versionName '{version_name}'", gradle)
         self.assertIn(engine, html)
         self.assertIn(engine, source)
