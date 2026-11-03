@@ -1609,7 +1609,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
         .replace("&gt;", ">").replace("&quot;", "\"").replace("&#39;", "'").replace(Regex("\\s+"), " ").trim()
 
     private fun runScreenerQuery(query: String): JSONObject {
-        if (!screenerLoggedIn()) throw IOException("Screener login is not active. Tap Screener Login, sign in, return to the app, then run the scan again.")
+        if (!screenerSessionIsValidated()) { val access = screenerConnectionTest(); if (!access.optBoolean("validated")) throw IOException(access.optString("message", "Screener session is not validated. Sign in through the official Screener page and run Check access before starting scans.")) }
         val url = "https://www.screener.in/screen/raw/?query=" + URLEncoder.encode(query, "UTF-8")
         val html = get(url)
         val table = Regex("(?is)<table[^>]*>(.*?)</table>").find(html)?.groupValues?.get(1)
