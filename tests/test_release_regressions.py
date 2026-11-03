@@ -547,7 +547,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("Complete Stock Metrics Matrix", html)
         self.assertNotIn('id="screenerRatioSnapshot"', html)
         self.assertIn("Metric-level values, reporting periods and source provenance are shown once", html)
-        self.assertIn("available.length>=4&&coverage>=0.6", html)
+        self.assertIn("available.length>=3&&coverage>=0.6", html)
         # No CSV upload workaround is exposed for peer fundamentals or company news.
         self.assertNotIn('id="peerCsvImportBtn"', html)
         self.assertNotIn('id="newsCsvImportBtn"', html)
