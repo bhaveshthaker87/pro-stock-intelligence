@@ -606,6 +606,22 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("UNAVAILABLE — authorized OHLCV gateway not configured", source)
         self.assertIn("No third-party price series is substituted", source)
 
+    def test_30_stock_audit_reports_all_twelve_requested_fundamental_metrics(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        start = source.index("private fun screenerAudit30()")
+        end = source.index("\\n    private fun ", start)
+        audit = source[start:end]
+        required = ("marketCap", "pe", "industryPE", "eps", "bookValue", "pb", "roe", "roce",
+                    "debtEquity", "sales3y", "profit3y", "shareholding")
+        for key in required:
+            self.assertIn(f'"{key}"', audit)
+        self.assertIn('"ACCESS_BLOCKED_403"', audit)
+        self.assertIn('"UNAVAILABLE_NOT_REPORTED"', audit)
+        self.assertIn('"INR_CRORE"', audit)
+        self.assertIn('"INR_PER_SHARE"', audit)
+        self.assertIn('.put("requestedStocks", symbols.size)', audit)
+        self.assertIn('.put("attemptedStocks", rows.length())', audit)
+
     def test_screener_financial_section_parser_handles_nested_div_containers(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("Locate the matching close tag for the exact id-bearing container", source)
