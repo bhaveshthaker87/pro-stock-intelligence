@@ -259,6 +259,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p app/build/reports
           python3 tools/validate_nse_chart_parity.py --data-dir app/src/main/assets/nse-eod --output app/build/reports/nse-chart-parity-report.json
           python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
           import json
