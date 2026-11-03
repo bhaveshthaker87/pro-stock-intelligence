@@ -1313,6 +1313,31 @@ function renderQuarterlyComparison(q){
 }
 
 function renderFinancialTrends(pnl,q){const source=Array.isArray(pnl)&&pnl.length?pnl:q;const sales=extractAnnualSeries(source,['sales']);const op=extractAnnualSeries(source,['operating profit']);const profit=extractAnnualSeries(source,['net profit','profit after tax','pat']);const eps=extractAnnualSeries(source,['eps in rs','eps']);return `<div class="trendgrid">${renderTrendCard('Sales',sales)}${renderTrendCard('Operating Profit',op)}${renderTrendCard('Net Profit',profit)}${renderTrendCard('EPS',eps)}</div>`}
+function renderKeyMetricMatrix(d){
+  const f=d.market||{};
+  const groups=[
+    ["Market",[["Market Cap","marketCap","₹ Cr"],["Current Price","price","₹"],["52W High","high52","₹"],["52W Low","low52","₹"]]],
+    ["Valuation",[["Stock P/E","pe","x"],["Industry P/E","industryPE","x"],["P/B","pb","x"],["PEG Ratio","peg","x"],["Book Value","bookValue","₹"],["EPS","eps","₹"],["Dividend Yield","dividendYield","%"],["Face Value","faceValue","₹"]]],
+    ["Quality & Profitability",[["ROCE","roce","%"],["ROE","roe","%"],["OPM","opm","%"],["Interest Coverage","interestCoverage","x"],["Piotroski Score","piotroski","/9"]]],
+    ["Growth",[["Sales Growth 3Y","sales3y","%"],["Profit Growth 3Y","profit3y","%"],["EPS Growth 3Y","eps3y","%"]]],
+    ["Ownership",[["Promoter Holding","promoter","%"],["Public Holding","public","%"],["FII Holding","fii","%"],["DII Holding","dii","%"],["Pledged Percentage","pledged","%"]]],
+    ["Technical",[["DMA 50","dma50","₹"],["DMA 200","dma200","₹"],["RSI 14","rsi14",""]]]
+  ];
+  const raw=f.fetchedAtEpochMs||d.fetchedAtEpochMs||0;
+  const stamp=raw?new Date(Number(raw)).toLocaleString("en-IN"):(f.asOf||d.asOf||"Timestamp unavailable");
+  const defaultSource=f.provider||f.source||d.provider||"Source not stated";
+  const fmt=(v,u)=>v===null||v===undefined||v===""||!Number.isFinite(Number(v))?"Unavailable":Number(v).toLocaleString("en-IN",{maximumFractionDigits:2})+(u?" "+u:"");
+  return '<section class="metricMatrix"><div class="metricMatrixHead"><div><h4>Complete Stock Metrics Matrix</h4><p>Market, valuation, quality, growth, ownership and technical indicators</p></div><span>Missing values are never estimated</span></div>'+
+    groups.map(([group,items])=>'<div class="metricGroup"><h5>'+safename(group)+'</h5><div class="metricGrid">'+items.map(([label,key,unit])=>{
+      const meta=(f.metricMeta&&f.metricMeta[key])||{};
+      const value=f[key];
+      const available=value!==null&&value!==undefined&&value!==""&&Number.isFinite(Number(value));
+      const source=meta.source||defaultSource;
+      const period=meta.period||f.period||f.asOf||stamp;
+      return '<article class="metricTile '+(available?'hasValue':'missingValue')+'"><span>'+safename(label)+'</span><strong>'+fmt(value,unit)+'</strong><small>Source: '+safename(source)+' · Period/as-of: '+safename(period)+'</small>'+(available?'':'<em>Not returned by current source</em>')+'</article>';
+    }).join('')+'</div></div>').join('')+'</section>';
+}
+
 async function renderDetails(d){
   const f=d.market||{};
   const pnl=d.pnl||f.pnl||[], q=d.quarterly||f.quarterly||[];
@@ -1322,7 +1347,7 @@ async function renderDetails(d){
   $('quarterlyCompareDetail').innerHTML=renderQuarterlyComparison(q);
   const renderSourceTable=(rows,title)=>{if(!Array.isArray(rows)||!rows.length)return '';const head=rows[0]||[],body=rows.slice(1).filter(r=>Array.isArray(r)&&r.length);if(!head.length||!body.length)return '';return '<h4 class="detailSubhead">'+safename(title)+'</h4><div class="scrollx"><table class="detailtable financialtable"><thead><tr>'+head.map(x=>'<th>'+safename(x)+'</th>').join('')+'</tr></thead><tbody>'+body.map(r=>'<tr>'+r.map(x=>'<td>'+safename(x??'—')+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>'};
   const extraFinancials=renderSourceTable(d.balanceSheet||f.balanceSheet,'Balance Sheet')+renderSourceTable(d.cashFlow||f.cashFlow,'Cash Flow')+renderSourceTable(d.ratios||f.ratios,'Financial Ratios');
-  $('financialsDetail').innerHTML=(pRows||'<span class="na">No verified Profit & Loss table returned by the provider.</span>')+extraFinancials;
+  $('financialsDetail').innerHTML=renderKeyMetricMatrix(d)+(pRows||'<span class="na">No verified Profit & Loss table returned by the provider.</span>')+extraFinancials;
   const coverage=d.fundamentalCoverage||f.fundamentalCoverage||{};
   const sectionCoverage=coverage.sections||f.sectionCoverage||{};
   const covered=Object.values(sectionCoverage).filter(v=>v===true).length, total=Object.keys(sectionCoverage).length;
@@ -2147,3 +2172,17 @@ body.psi-easy-mode .psiEasyTools small{color:#60788e;line-height:1.4}
 })();
 </script>
 
+<style id="v40-92-complete-metric-matrix">
+.metricMatrix{margin:0 0 16px;padding:14px;border:1px solid #d6e4f0;border-radius:13px;background:linear-gradient(180deg,#fff,#f8fbff)}
+.metricMatrixHead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
+.metricMatrixHead h4{margin:0;color:#123b61;font-size:17px;font-weight:900}.metricMatrixHead p{margin:4px 0 0;color:#6b8195;font-size:11px}
+.metricMatrixHead>span{font-size:10px;font-weight:800;color:#647c91;background:#edf4fa;border-radius:20px;padding:6px 9px}
+.metricGroup{margin-top:12px}.metricGroup h5{margin:0 0 7px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#52718c}
+.metricGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.metricTile{min-width:0;padding:10px;border:1px solid #e0eaf2;border-radius:9px;background:#fff;display:flex;flex-direction:column;gap:5px}
+.metricTile>span{font-size:11px;color:#5f7890;font-weight:700}.metricTile strong{font-size:17px;line-height:1.2;color:#112f4c;overflow-wrap:anywhere}
+.metricTile small{font-size:9px;line-height:1.35;color:#8293a3;overflow-wrap:anywhere}.metricTile em{font-size:9px;color:#b45309;font-style:normal;font-weight:700}
+.metricTile.missingValue{background:#fbfcfd;border-style:dashed}.metricTile.missingValue strong{font-size:13px;color:#8a98a6}
+@media(max-width:900px){.metricGrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:600px){.metricMatrix{padding:10px}.metricMatrixHead{display:block}.metricMatrixHead>span{display:inline-block;margin-top:7px}.metricGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.metricTile{padding:8px}.metricTile strong{font-size:15px}}
+</style>
