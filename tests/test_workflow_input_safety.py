@@ -13,6 +13,13 @@ class WorkflowInputSafetyTests(unittest.TestCase):
         self.assertIn("inputs.build_signed_release || 'false'", script)
         self.assertIn('if [ "$BUILD_SIGNED_RELEASE" = "true" ]; then', script)
         self.assertNotIn('if [ "${{ inputs.build_signed_release }}" = "true" ]; then', script)
+        # reactivecircus/android-emulator-runner executes each script line as a
+        # separate shell command; the complete conditional must stay on one line.
+        script_body = script.split("script: |", 1)[1].strip().splitlines()
+        commands = [line.strip() for line in script_body if line.strip() and not line.lstrip().startswith("#")]
+        self.assertEqual(len(commands), 1, "emulator script must be a single shell command")
+        self.assertIn("; if [", commands[0])
+        self.assertIn("; fi", commands[0])
 
 
 if __name__ == "__main__":
