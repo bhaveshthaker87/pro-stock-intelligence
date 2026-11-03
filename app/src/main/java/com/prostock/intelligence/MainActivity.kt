@@ -24,8 +24,6 @@ import kotlin.math.abs
 
 class MainActivity : Activity() {
     private lateinit var web: WebView
-    private var filePathCallback: ValueCallback<Array<Uri>>? = null
-    private val csvPickerRequestCode = 4071
     private lateinit var provider: NativeProvider
 
     private fun jsonResponse(json: String): WebResourceResponse =
@@ -106,24 +104,6 @@ class MainActivity : Activity() {
             .build()
         Log.e("PSI_STARTUP", "ASSET_LOADER_READY")
         web.webChromeClient = object : WebChromeClient() {
-            override fun onShowFileChooser(webView: WebView, callback: ValueCallback<Array<Uri>>, fileChooserParams: FileChooserParams): Boolean {
-                filePathCallback?.onReceiveValue(null)
-                filePathCallback = callback
-                return try {
-                    val pick = Intent(Intent.ACTION_GET_CONTENT).apply {
-                        addCategory(Intent.CATEGORY_OPENABLE)
-                        type = "*/*"
-                        putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("text/csv", "text/comma-separated-values", "text/plain", "application/vnd.ms-excel", "application/octet-stream"))
-                    }
-                    startActivityForResult(Intent.createChooser(pick, "Select authorized CSV export"), csvPickerRequestCode)
-                    true
-                } catch (e: Exception) {
-                    filePathCallback?.onReceiveValue(null)
-                    filePathCallback = null
-                    Log.e("PSI_FILE_PICKER", "Unable to open CSV picker", e)
-                    false
-                }
-            }
             override fun onConsoleMessage(message: ConsoleMessage): Boolean {
                 if (message.messageLevel() == ConsoleMessage.MessageLevel.ERROR) {
                     Log.e("PSI_WEB", "${message.message()} (${message.sourceId()}:${message.lineNumber()})")
@@ -226,20 +206,7 @@ class MainActivity : Activity() {
         Log.e("PSI_STARTUP", "LOAD_URL_REQUESTED")
     }
 
-    @Deprecated("Deprecated in Android API")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (requestCode == csvPickerRequestCode) {
-            val callback = filePathCallback
-            filePathCallback = null
-            callback?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, data))
-            return
-        }
-        super.onActivityResult(requestCode, resultCode, data)
-    }
-
     override fun onDestroy() {
-        filePathCallback?.onReceiveValue(null)
-        filePathCallback = null
         if (::web.isInitialized) {
             // WebView must be detached from its parent before destroy(); destroying an
             // attached WebView can leave renderer resources and Activity windows behind.
