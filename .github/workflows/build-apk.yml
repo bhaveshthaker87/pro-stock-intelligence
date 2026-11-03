@@ -116,6 +116,34 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tests -v
 
+      - name: Validate Screener 30-stock reconciliation evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          input="data/screener/30-stock-reconciliation.csv"
+          report="app/build/reports/screener-30-stock-reconciliation.csv"
+          mkdir -p app/build/reports
+          if [ -f "$input" ]; then
+            python3 tools/validate_screener_reconciliation.py --input "$input"
+            cp "$input" "$report"
+          else
+            python3 tools/validate_screener_reconciliation.py --template-out "$report"
+            python3 tools/validate_screener_reconciliation.py --input "$report"
+            echo "::warning::Screener audit template generated; 0/360 values are independently verified."
+          fi
+          if [ "${{ inputs.build_signed_release }}" = "true" ]; then
+            test -f "$input" || { echo "::error::Signed production release requires the populated 30-stock Screener reconciliation CSV."; exit 1; }
+            python3 tools/validate_screener_reconciliation.py --input "$input" --require-complete
+          fi
+
+      - name: Upload Screener reconciliation evidence or NOT_TESTED template
+        if: always() && hashFiles('app/build/reports/screener-30-stock-reconciliation.csv') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: PRO-STOCK-INTELLIGENCE-V41-00-screener-reconciliation
+          path: app/build/reports/screener-30-stock-reconciliation.csv
+          if-no-files-found: warn
+
       # A build without an authorized gateway is useful for development, but must not
       # silently pass as a verified live-data release. Missing gateway is an explicit
       # non-fatal CI status; set REQUIRE_LIVE_PROVIDER_GATEWAY=true to enforce release gating.
@@ -295,9 +323,13 @@ jobs:
       - name: Build debug APK
         shell: bash
         env:
-          PROVIDER_GATEWAY_BASE_URL: ${{ vars.PROVIDER_GATEWAY_BASE_URL }}
+          PROVIDER_GATEWAY_BASE_URL_VAR: ${{ vars.PROVIDER_GATEWAY_BASE_URL }}
+          PROVIDER_GATEWAY_BASE_URL_SECRET: ${{ secrets.PROVIDER_GATEWAY_BASE_URL }}
         run: |
           set -euo pipefail
+          PROVIDER_GATEWAY_BASE_URL="${PROVIDER_GATEWAY_BASE_URL_VAR:-}"
+          if [ -z "$PROVIDER_GATEWAY_BASE_URL" ]; then PROVIDER_GATEWAY_BASE_URL="${PROVIDER_GATEWAY_BASE_URL_SECRET:-}"; fi
+          PROVIDER_GATEWAY_BASE_URL="${PROVIDER_GATEWAY_BASE_URL%/}"
           # Maven Central can temporarily throttle hosted runners (HTTP 429).
           # Retry dependency resolution/build with bounded backoff; never mask a persistent compile failure.
           attempt=1
@@ -391,11 +423,21 @@ jobs:
           gradle :app:assembleRelease --no-daemon --stacktrace -PproviderGatewayBaseUrl="$PROVIDER_GATEWAY_BASE_URL"
           APK="app/build/outputs/apk/release/app-release.apk"
           test -s "$APK"
-          apksigner verify --verbose "$APK"
+          apksigner verify --verbose --print-certs "$APK"
+          BADGING="$(aapt dump badging "$APK")"
+          echo "$BADGING" | grep -Fq "package: name='com.prostock.intelligence' versionCode='92' versionName='41.00'" || {
+            echo "::error::Release APK package/version metadata does not match V41.00 (versionCode 92)."
+            exit 1
+          }
           sha256sum "$APK" | tee "$APK.sha256"
-          echo "## Signed production APK" >> "$GITHUB_STEP_SUMMARY"
-          echo "**Status: SIGNATURE VERIFIED**" >> "$GITHUB_STEP_SUMMARY"
-          echo "Live provider gateway and release signing configuration were required for this build." >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## Signed production APK"
+            echo "**Status: SIGNATURE AND PACKAGE METADATA VERIFIED**"
+            echo "- Application ID: com.prostock.intelligence"
+            echo "- Version: 41.00 (92)"
+            echo "- SHA-256 checksum generated."
+            echo "- Runtime installation/launch verification is performed by the emulator smoke step."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload signed production APK
         if: inputs.build_signed_release == true && hashFiles('app/build/outputs/apk/release/app-release.apk') != ''
@@ -491,7 +533,12 @@ jobs:
           # Restore adequate resources: 2 GB / 2 cores caused a 15-minute boot
           # on the hosted runner and left too little time for app validation.
           emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot-load -no-snapshot-save -gpu swiftshader_indirect -memory 4096 -cores 4 -camera-back none
-          script: bash .github/scripts/android-smoke-test.sh
+          script: |
+            if [ "${{ inputs.build_signed_release }}" = "true" ]; then
+              PSI_SMOKE_APK="app/build/outputs/apk/release/app-release.apk" bash .github/scripts/android-smoke-test.sh
+            else
+              bash .github/scripts/android-smoke-test.sh
+            fi
 
       - name: Upload emulator dashboard screenshot and diagnostics
         if: always() && hashFiles('app/build/outputs/psi-emulator-logcat.txt') != ''
