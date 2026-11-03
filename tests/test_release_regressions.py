@@ -587,11 +587,13 @@ class ReleaseRegressionTests(unittest.TestCase):
     def test_saved_screener_queries_have_persistent_edits_and_auditable_scan_history(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        for item in ("master", "midcap", "smallcap", "oversold", "crash"):
+        for item in ("master", "midcap", "smallcap", "q4", "q5", "oversold", "crash"):
             self.assertIn(f'"{item}"', source)
         self.assertIn("Large Cap Value Recovery Screener", source)
         self.assertIn("Mid Cap Hidden Gems", source)
         self.assertIn("Small Cap Multibagger Hunter", source)
+        self.assertIn("Quality Growth at Discount", source)
+        self.assertIn("Aggressive Growth Multibaggers", source)
         self.assertIn("5% Crash Scanner", source)
         self.assertIn("psi_saved_screener_query_overrides_v1", html)
         self.assertIn("psi_screener_scan_history_v1", html)
@@ -604,12 +606,13 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("UNAVAILABLE — authorized OHLCV gateway not configured", source)
         self.assertIn("No third-party price series is substituted", source)
 
-if __name__ == "__main__":
-    unittest.main()
-
     def test_screener_financial_section_parser_handles_nested_div_containers(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("Locate the matching close tag for the exact id-bearing container", source)
         self.assertIn("var depth = 1", source)
         self.assertIn("for (m in token.findAll(html, open.range.last + 1))", source)
         self.assertNotIn('html.indexOf("</div>", start)', source)
+
+
+if __name__ == "__main__":
+    unittest.main()
