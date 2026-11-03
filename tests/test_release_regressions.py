@@ -612,13 +612,15 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertNotIn('html.indexOf("</div>", start)', source)
 
 
-    def test_emulator_runner_owns_adb_startup_before_device_registration(self):
+    def test_explicit_emulator_runner_owns_bounded_adb_startup(self):
         workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
-        emulator_step = workflow.index("uses: reactivecircus/android-emulator-runner@v2")
-        prefix = workflow[:emulator_step]
-        self.assertNotIn("adb start-server", prefix)
-        self.assertIn("The emulator action must own ADB startup", prefix)
-        self.assertIn("adb wait-for-device", (ROOT / ".github/scripts/android-smoke-test.sh").read_text(encoding="utf-8"))
+        emulator_runner = (ROOT / ".github/scripts/android-emulator-smoke.sh").read_text(encoding="utf-8")
+        self.assertIn("bash .github/scripts/android-emulator-smoke.sh", workflow)
+        self.assertNotIn("reactivecircus/android-emulator-runner@v2", workflow)
+        self.assertIn("adb start-server", emulator_runner)
+        self.assertIn("sys.boot_completed", emulator_runner)
+        self.assertIn("adb devices", emulator_runner)
+        self.assertNotIn("adb wait-for-device", emulator_runner)
 
     def test_csv_xlsx_upload_and_import_fallback_are_removed(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
