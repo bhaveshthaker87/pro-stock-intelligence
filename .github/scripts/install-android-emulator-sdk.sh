@@ -7,10 +7,14 @@ export ANDROID_HOME
 SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
 if [[ ! -x "$SDKMANAGER" ]]; then SDKMANAGER="$(command -v sdkmanager || true)"; fi
 [[ -x "$SDKMANAGER" ]] || { echo "::error::sdkmanager executable not found"; exit 1; }
-command -v emulator >/dev/null || { echo "::error::Android emulator executable missing"; exit 1; }
-command -v avdmanager >/dev/null || { echo "::error::avdmanager executable missing"; exit 1; }
+# Install the emulator package before checking its executable. The base
+# android-actions/setup-android step intentionally installs no optional packages.
+"$SDKMANAGER" --install 'emulator' 'platform-tools' 'platforms;android-34' --channel=0
 
-echo "Disk space before emulator SDK install:"
+command -v emulator >/dev/null || { echo "::error::Android emulator executable missing after sdkmanager installation"; exit 1; }
+command -v avdmanager >/dev/null || { echo "::error::avdmanager executable missing after SDK setup"; exit 1; }
+
+echo "Disk space before emulator system-image install:"
 df -h "$ANDROID_HOME"
 df -Pk "$ANDROID_HOME" | awk 'NR==2 { if ($4 < 6000000) { print "::error::Less than 6 GB free for emulator system image"; exit 1 } }'
 
@@ -50,7 +54,7 @@ if ! valid_image; then
   [[ "$installed" -eq 1 ]] || { echo "::error::Unable to install a valid Android 34 Google APIs x86_64 system image after 3 attempts."; exit 1; }
 fi
 
-sdkmanager --install 'emulator' 'platform-tools' 'platforms;android-34' --channel=0
+"$SDKMANAGER" --install 'platform-tools' 'platforms;android-34' --channel=0
 valid_image || { echo "::error::Android system image failed final integrity validation"; exit 1; }
 emulator -version
 adb version
