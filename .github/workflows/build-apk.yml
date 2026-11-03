@@ -526,7 +526,10 @@ jobs:
           # on the hosted runner and left too little time for app validation.
           emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot-load -no-snapshot-save -gpu swiftshader_indirect -memory 4096 -cores 4 -camera-back none
           script: |
-            if [ "${{ inputs.build_signed_release }}" = "true" ]; then
+            # workflow_dispatch inputs are empty on pull_request events. Normalize
+            # the optional value before testing it so the generated shell is always valid.
+            BUILD_SIGNED_RELEASE="${{ inputs.build_signed_release || 'false' }}"
+            if [ "$BUILD_SIGNED_RELEASE" = "true" ]; then
               PSI_SMOKE_APK="app/build/outputs/apk/release/app-release.apk" bash .github/scripts/android-smoke-test.sh
             else
               bash .github/scripts/android-smoke-test.sh
