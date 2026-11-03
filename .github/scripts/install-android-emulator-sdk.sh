@@ -7,16 +7,16 @@ export ANDROID_HOME
 SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
 if [[ ! -x "$SDKMANAGER" ]]; then SDKMANAGER="$(command -v sdkmanager || true)"; fi
 [[ -x "$SDKMANAGER" ]] || { echo "::error::sdkmanager executable not found"; exit 1; }
+echo "Disk space before emulator system-image install:"
+df -h "$ANDROID_HOME"
+df -Pk "$ANDROID_HOME" | awk 'NR==2 { if ($4 < 6000000) { print "::error::Less than 6 GB free for emulator system image"; exit 1 } }'
+
 # Install the emulator package before checking its executable. The base
 # android-actions/setup-android step intentionally installs no optional packages.
 "$SDKMANAGER" --install 'emulator' 'platform-tools' 'platforms;android-34' --channel=0
 
 command -v emulator >/dev/null || { echo "::error::Android emulator executable missing after sdkmanager installation"; exit 1; }
 command -v avdmanager >/dev/null || { echo "::error::avdmanager executable missing after SDK setup"; exit 1; }
-
-echo "Disk space before emulator system-image install:"
-df -h "$ANDROID_HOME"
-df -Pk "$ANDROID_HOME" | awk 'NR==2 { if ($4 < 6000000) { print "::error::Less than 6 GB free for emulator system image"; exit 1 } }'
 
 IMAGE_ID="system-images;android-34;google_apis;x86_64"
 IMAGE_DIR="$ANDROID_HOME/system-images/android-34/google_apis/x86_64"
