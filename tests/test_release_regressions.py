@@ -142,14 +142,6 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn(engine, source)
         self.assertIn(f"PRO-STOCK-INTELLIGENCE-V{version_name.replace('.', '-')}-debug", workflow)
 
-    def test_screener_xlsx_maps_infosys_ltd_company_name_to_nse_symbol(self):
-        importer = (ROOT / "app/src/main/assets/xlsx-import.js").read_text(encoding="utf-8")
-        self.assertIn("INFOSYSLTD:'INFY'", importer)
-        self.assertIn("const compact=company.toUpperCase().replace(/[^A-Z0-9]/g,'')", importer)
-        self.assertIn("Cannot safely map", importer)
-        self.assertIn("put('debtEquity'", importer)
-        self.assertIn("Derived 3-year CAGR from annual Sales row", importer)
-        self.assertIn("Derived 3-year CAGR from annual Net profit row", importer)
 
     def test_screener_data_carries_source_and_quality_metadata(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
@@ -177,21 +169,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn('raw.trim().uppercase(Locale.ROOT).endsWith(".BO") -> "BSE"', source)
 
 
-    def test_ci_syntax_checks_the_shared_csv_import_module(self):
-        workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
-        self.assertIn("node --check app/src/main/assets/csv-import.js", workflow)
 
-    def test_v4071_csv_import_path_is_wired_and_moneycontrol_is_not_claimed_as_scraped(self):
-        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
-        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        importer = (ROOT / "app/src/main/assets/csv-import.js").read_text(encoding="utf-8")
-        self.assertIn('id="dataSourcesBtn"', html)
-        self.assertIn('id="csvFile"', html)
-        self.assertIn('src="csv-import.js"', html)
-        self.assertIn("onShowFileChooser", source)
-        self.assertIn("Moneycontrol CSV", html)
-        self.assertIn("automated extraction", html)
-        self.assertIn("parseImportCsv", importer)
 
     def test_latest_fiscal_column_does_not_skip_blank_cells(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
@@ -502,12 +480,6 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("q.dayChangePct==null?'—'", html)
         self.assertIn("const displayedPrice=livePrice??referencePrice;", html)
 
-    def test_imported_price_only_fills_non_live_reference_field(self):
-        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
-        self.assertIn("d.market.screenerReferencePrice=numeric", html)
-        self.assertIn("!hasUsablePrice(d.market.price)&&!hasUsablePrice(d.market.screenerReferencePrice)", html)
-        self.assertIn("referenceOnly:true", html)
-        self.assertIn("continue;}if(excluded.has(key)", html)
 
     def test_52_week_range_is_derived_only_from_sufficient_ohlcv_history(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
@@ -639,6 +611,21 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertNotIn("adb start-server", prefix)
         self.assertIn("The emulator action must own ADB startup", prefix)
         self.assertIn("adb wait-for-device", (ROOT / ".github/scripts/android-smoke-test.sh").read_text(encoding="utf-8"))
+
+    def test_csv_xlsx_upload_and_import_fallback_are_removed(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
+        self.assertNotIn('id="csvFile"', html)
+        self.assertNotIn('id="csvSource"', html)
+        self.assertNotIn('id="useImportedCsv"', html)
+        self.assertNotIn("PSICsvImport", html)
+        self.assertNotIn("PSIXlsxImport", html)
+        self.assertNotIn("mergeImportedCsvData", html)
+        self.assertNotIn("onShowFileChooser", source)
+        self.assertNotIn("csvPickerRequestCode", source)
+        self.assertNotIn("csv-import.js", workflow)
+        self.assertNotIn("xlsx-import.js", workflow)
 
 
 if __name__ == "__main__":
