@@ -559,6 +559,27 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("Historical OHLCV reference only", html)
         self.assertIn("Screener reference price only — not live or exchange-verified", html)
 
+    def test_app_screenshot_audit_full_research_view_and_single_metric_source(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        # Research tools must not be hidden behind a first-run simple-mode gate.
+        self.assertIn("psi-easy-expanded", html)
+        self.assertIn('id="savedQueriesSection"', html)
+        self.assertIn('id="chartTechnicalSection"', html)
+        # A single detailed metric matrix replaces duplicate ratio and scorecard values.
+        self.assertIn("Complete Stock Metrics Matrix", html)
+        self.assertNotIn('id="screenerRatioSnapshot"', html)
+        self.assertIn("Metric-level values, reporting periods and source provenance are shown once", html)
+        # No CSV upload workaround is exposed for peer fundamentals or company news.
+        self.assertNotIn('id="peerCsvImportBtn"', html)
+        self.assertNotIn('id="newsCsvImportBtn"', html)
+        self.assertNotIn("Import peer data (CSV)", html)
+        self.assertNotIn("Import company news CSV", html)
+        # Saved Screener scans require a validated session; cookie presence alone is insufficient.
+        start = source.index("private fun runScreenerQuery(query: String)")
+        end = source.index("\n    private fun ", start)
+        self.assertIn("screenerSessionIsValidated()", source[start:end])
+
 if __name__ == "__main__":
     unittest.main()
 
