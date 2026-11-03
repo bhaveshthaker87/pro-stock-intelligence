@@ -122,7 +122,8 @@ jobs:
       - name: Validate configured authorized provider gateway
         shell: bash
         env:
-          PROVIDER_GATEWAY_BASE_URL: ${{ vars.PROVIDER_GATEWAY_BASE_URL }}
+          PROVIDER_GATEWAY_BASE_URL_VAR: ${{ vars.PROVIDER_GATEWAY_BASE_URL }}
+          PROVIDER_GATEWAY_BASE_URL_SECRET: ${{ secrets.PROVIDER_GATEWAY_BASE_URL }}
           REQUIRE_LIVE_PROVIDER_GATEWAY: ${{ vars.REQUIRE_LIVE_PROVIDER_GATEWAY }}
           REQUIRE_LIVE_DATA_INPUT: ${{ inputs.require_live_data }}
           BUILD_SIGNED_RELEASE_INPUT: ${{ inputs.build_signed_release }}
@@ -130,6 +131,9 @@ jobs:
           set -euo pipefail
           require_gateway="${REQUIRE_LIVE_PROVIDER_GATEWAY:-false}"
           if [ "${REQUIRE_LIVE_DATA_INPUT:-false}" = "true" ] || [ "${BUILD_SIGNED_RELEASE_INPUT:-false}" = "true" ]; then require_gateway=true; fi
+          PROVIDER_GATEWAY_BASE_URL="${PROVIDER_GATEWAY_BASE_URL_VAR:-}"
+          if [ -z "$PROVIDER_GATEWAY_BASE_URL" ]; then PROVIDER_GATEWAY_BASE_URL="${PROVIDER_GATEWAY_BASE_URL_SECRET:-}"; fi
+          PROVIDER_GATEWAY_BASE_URL="${PROVIDER_GATEWAY_BASE_URL%/}"
           if [ -z "${PROVIDER_GATEWAY_BASE_URL:-}" ]; then
             if [ "$require_gateway" = "true" ]; then
               echo "::error::Live provider validation is required but PROVIDER_GATEWAY_BASE_URL is not configured."
@@ -144,7 +148,14 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          case "$PROVIDER_GATEWAY_BASE_URL" in https://*) ;; *) echo "::error::Gateway URL must use HTTPS."; exit 1;; esac
+          python3 - "$PROVIDER_GATEWAY_BASE_URL" <<'PY'
+          import sys
+          from urllib.parse import urlsplit
+          u=urlsplit(sys.argv[1])
+          if u.scheme != "https" or not u.hostname or u.username or u.password or u.query or u.fragment:
+              raise SystemExit("Gateway URL must be a clean HTTPS base URL without embedded credentials, query or fragment.")
+          print("Gateway URL configuration: present; value intentionally redacted.")
+          PY
           mkdir -p /tmp/psi-provider
           curl --fail --silent --show-error --max-time 15 "$PROVIDER_GATEWAY_BASE_URL/v1/quote?symbol=INFY" -o /tmp/psi-provider/quote.json
           curl --fail --silent --show-error --max-time 20 "$PROVIDER_GATEWAY_BASE_URL/v1/history?symbol=INFY&range=1y" -o /tmp/psi-provider/history.json
@@ -315,15 +326,21 @@ jobs:
           set -euo pipefail
           for name in PSI_KEYSTORE_BASE64 PSI_KEYSTORE_PASSWORD PSI_KEY_ALIAS PSI_KEY_PASSWORD; do
             if [ -z "${!name:-}" ]; then
-              echo "::error::Signed release requested but required secret $name is missing."
+              echo "::error::Signed release requested but required secret $name is unavailable in this workflow context."
               exit 1
             fi
           done
           mkdir -p "$RUNNER_TEMP/android-signing"
-          printf '%s' "$PSI_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/android-signing/release.keystore"
-          keytool -list -keystore "$RUNNER_TEMP/android-signing/release.keystore" -storepass "$PSI_KEYSTORE_PASSWORD" >/dev/null
-          echo "PSI_KEYSTORE_FILE=$RUNNER_TEMP/android-signing/release.keystore" >> "$GITHUB_ENV"
-          echo "Android signing keystore validated; passwords remain in GitHub secrets."
+          KEYSTORE="$RUNNER_TEMP/android-signing/release.keystore"
+          printf '%s' "$PSI_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+          test -s "$KEYSTORE"
+          # Validate the store password and enumerate aliases without logging sensitive values.
+          keytool -list -keystore "$KEYSTORE" -storepass "$PSI_KEYSTORE_PASSWORD" >/dev/null
+          keytool -list -keystore "$KEYSTORE" -storepass "$PSI_KEYSTORE_PASSWORD" -alias "$PSI_KEY_ALIAS" >/dev/null
+          # Verify that the alias accepts the configured private-key password without exposing it.
+          keytool -keypasswd -keystore "$KEYSTORE" -storepass "$PSI_KEYSTORE_PASSWORD" -alias "$PSI_KEY_ALIAS" -keypass "$PSI_KEY_PASSWORD" -new "$PSI_KEY_PASSWORD" >/dev/null 2>&1
+          echo "PSI_KEYSTORE_FILE=$KEYSTORE" >> "$GITHUB_ENV"
+          echo "Android signing store and requested alias validated; secret values redacted."
 
       - name: Build signed release APK
         if: inputs.build_signed_release == true
@@ -332,9 +349,14 @@ jobs:
           PSI_KEYSTORE_PASSWORD: ${{ secrets.PSI_KEYSTORE_PASSWORD }}
           PSI_KEY_ALIAS: ${{ secrets.PSI_KEY_ALIAS }}
           PSI_KEY_PASSWORD: ${{ secrets.PSI_KEY_PASSWORD }}
-          PROVIDER_GATEWAY_BASE_URL: ${{ vars.PROVIDER_GATEWAY_BASE_URL }}
+          PROVIDER_GATEWAY_BASE_URL_VAR: ${{ vars.PROVIDER_GATEWAY_BASE_URL }}
+          PROVIDER_GATEWAY_BASE_URL_SECRET: ${{ secrets.PROVIDER_GATEWAY_BASE_URL }}
         run: |
           set -euo pipefail
+          PROVIDER_GATEWAY_BASE_URL="${PROVIDER_GATEWAY_BASE_URL_VAR:-}"
+          if [ -z "$PROVIDER_GATEWAY_BASE_URL" ]; then PROVIDER_GATEWAY_BASE_URL="${PROVIDER_GATEWAY_BASE_URL_SECRET:-}"; fi
+          PROVIDER_GATEWAY_BASE_URL="${PROVIDER_GATEWAY_BASE_URL%/}"
+          test -n "$PROVIDER_GATEWAY_BASE_URL" || { echo "::error::Gateway URL unavailable in release job."; exit 1; }
           gradle :app:assembleRelease --no-daemon --stacktrace -PproviderGatewayBaseUrl="$PROVIDER_GATEWAY_BASE_URL"
           APK="app/build/outputs/apk/release/app-release.apk"
           test -s "$APK"
