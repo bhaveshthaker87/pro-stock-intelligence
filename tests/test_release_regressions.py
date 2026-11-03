@@ -609,7 +609,7 @@ class ReleaseRegressionTests(unittest.TestCase):
     def test_30_stock_audit_reports_all_twelve_requested_fundamental_metrics(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         start = source.index("private fun screenerAudit30()")
-        end = source.index("\\n    private fun ", start)
+        end = source.index("\n    private fun ", start)
         audit = source[start:end]
         required = ("marketCap", "pe", "industryPE", "eps", "bookValue", "pb", "roe", "roce",
                     "debtEquity", "sales3y", "profit3y", "shareholding")
