@@ -314,6 +314,33 @@ jobs:
             attempt=$((attempt + 1))
           done
 
+      - name: Diagnose release configuration safely
+        if: always()
+        shell: bash
+        env:
+          GATEWAY_VAR: ${{ vars.PROVIDER_GATEWAY_BASE_URL }}
+          GATEWAY_SECRET: ${{ secrets.PROVIDER_GATEWAY_BASE_URL }}
+          KEYSTORE_B64: ${{ secrets.PSI_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.PSI_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.PSI_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.PSI_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          gateway_source=missing
+          if [ -n "${GATEWAY_VAR:-}" ]; then gateway_source=repository_variable
+          elif [ -n "${GATEWAY_SECRET:-}" ]; then gateway_source=repository_secret
+          fi
+          {
+            echo "## Safe release configuration diagnostics"
+            echo "| Setting | Configured | Runtime-accessible |"
+            echo "|---|---|---|"
+            if [ "$gateway_source" = "missing" ]; then echo "| PROVIDER_GATEWAY_BASE_URL | NO | NO |"; else echo "| PROVIDER_GATEWAY_BASE_URL | YES ($gateway_source) | YES |"; fi
+            for pair in "PSI_KEYSTORE_BASE64:$KEYSTORE_B64" "PSI_KEYSTORE_PASSWORD:$STORE_PASSWORD" "PSI_KEY_ALIAS:$KEY_ALIAS" "PSI_KEY_PASSWORD:$KEY_PASSWORD"; do
+              name="${pair%%:*}"; value="${pair#*:}"
+              if [ -n "$value" ]; then echo "| $name | YES | YES |"; else echo "| $name | NO | NO |"; fi
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+          # Never print secret values, their lengths, hashes, or decoded bytes.
       - name: Validate Android release signing configuration
         if: inputs.build_signed_release == true
         shell: bash
