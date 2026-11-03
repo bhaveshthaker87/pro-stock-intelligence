@@ -481,14 +481,13 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("REQUIRE_LIVE_PROVIDER_GATEWAY", workflow)
         self.assertIn("does not qualify as a live-data release", workflow)
 
-    def test_imported_event_csv_fallback_is_explicit_and_source_aware(self):
+    def test_corporate_events_are_rendered_from_direct_exchange_feed_without_csv_upload(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
-        self.assertIn("psiEventCsvParse", html)
-        self.assertIn("psi_imported_corporate_events_v1", html)
-        self.assertIn("eventCsvImportBtn", html)
-        self.assertIn("Imported CSV snapshot", html)
-        self.assertIn("an empty list does not mean no events exist", html)
-        self.assertIn("financial-results", html)
+        self.assertIn("Official NSE/BSE feeds", html)
+        self.assertIn("api('/api/company-events?symbol='", html)
+        self.assertNotIn("eventCsvImportBtn", html)
+        self.assertNotIn("Import Events CSV", html)
+        self.assertIn("filing link", html)
 
     def test_screener_reference_price_is_visible_but_never_mislabelled_live(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
@@ -540,13 +539,18 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("NSE_INDEX_FEED_NOT_CONFIGURED", method)
         self.assertNotIn("downstoxMarketIndices(specs)", method)
 
-    def test_active_news_route_uses_only_official_nse_source_link(self):
+    def test_news_dividend_results_use_direct_official_exchange_rss(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        start = source.index('"/api/news" -> {')
-        end = source.index('"/api/company-events" -> {', start)
-        route = source[start:end]
-        self.assertIn("corporate-filings-announcements", route)
-        self.assertNotIn("downstoxAnnouncements(raw)", route)
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        for feed in ("Online_announcements.xml", "Corporate_action.xml", "Board_Meetings.xml", "FinancialResultsFeed.aspx", "CorpActionFeed.aspx"):
+            self.assertIn(feed, source)
+        self.assertIn('"/api/news" -> exchangeFeedResponse(s, "NEWS")', source)
+        self.assertIn('"/api/dividend-stocks" -> exchangeFeedResponse("", "DIVIDENDS")', source)
+        self.assertIn('"/api/upcoming-results" -> exchangeFeedResponse("", "RESULTS")', source)
+        self.assertIn("fetchOfficialRss", source)
+        self.assertIn("verifiedSource", source)
+        self.assertNotIn("eventCsvImportBtn", html)
+        self.assertNotIn("Imported CSV snapshot", html)
 
     def test_screener_price_is_not_repromoted_to_live_during_full_data_merge(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
