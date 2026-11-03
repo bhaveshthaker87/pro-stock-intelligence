@@ -1957,6 +1957,112 @@ private class NativeProvider(private val appAssets: AssetManager) {
             .put("statusText", "Verified provider response • $source • as of $asOfText. Empty results mean no rows were returned, not that no events exist.")
     }
 
+
+    // Official exchange RSS aggregation. This is direct in-app retrieval (no CSV upload,
+    // no third-party scraping, no credential bypass). RSS records link back to original filings.
+    private data class ExchangeFeedItem(val title: String, val description: String, val link: String, val published: String, val source: String, val category: String)
+    private val exchangeFeedCache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, List<ExchangeFeedItem>>>()
+    private val exchangeFeedTtlMs = 5L * 60L * 1000L
+
+    private fun fetchOfficialRss(urlText: String, source: String, category: String): List<ExchangeFeedItem> {
+        val uri = URL(urlText)
+        val host = uri.host.lowercase(Locale.ROOT)
+        if (host !in setOf("nsearchives.nseindia.com", "archives.nseindia.com", "www.bseindia.com", "beta.bseindia.com"))
+            throw IOException("RSS host is not on the official exchange allowlist")
+        val cached = exchangeFeedCache[urlText]
+        if (cached != null && System.currentTimeMillis() - cached.first < exchangeFeedTtlMs) return cached.second
+        val c = uri.openConnection() as HttpURLConnection
+        c.connectTimeout = 5000; c.readTimeout = 7000; c.instanceFollowRedirects = true
+        c.setRequestProperty("User-Agent", "PRO-STOCK-INTELLIGENCE/1.0 (official exchange RSS reader)")
+        c.setRequestProperty("Accept", "application/rss+xml, application/xml, text/xml, */*")
+        try {
+            val code = c.responseCode
+            if (code !in 200..299) throw IOException("$source RSS returned HTTP $code")
+            val bytes = c.inputStream.use { it.readNBytes(2_000_001) }
+            if (bytes.size > 2_000_000) throw IOException("$source RSS exceeded 2 MB")
+            val factory = javax.xml.parsers.DocumentBuilderFactory.newInstance()
+            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
+            factory.setFeature("http://xml.org/sax/features/external-general-entities", false)
+            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false)
+            factory.isXIncludeAware = false; factory.isExpandEntityReferences = false
+            val doc = factory.newDocumentBuilder().parse(ByteArrayInputStream(bytes))
+            val nodes = doc.getElementsByTagName("item")
+            val out = ArrayList<ExchangeFeedItem>()
+            for (i in 0 until minOf(nodes.length, 300)) {
+                val node = nodes.item(i)
+                fun field(name: String): String {
+                    val children = node.childNodes
+                    for (j in 0 until children.length) {
+                        val child = children.item(j)
+                        if (child.nodeName.equals(name, true)) return child.textContent?.trim().orEmpty()
+                    }
+                    return ""
+                }
+                val title = cleanText(field("title")).take(500)
+                val desc = cleanText(field("description")).take(1800)
+                val link = field("link").trim()
+                val linkUri = try { URL(link) } catch (_: Exception) { null }
+                if (title.isBlank() || linkUri == null || linkUri.protocol != "https") continue
+                val linkHost = linkUri.host.lowercase(Locale.ROOT)
+                if (!(linkHost == "nseindia.com" || linkHost.endsWith(".nseindia.com") || linkHost == "bseindia.com" || linkHost.endsWith(".bseindia.com"))) continue
+                out.add(ExchangeFeedItem(title, desc, link, field("pubDate").trim(), source, category))
+            }
+            exchangeFeedCache[urlText] = System.currentTimeMillis() to out
+            return out
+        } finally { c.disconnect() }
+    }
+
+    private fun officialExchangeItems(): Pair<List<ExchangeFeedItem>, List<String>> {
+        val feeds = listOf(
+            Triple("https://nsearchives.nseindia.com/content/RSS/Online_announcements.xml", "NSE", "ANNOUNCEMENT"),
+            Triple("https://nsearchives.nseindia.com/content/RSS/Corporate_action.xml", "NSE", "CORPORATE_ACTION"),
+            Triple("https://nsearchives.nseindia.com/content/RSS/Board_Meetings.xml", "NSE", "BOARD_MEETING"),
+            Triple("https://www.bseindia.com/data/xml/announcements.aspx", "BSE", "ANNOUNCEMENT"),
+            Triple("https://www.bseindia.com/Data/XML/FinancialResultsFeed.aspx", "BSE", "FINANCIAL_RESULTS"),
+            Triple("https://www.bseindia.com/data/XML/CorpActionFeed.aspx", "BSE", "CORPORATE_ACTION"),
+            Triple("https://beta.bseindia.com/Data/XML/BoardMeetingsFeed.xml", "BSE", "BOARD_MEETING")
+        )
+        val items = ArrayList<ExchangeFeedItem>(); val errors = ArrayList<String>()
+        for ((url, source, category) in feeds) try { items.addAll(fetchOfficialRss(url, source, category)) }
+        catch (e: Exception) { errors.add("$source $category: ${e.message ?: "feed unavailable"}") }
+        return items.distinctBy { it.link }.sortedByDescending { it.published } to errors
+    }
+
+    private fun exchangeFeedResponse(symbol: String, mode: String): String {
+        val (all, errors) = officialExchangeItems()
+        val needle = symbol.trim().uppercase(Locale.ROOT)
+        val filtered = all.filter { item ->
+            val text = (item.title + " " + item.description).uppercase(Locale.ROOT)
+            val symbolMatch = needle.isBlank() || text.contains(needle) || text.contains(stockName(needle).uppercase(Locale.ROOT))
+            val dividend = text.contains("DIVIDEND") || text.contains("INTERIM DIV") || text.contains("FINAL DIV")
+            val results = text.contains("FINANCIAL RESULT") || text.contains("QUARTERLY RESULT") || text.contains("BOARD MEETING")
+            when (mode) {
+                "NEWS" -> symbolMatch
+                "DIVIDENDS" -> symbolMatch && dividend
+                "RESULTS" -> symbolMatch && results
+                "EVENTS" -> symbolMatch && (dividend || results || item.category == "CORPORATE_ACTION" || item.category == "BOARD_MEETING")
+                else -> symbolMatch
+            }
+        }.take(150)
+        val rows = JSONArray()
+        filtered.forEach { item ->
+            rows.put(JSONObject().put("title", item.title).put("description", item.description)
+                .put("link", item.link).put("publishedAt", item.published)
+                .put("source", item.source).put("category", item.category)
+                .put("symbol", needle).put("verifiedSource", true))
+        }
+        val successfulSources = all.map { it.source }.distinct()
+        val status = if (successfulSources.isNotEmpty()) "OFFICIAL_EXCHANGE_RSS" else "OFFICIAL_FEEDS_UNAVAILABLE"
+        val data = JSONObject().put("symbol", needle).put("rows", rows).put("news", rows)
+            .put("provider", successfulSources.joinToString(" + ").ifBlank { "Unavailable" })
+            .put("sourcesChecked", JSONArray().put("NSE official RSS").put("BSE official RSS"))
+            .put("sourceErrors", JSONArray().apply { errors.forEach { put(it) } })
+            .put("status", status).put("liveData", successfulSources.isNotEmpty())
+            .put("asOf", java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.ROOT).format(java.util.Date()))
+            .put("statusText", if (successfulSources.isNotEmpty()) "Official exchange RSS records shown in app. Open each filing link for the complete exchange disclosure; feeds may be delayed and are not a complete historical database." else "Official exchange feeds could not be reached. Retry later; no empty result is represented as confirmation that no event exists.")
+        return JSONObject().put("ok", true).put("data", data).toString()
+    }
+
     fun handle(path: String): String {
         val p = path.substringBefore("?")
         val q = parseQuery(path)
