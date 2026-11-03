@@ -18,6 +18,16 @@ class NseChartParityTests(unittest.TestCase):
         self.assertNotAlmostEqual(a["basis"],b["basis"],places=5)
         self.assertLess(a["lower"],a["basis"])
         self.assertGreater(a["upper"],a["basis"])
+    def test_audit_creates_nested_report_output_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)/"data"; root.mkdir()
+            output=Path(tmp)/"build"/"reports"/"audit.json"
+            report=MODULE.audit(root)
+            output.parent.mkdir(parents=True,exist_ok=True)
+            output.write_text(__import__("json").dumps(report),encoding="utf-8")
+            self.assertTrue(output.is_file())
+            self.assertEqual(__import__("json").loads(output.read_text())["status"],"PARTIAL_INSUFFICIENT_HISTORY")
+
     def test_official_eod_dataset_reports_insufficient_history_instead_of_fabricating(self):
         with tempfile.TemporaryDirectory() as tmp:
             p=Path(tmp)/"2026-01-01.csv"
