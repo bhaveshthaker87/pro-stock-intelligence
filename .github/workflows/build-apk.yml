@@ -525,15 +525,9 @@ jobs:
           # Restore adequate resources: 2 GB / 2 cores caused a 15-minute boot
           # on the hosted runner and left too little time for app validation.
           emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot-load -no-snapshot-save -gpu swiftshader_indirect -memory 4096 -cores 4 -camera-back none
+          # The action executes script lines independently; keep the conditional on one shell line.
           script: |
-            # workflow_dispatch inputs are empty on pull_request events. Normalize
-            # the optional value before testing it so the generated shell is always valid.
-            BUILD_SIGNED_RELEASE="${{ inputs.build_signed_release || 'false' }}"
-            if [ "$BUILD_SIGNED_RELEASE" = "true" ]; then
-              PSI_SMOKE_APK="app/build/outputs/apk/release/app-release.apk" bash .github/scripts/android-smoke-test.sh
-            else
-              bash .github/scripts/android-smoke-test.sh
-            fi
+            BUILD_SIGNED_RELEASE="${{ inputs.build_signed_release || 'false' }}"; if [ "$BUILD_SIGNED_RELEASE" = "true" ]; then PSI_SMOKE_APK="app/build/outputs/apk/release/app-release.apk" bash .github/scripts/android-smoke-test.sh; else bash .github/scripts/android-smoke-test.sh; fi
 
       - name: Upload emulator dashboard screenshot and diagnostics
         if: always() && hashFiles('app/build/outputs/psi-emulator-logcat.txt') != ''
