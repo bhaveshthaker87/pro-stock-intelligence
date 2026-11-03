@@ -637,6 +637,15 @@ class ReleaseRegressionTests(unittest.TestCase):
         valuation = html[html.index("const v=["):html.index("const t=[")]
         self.assertEqual(valuation.count("criterion('Dividend Yield'"), 1)
 
+    def test_screener_30_stock_audit_retains_all_rows_after_403(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        audit = source[source.index("private fun screenerAudit30(): JSONObject {"):source.index("private fun screenerCookieHeader()")]
+        self.assertIn("val startedAt = System.currentTimeMillis()", audit)
+        self.assertIn('.put("completedAtEpochMs", System.currentTimeMillis())', audit)
+        self.assertIn('.put("attemptedStocks", rows.length())', audit)
+        self.assertIn('if (blocked) "ACCESS_BLOCKED_403" else "FETCH_FAILED"', audit)
+        self.assertNotIn("if (blocked) break", audit)
+
 
 if __name__ == "__main__":
     unittest.main()
