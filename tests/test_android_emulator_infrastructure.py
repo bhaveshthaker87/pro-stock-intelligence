@@ -27,6 +27,7 @@ class EmulatorInfrastructureTests(unittest.TestCase):
         self.assertIn("sys.boot_completed", EMULATOR)
         self.assertIn('status" == "device"', EMULATOR)
         self.assertIn("seq 1 120", EMULATOR)
+        self.assertNotIn("adb wait-for-device", EMULATOR)
         self.assertIn("exit 1", EMULATOR)
 
     def test_cleanup_is_idempotent_and_preserves_original_exit_code(self):
