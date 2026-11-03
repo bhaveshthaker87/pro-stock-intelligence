@@ -112,16 +112,19 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("val threeYearsBack = periods.getOrNull(3) ?: return", source)
         self.assertNotIn("row.drop(1).mapNotNull { asNumber(it) }.take(4)", source)
 
-    def test_peer_and_news_imports_are_source_aware_and_validated(self):
+    def test_peer_news_and_corporate_events_use_direct_providers_without_csv_workarounds(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
-        self.assertIn('id="peerCsvImport"', html)
-        self.assertIn('id="newsCsvImport"', html)
-        self.assertIn("psiImportPeerFile", html)
-        self.assertIn("psiImportNewsFile", html)
+        self.assertIn('id="peersDetail"', html)
+        self.assertIn('id="newsDetail"', html)
+        self.assertIn("authenticated Screener source", html)
+        self.assertIn("official NSE/BSE feeds", html)
+        self.assertNotIn('id="peerCsvImport"', html)
+        self.assertNotIn('id="newsCsvImport"', html)
+        self.assertNotIn("psiImportPeerFile", html)
+        self.assertNotIn("psiImportNewsFile", html)
+        self.assertNotIn("psiEventCsvParse", html)
+        self.assertNotIn("psiGetImportedEvents", html)
         self.assertIn("Peer data not yet validated", html)
-        self.assertIn("Only HTTPS links are accepted", html)
-        self.assertIn("imported peer snapshot; verify period", html)
-        self.assertIn("Imported company news snapshot", html)
 
     def test_release_markers_are_derived_from_current_gradle_version(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
