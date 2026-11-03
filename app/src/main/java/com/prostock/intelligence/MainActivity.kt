@@ -2091,9 +2091,16 @@ private class NativeProvider(private val appAssets: AssetManager) {
                             .put("statusText", "Provider dividend candidates • source: $source • as of ${d.optString("asOf")}. Verify official filings before investing.")
                             .put("partial", d.optBoolean("partial", false))).toString()
                     } else {
-                        val d = runScreenerQuery("Market Capitalization > 1000 AND Dividend yield > 1 AND Return on capital employed > 10")
-                        val rows = d.optJSONArray("rows") ?: JSONArray()
-                        JSONObject().put("ok", true).put("data", JSONObject().put("rows", rows).put("statusText", "Screener query results only; not a verified live dividend feed. Authentication and freshness are not independently certified.").put("provider", d.optString("provider", "Screener.in")).put("partial", true).put("liveData", false)).toString()
+                        // A Screener dividend-yield scan is not a dividend events/history feed.
+                        // Fail closed rather than presenting candidate stocks as dividend records.
+                        JSONObject().put("ok", true).put("data", JSONObject()
+                            .put("rows", JSONArray())
+                            .put("provider", "Unavailable")
+                            .put("status", "UNAVAILABLE_AUTHORIZED_DIVIDEND_SOURCE_REQUIRED")
+                            .put("statusText", "Verified dividend feed unavailable. Connect an authorized dividend gateway or import an official exchange/company dividend CSV snapshot. No candidate scan is presented as dividend history.")
+                            .put("officialUrl", "https://www.nseindia.com/companies-listing/corporate-filings-actions")
+                            .put("liveData", false)
+                            .put("partial", true)).toString()
                     }
                 }
                 "/api/upcoming-events" -> {
