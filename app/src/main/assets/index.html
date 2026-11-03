@@ -1841,8 +1841,8 @@ loadIndices();
 
 
 // V40.4 — restored saved Screener query workspace.
-const QUERY_CARD_ORDER=['master','midcap','smallcap','oversold','crash'];
-const QUERY_CARD_CLASS={master:'qmain',midcap:'qmid',smallcap:'qsmall',oversold:'qoversold',crash:'qcrash'};
+const QUERY_CARD_ORDER=['master','midcap','smallcap','q4','q5','oversold','crash'];
+const QUERY_CARD_CLASS={master:'qmain',midcap:'qmid',smallcap:'qsmall',q4:'qmid',q5:'qsmall',oversold:'qoversold',crash:'qcrash'};
 function escQ(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function qNormalizeRows(d){
   const cols=Array.isArray(d?.columns)?d.columns:[];
