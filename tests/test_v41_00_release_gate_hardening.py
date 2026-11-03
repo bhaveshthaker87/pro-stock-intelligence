@@ -22,7 +22,8 @@ class V4100ReleaseGateTests(unittest.TestCase):
         self.assertIn('apksigner verify --verbose --print-certs "$APK"',y)
         self.assertIn('aapt dump badging "$APK"',y)
         self.assertIn("versionCode='93' versionName='42.00'",y)
-        self.assertIn('PSI_SMOKE_APK="app/build/outputs/apk/release/app-release.apk"',y)
+        emulator_runner = (ROOT / ".github/scripts/android-emulator-smoke.sh").read_text(encoding="utf-8")
+        self.assertIn('PSI_SMOKE_APK="app/build/outputs/apk/release/app-release.apk"',emulator_runner)
         self.assertIn('APK="${PSI_SMOKE_APK:-app/build/outputs/apk/debug/app-debug.apk}"',smoke)
 
 if __name__=="__main__": unittest.main()
