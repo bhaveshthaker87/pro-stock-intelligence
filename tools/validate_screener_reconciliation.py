@@ -17,10 +17,11 @@ SYMBOLS = [
 # Twelve fields aligned to the approved reconciliation scope. Screener currentPrice
 # is a page snapshot/reference value and must never be represented as a live quote.
 METRICS = {
- "marketCap":"INR_CRORE", "currentPrice":"INR_PER_SHARE", "pe":"RATIO",
- "industryPE":"RATIO", "eps":"INR_PER_SHARE", "bookValue":"INR_PER_SHARE",
- "pb":"RATIO", "roe":"PERCENT", "roce":"PERCENT", "debtEquity":"RATIO",
- "dividendYield":"PERCENT", "salesOrProfitGrowth":"PERCENT"
+ # Keep this schema aligned exactly with the approved 30-stock x 12-metric audit.
+ "marketCap":"INR_CRORE", "pe":"RATIO", "industryPE":"RATIO",
+ "eps":"INR_PER_SHARE", "bookValue":"INR_PER_SHARE", "pb":"RATIO",
+ "roe":"PERCENT", "roce":"PERCENT", "debtEquity":"RATIO",
+ "salesGrowth3Y":"PERCENT", "profitGrowth3Y":"PERCENT", "shareholding":"PERCENT"
 }
 STATUSES={"VERIFIED_MATCH","VERIFIED_DIFFERENCE","ACCESS_BLOCKED_403","SOURCE_UNAVAILABLE","DATA_MISSING","SYMBOL_MAPPING_ERROR","UNIT_MISMATCH","PERIOD_MISMATCH","NOT_TESTED"}
 FIELDS=[
