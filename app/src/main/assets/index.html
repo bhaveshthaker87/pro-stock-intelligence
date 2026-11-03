@@ -1345,7 +1345,7 @@ async function renderDetails(d){
   else if(Array.isArray(q)&&q.length){pRows='<div class="sourcehint">Profit & Loss table unavailable; showing verified quarterly financials.</div><div class="scrollx"><table class="detailtable financialtable"><thead><tr><th>Period</th><th>Sales</th><th>Operating Profit</th><th>Net Profit</th><th>EPS</th></tr></thead><tbody>'+q.map(r=>`<tr><td>${safename(r.period||'—')}</td><td>${safename(r.sales||'—')}</td><td>${safename(r.operating_profit||'—')}</td><td>${safename(r.net_profit||'—')}</td><td>${safename(r.eps||'—')}</td></tr>`).join('')+'</tbody></table></div>'}
   $('quarterlyCompareDetail').innerHTML=renderQuarterlyComparison(q);
   const renderSourceTable=(rows,title)=>{if(!Array.isArray(rows)||!rows.length)return '';const head=rows[0]||[],body=rows.slice(1).filter(r=>Array.isArray(r)&&r.length);if(!head.length||!body.length)return '';return '<h4 class="detailSubhead">'+safename(title)+'</h4><div class="scrollx"><table class="detailtable financialtable"><thead><tr>'+head.map(x=>'<th>'+safename(x)+'</th>').join('')+'</tr></thead><tbody>'+body.map(r=>'<tr>'+r.map(x=>'<td>'+safename(x??'—')+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>'};
-  const extraFinancials=renderSourceTable(d.balanceSheet||f.balanceSheet,'Balance Sheet')+renderSourceTable(d.cashFlow||f.cashFlow,'Cash Flow')+renderSourceTable(d.ratios||f.ratios,'Financial Ratios');
+  const extraFinancials=renderSourceTable(d.balanceSheet||f.balanceSheet,'Balance Sheet')+renderSourceTable(d.cashFlow||f.cashFlow,'Cash Flow');
   $('financialsDetail').innerHTML=renderKeyMetricMatrix(d)+(pRows||'<span class="na">No verified Profit & Loss table returned by the provider.</span>')+extraFinancials;
   const coverage=d.fundamentalCoverage||f.fundamentalCoverage||{};
   const sectionCoverage=coverage.sections||f.sectionCoverage||{};
@@ -1359,9 +1359,7 @@ async function renderDetails(d){
   $('ownershipDetail').innerHTML=sRows+'<div class="sourcehint">Source: '+safename(f.provider||'Screener.in')+'</div>';
   const screenerPeers=d.peerComparison||f.peerComparison||[];
   if(Array.isArray(screenerPeers)&&screenerPeers.length){$('peersDetail').innerHTML=renderSourceTable(screenerPeers,'Screener Peer Comparison')+'<div class="sourcehint">Source: Screener.in · period labels retained from source</div>';}
-  const importedPeerRows=psiGetImportedPeers(window.sym||'');
-  if(!(Array.isArray(screenerPeers)&&screenerPeers.length)&&importedPeerRows.length){psiRenderPeers(importedPeerRows);}
-  else {
+  {
     try {
       const pd=await api('/api/peers?symbol='+encodeURIComponent(window.sym||''));
       const rows=Array.isArray(pd.peers)?pd.peers:[];
@@ -1373,7 +1371,6 @@ async function renderDetails(d){
       $('peersDetail').innerHTML='<div class="sourceEmpty"><b>Peer fundamentals are not fully available.</b><p>'+safename(detail)+'</p><p>Official NSE EOD supplies closing prices only. P/E, market cap, ROCE, ROE and EPS require dated Screener peer data; they will not be estimated.</p><a href="https://www.screener.in/company/'+encodeURIComponent(window.sym||'')+'/" target="_blank" rel="noopener noreferrer">Open Screener peer data ↗</a></div>';
     }
   }
-  const importedNews=[];
   try {
     const nd=await api('/api/news?symbol='+encodeURIComponent(window.sym||''));
     const apiNews=Array.isArray(nd.news)?nd.news:[];
@@ -1619,12 +1616,7 @@ async function loadChart(range, options={}){
         }
       }
     }
-    if(false){
-      const symbol=window.PSICsvImport?.symbolNorm(window.sym||$('search')?.value||'')||String(window.sym||$('search')?.value||'').trim().toUpperCase().replace(/\.(NS|BO)$/,'');
-      const imported=currentImportedRows(symbol).find(r=>Array.isArray(r.historyRows)&&r.historyRows.length>=2);
-      if(imported){rows=cleanRows(imported.historyRows);d={...d,provider:imported.source+' • user-imported OHLCV',chartMode:'OHLCV',historyWarning:'Imported file period/freshness not independently verified'};}
-    }
-    if(!rows.length)throw Error('No usable chart history was returned by the authorized gateway or official NSE EOD bundle.');
+    if(!rows.length)throw Error('No chart history is currently available for this symbol from the authorized gateway or official NSE EOD bundle. Chart controls remain visible; no synthetic candles are drawn.');
     if(!chartRangeSufficient(rows,range)&&rows.length<20)throw Error(chartCoverageMessage(rows,range));
     const oldView=window.chartView||{};
     const visibleCount=Math.max(1,(Number(oldView.end)||0)-(Number(oldView.start)||0)+1);
