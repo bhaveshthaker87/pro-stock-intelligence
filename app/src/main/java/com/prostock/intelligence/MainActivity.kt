@@ -797,10 +797,31 @@ private class NativeProvider(private val appAssets: AssetManager) {
             val value = asNumber(cleanText(valueHtml)) ?: return@forEach
             parsedAliases.getOrPut(key) { mutableListOf() }.add(value)
         }
+        // Fallback for Screener markup variants where the label/value spans are present
+        // but their CSS class names or nesting differ from the current template.
+        // Parse only within the same <li>; never search the full page for a nearby number.
+        ratioItems.forEach { item ->
+            val itemText = cleanText(item)
+            val normalizedItem = normalizeMetricLabel(itemText)
+            val alias = aliases.entries.sortedByDescending { it.key.length }
+                .firstOrNull { (label, _) -> normalizedItem == label || normalizedItem.startsWith(label + " ") }
+                ?: return@forEach
+            if (parsedAliases.containsKey(alias.value)) return@forEach
+            val trailingNumber = Regex("(-?[0-9][0-9,]*(?:\\.[0-9]+)?)\\s*%?\\s*$")
+                .find(itemText)?.groupValues?.getOrNull(1)?.let { asNumber(it) }
+                ?: return@forEach
+            parsedAliases.getOrPut(alias.value) { mutableListOf() }.add(trailingNumber)
+        }
         parsedAliases.forEach { (key, values) ->
             val distinct = values.distinct()
             // Conflicting duplicate labels are ambiguous; never select one arbitrarily.
-            if (distinct.size == 1 && !f.has(key)) f.put(key, distinct.single())
+            if (distinct.size == 1 && !f.has(key)) {
+                f.put(key, distinct.single())
+                val meta = JSONObject(f.optJSONObject("metricMeta")?.toString() ?: "{}")
+                meta.put(key, JSONObject().put("source", "Screener.in top-ratios section")
+                    .put("period", "Provider display value; reporting period not separately labelled"))
+                f.put("metricMeta", meta)
+            }
         }
         // Screener renders the 52-week range as one labelled value, e.g. "₹ 3,350 / 1,976".
         // Parse both numbers from that same row; do not infer them from other fields.
@@ -828,29 +849,9 @@ private class NativeProvider(private val appAssets: AssetManager) {
         val cashFlowRows = sectionTableRows(html, "cash-flow")
         val ratioTableRows = sectionTableRows(html, "ratios")
         val peerRows = sectionTableRows(html, "peers")
-        // Derive Industry P/E only from the actual peer table returned on this
-        // company page. Never substitute the stock's own P/E or an unrelated sector average.
+        // Industry P/E is provider-reported. Do not manufacture a substitute
+        // from a peer median: peer valuation is a different metric and must remain separate.
         fun normHeader(value: String): String = value.lowercase(Locale.ROOT).replace(Regex("[^a-z0-9]+"), " ").trim()
-        if (!f.has("industryPE") && peerRows.size > 1) {
-            val header = peerRows.first()
-            val peColumn = header.indexOfFirst { normHeader(it) in setOf("stock p e", "p e", "pe", "price to earnings") }
-            if (peColumn >= 0) {
-                val peerPes = peerRows.drop(1).mapNotNull { row ->
-                    row.getOrNull(peColumn)?.let { asNumber(it) }?.takeIf { it > 0.0 }
-                }.sorted()
-                if (peerPes.size >= 3) {
-                    val mid = peerPes.size / 2
-                    val median = if (peerPes.size % 2 == 0) (peerPes[mid - 1] + peerPes[mid]) / 2.0 else peerPes[mid]
-                    if (median.isFinite() && median > 0.0) {
-                        f.put("industryPE", median)
-                        f.put("industryPEMethod", "Median P/E of valid peers in the Screener peer table; n=" + peerPes.size)
-                        val meta = JSONObject(f.optJSONObject("metricMeta")?.toString() ?: "{}")
-                        meta.put("industryPE", JSONObject().put("source", "Screener.in peer table (derived peer median)").put("period", "Peer-table reporting period not labelled"))
-                        f.put("metricMeta", meta)
-                    }
-                }
-            }
-        }
         fun rowFor(rows: List<List<String>>, label: String): List<String>? =
             rows.drop(1).firstOrNull { row ->
                 val key = row.firstOrNull()?.trim().orEmpty()
@@ -1049,8 +1050,8 @@ private class NativeProvider(private val appAssets: AssetManager) {
                 return year * 100 + month
             }
             val datedColumns = header.indices.filter { it > 0 && periodKey(header[it]) >= 0 }
-            val latestColumn = datedColumns.maxByOrNull { periodKey(header[it]) }
-                ?: if (header.size > 1) header.lastIndex else -1
+            // If period headers cannot be interpreted, do not guess which column is latest.
+            val latestColumn = datedColumns.maxByOrNull { periodKey(header[it]) } ?: -1
             val latestPeriod = if (latestColumn > 0) header[latestColumn] else "Reporting period unavailable"
             fun normalizedOwnershipLabel(raw: String) =
                 raw.lowercase(Locale.ROOT).replace(Regex("[^a-z0-9]+"), " ").trim()
@@ -1062,12 +1063,14 @@ private class NativeProvider(private val appAssets: AssetManager) {
                         "promoters", "promoter" -> f.put("promoter", n)
                         "public" -> f.put("public", n)
                         // Aggregate rows only: do not sum underlying categories and double-count them.
-                        "fiis", "fii", "foreign institutional investors", "foreign institutional investor" -> f.put("fii", n)
-                        "diis", "dii", "domestic institutional investors", "domestic institutional investor" -> f.put("dii", n)
-                        "promoters pledged", "promoter pledged", "pledged percentage", "pledged percent" -> {
+                        "fiis", "fii", "fii fpi", "fii fpi holding", "fpi", "foreign institutional investors",
+                        "foreign institutional investor", "foreign portfolio investors" -> f.put("fii", n)
+                        "diis", "dii", "dii holding", "domestic institutional investors",
+                        "domestic institutional investor", "domestic institutions" -> f.put("dii", n)
+                        "promoters pledged", "promoter pledged", "pledged percentage", "pledged percent",
+                        "promoter holding pledged" -> {
                             f.put("pledged", n)
                             f.put("pledgedDefinition", "Percentage of promoter holding pledged, as labelled in the Screener shareholding table")
-                            if (f.has("promoter")) f.put("pledgedOfTotalShares", f.optDouble("promoter") * n / 100.0)
                         }
                     }
                     if ((label.contains("pledg") || label.contains("encumber")) && !f.has("pledged")) {
@@ -1077,8 +1080,13 @@ private class NativeProvider(private val appAssets: AssetManager) {
                     }
                 }
             }
+            // Compute the company-level pledged percentage only after promoter holding
+            // has been parsed, regardless of the row order in the provider table.
+            if (f.has("pledged") && f.has("promoter")) {
+                f.put("pledgedOfTotalShares", f.optDouble("promoter") * f.optDouble("pledged") / 100.0)
+            }
             val ownershipMeta = JSONObject(f.optJSONObject("metricMeta")?.toString() ?: "{}")
-            listOf("promoter", "public", "fii", "dii", "pledged").forEach { key ->
+            listOf("promoter", "public", "fii", "dii", "pledged", "pledgedOfTotalShares").forEach { key ->
                 if (f.has(key)) ownershipMeta.put(key, JSONObject()
                     .put("source", "Screener.in shareholding table")
                     .put("period", latestPeriod))
