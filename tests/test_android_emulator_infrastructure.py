@@ -45,6 +45,12 @@ class EmulatorInfrastructureTests(unittest.TestCase):
         self.assertIn("marketDataStatus", WORKFLOW)
         self.assertIn('{"REALTIME", "DELAYED", "EOD"}', WORKFLOW)
 
+    def test_emulator_host_runtime_dependencies_are_installed_before_emulator_launch(self):
+        self.assertIn("Install Android emulator host runtime dependencies", WORKFLOW)
+        self.assertIn("apt-get install --yes --no-install-recommends libpulse0", WORKFLOW)
+        self.assertIn("ldconfig -p | grep -F 'libpulse.so.0'", WORKFLOW)
+        self.assertLess(WORKFLOW.index("Install Android emulator host runtime dependencies"), WORKFLOW.index("Run Android emulator smoke test and capture screenshot"))
+
     def test_v42_version_and_optional_input_handling_remain(self):
         self.assertIn("versionCode='93' versionName='42.00'", WORKFLOW)
         self.assertIn("BUILD_SIGNED_RELEASE", EMULATOR)
