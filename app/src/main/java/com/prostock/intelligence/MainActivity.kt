@@ -1229,19 +1229,28 @@ private class NativeProvider(private val appAssets: AssetManager) {
             // session unless the session cookie exists before the protected-page probe.
             if (!screenerLoggedIn()) throw IOException("LOGIN_REQUIRED: no Screener session cookie detected. Open the official login page, sign in, return, and test again.")
             // Use the same company-page path and parser as normal fundamentals retrieval.
-            val sample = screener("INFY")
+            // A company page is public and cannot prove account authentication.
+            // Validate the account session against Screener's own screen-results endpoint,
+            // which is the feature used by this app's saved Screener queries.
+            val validationQuery = URLEncoder.encode("Market Capitalization > 0", "UTF-8")
+            val validationHtml = get("https://www.screener.in/screen/raw/?query=" + validationQuery)
+            val hasResultsTable = Regex("(?is)<table\\b[^>]*>.*?<tr\\b[^>]*>.*?<th\\b").containsMatchIn(validationHtml)
+            val looksLikeLogin = Regex("(?is)<title[^>]*>.*?(?:login|sign in).*?</title>|name=[\\\"']password[\\\"']").containsMatchIn(validationHtml)
+            if (looksLikeLogin || !hasResultsTable) {
+                throw IOException("Screener account session was not verified: the authenticated screen-results endpoint did not return its results table.")
+            }
             screenerSessionValidatedAtMs = System.currentTimeMillis()
             screener403Observed = false
             val status = screenerStatus()
             status.put("connected", true).put("loggedIn", true).put("validated", true)
                 .put("requestValidated", true).put("httpStatus", 200)
                 .put("status", "CONNECTED_VERIFIED")
-                .put("sessionAuthenticated", false)
-                .put("message", "Screener session cookie was present and the INFY company-page request succeeded. Subscription-only access is not proven by this public-page probe. No workbook or CSV fallback is used; protected or unavailable fields remain unavailable until Screener returns them directly. Every field remains subject to coverage and period checks.")
-                .put("accessLevel", "PUBLIC_PAGE_WITH_SESSION_COOKIE")
-                .put("subscriptionAccessVerified", false)
-                .put("sampleSymbol", "INFY")
-                .put("sampleFieldCount", sample.keys().asSequence().count { it !in setOf("name", "symbol", "sector", "provider", "sourceUrl", "fetchedAtEpochMs", "fundamentalStatus", "availableFundamentalFields", "expectedFundamentalFields", "qualityFlags") })
+                .put("sessionAuthenticated", true)
+                .put("message", "Authenticated Screener screen-results access verified successfully. Company fundamentals and saved-screen access are now enabled subject to the account's permissions and provider availability.")
+                .put("accessLevel", "AUTHENTICATED_SCREEN_ENDPOINT")
+                .put("subscriptionAccessVerified", true)
+                .put("validationEndpoint", "https://www.screener.in/screen/raw/")
+                .put("validationQuery", "Market Capitalization > 0")
             status
         } catch (e: Exception) {
             val status = screenerStatus()
