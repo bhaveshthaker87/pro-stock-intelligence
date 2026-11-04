@@ -7,10 +7,9 @@ export ANDROID_HOME
 # sdkmanager does not update PATH after installing optional SDK packages.
 SDK_PATHS=("$ANDROID_HOME/emulator" "$ANDROID_HOME/platform-tools" "$ANDROID_HOME/cmdline-tools/latest/bin")
 for sdk_path in "${SDK_PATHS[@]}"; do
-  if [[ -d "$sdk_path" ]]; then
-    case ":$PATH:" in *":$sdk_path:"*) ;; *) export PATH="$sdk_path:$PATH" ;; esac
-    if [[ -n "${GITHUB_PATH:-}" ]]; then printf '%s\n' "$sdk_path" >> "$GITHUB_PATH"; fi
-  fi
+  # Add the canonical path even before sdkmanager creates the package directory.
+  case ":$PATH:" in *":$sdk_path:"*) ;; *) export PATH="$sdk_path:$PATH" ;; esac
+  if [[ -n "${GITHUB_PATH:-}" ]]; then printf '%s\n' "$sdk_path" >> "$GITHUB_PATH"; fi
 done
 SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
 if [[ ! -x "$SDKMANAGER" ]]; then SDKMANAGER="$(command -v sdkmanager || true)"; fi
