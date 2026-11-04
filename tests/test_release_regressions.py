@@ -615,6 +615,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("sessionAuthenticated", probe)
         self.assertIn("AUTHENTICATED_SCREEN_ENDPOINT", probe)
         self.assertIn("Screener account session was not verified", probe)
+        self.assertIn('put("sessionAuthenticated", validated)', source)
         self.assertIn("Screener: Verify Login", html)
         self.assertIn("Screener: Login Required", html)
         self.assertIn("CONNECTED — authenticated Screener screen access verified", html)
