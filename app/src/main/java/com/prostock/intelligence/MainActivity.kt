@@ -883,8 +883,8 @@ private class NativeProvider(private val appAssets: AssetManager) {
         val currentAssetsPrev = annual(balanceRows, listOf("Current Assets"), 2)
         val currentLiabNow = annual(balanceRows, listOf("Current Liabilities"), 1)
         val currentLiabPrev = annual(balanceRows, listOf("Current Liabilities"), 2)
-        val debtNow = annual(balanceRows, listOf("Borrowings", "Long Term Borrowings", "Long Term Debt"), 1)
-        val debtPrev = annual(balanceRows, listOf("Borrowings", "Long Term Borrowings", "Long Term Debt"), 2)
+        val debtNow = annual(balanceRows, listOf("Long Term Borrowings", "Long Term Debt"), 1)
+        val debtPrev = annual(balanceRows, listOf("Long Term Borrowings", "Long Term Debt"), 2)
         val shareCapitalNow = annual(balanceRows, listOf("Share Capital"), 1)
         val shareCapitalPrev = annual(balanceRows, listOf("Share Capital"), 2)
         val grossNow = annual(pnlRows, listOf("Gross Profit"), 1)
@@ -910,8 +910,14 @@ private class NativeProvider(private val appAssets: AssetManager) {
         if (!f.has("piotroski") && piotroskiInputs.all { it != null }) {
             f.put("piotroski", piotroskiInputs.count { it == true })
             f.put("piotroskiMethod", "Calculated Piotroski F-score 0-9 from two consecutive annual Screener P&L, balance-sheet and cash-flow periods")
-            f.put("metricMeta", JSONObject(f.optJSONObject("metricMeta")?.toString() ?: "{}").put("piotroski",
-                JSONObject().put("source", "Calculated from Screener annual financial statements").put("period", "Latest two reported annual periods")))
+            val signalNames = listOf("ROA positive", "Operating cash flow positive", "ROA improved", "Operating cash flow exceeds net income", "Long-term debt ratio decreased", "Current ratio improved", "No increase in share capital", "Gross margin improved", "Asset turnover improved")
+            val signals = JSONObject()
+            signalNames.forEachIndexed { index, name -> signals.put(name, piotroskiInputs[index]) }
+            f.put("piotroskiSignals", signals)
+            val meta = JSONObject(f.optJSONObject("metricMeta")?.toString() ?: "{}")
+            meta.put("piotroski", JSONObject().put("source", "Calculated from Screener annual financial statements")
+                .put("period", "Latest two reported annual periods").put("method", "Nine-signal Piotroski F-Score"))
+            f.put("metricMeta", meta)
         } else if (f.has("piotroski")) {
             // Prefer Screener's explicitly reported score; do not overwrite it with a
             // partial or differently-perioded reconstruction from annual statements.
@@ -1080,7 +1086,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
             if (ownershipMeta.length() > 0) f.put("metricMeta", ownershipMeta)
         }
         val fetchedAt = System.currentTimeMillis()
-        val fieldKeys = listOf("price", "marketCap", "pe", "industryPE", "peg", "pb", "industryPB", "faceValue", "piotroski", "dma50", "dma200", "promoter", "public", "pledged", "bookValue", "dividendYield", "roce", "roe", "debtEquity", "eps", "netProfit", "operatingProfit", "opm", "sales3y", "profit3y", "profitVariance3y", "eps3y", "currentRatio", "interestCoverage", "rsi14", "high52", "low52", "quarterly", "shareholding", "pnl", "balanceSheet", "cashFlow", "ratios", "peerComparison")
+        val fieldKeys = listOf("price", "marketCap", "pe", "industryPE", "peg", "pb", "industryPB", "faceValue", "piotroski", "dma50", "dma200", "promoter", "public", "fii", "dii", "pledged", "pledgedOfTotalShares", "bookValue", "dividendYield", "roce", "roe", "debtEquity", "eps", "netProfit", "operatingProfit", "opm", "sales3y", "profit3y", "profitVariance3y", "eps3y", "currentRatio", "interestCoverage", "rsi14", "high52", "low52", "quarterly", "shareholding", "pnl", "balanceSheet", "cashFlow", "ratios", "peerComparison")
         val available = fieldKeys.count { f.has(it) && !f.isNull(it) && (f.optJSONArray(it)?.length() ?: 1) > 0 }
         val sectionCoverage = JSONObject()
             .put("profitLoss", pnlRows.isNotEmpty())
