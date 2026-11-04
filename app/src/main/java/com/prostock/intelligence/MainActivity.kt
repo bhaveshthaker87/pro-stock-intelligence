@@ -1220,7 +1220,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
             cookieDetected -> "Screener session cookie found. Checking access once against a company page before using fundamentals."
             else -> "Tap Connect Screener to open the official login page. Sign in there; the app will check the session when you return."
         }
-        return JSONObject().put("connected", validated).put("loggedIn", cookieDetected).put("sessionAuthenticated", false).put("cookieDetected", cookieDetected)
+        return JSONObject().put("connected", validated).put("loggedIn", cookieDetected).put("sessionAuthenticated", validated).put("cookieDetected", cookieDetected)
             .put("blockedBy403", blocked).put("validated", validated).put("requestValidated", validated)
             .put("status", if (blocked) "HTTP_403_FORBIDDEN" else if (validated) "CONNECTED_VERIFIED" else if (cookieDetected) "SESSION_UNVERIFIED" else "LOGIN_REQUIRED")
             .put("httpStatus", if (blocked) 403 else if (validated) 200 else JSONObject.NULL)
