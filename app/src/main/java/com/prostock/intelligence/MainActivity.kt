@@ -934,21 +934,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
         // Prefer the explicit ratio value when present; otherwise use the latest reported EPS cell.
         if (!f.has("eps")) setLatestFromTable(pnlRows, "EPS in Rs", "eps")
         if (!f.has("eps")) setLatestFromTable(pnlRows, "EPS", "eps")
-        // PEG = P/E divided by annual EPS CAGR (%). Only calculate for positive P/E
-        // and positive, finite EPS CAGR; negative/zero growth is not a meaningful PEG.
-        if (!f.has("peg") && f.has("pe") && f.has("eps3y")) {
-            val peValue = f.optDouble("pe", Double.NaN)
-            val epsGrowth = f.optDouble("eps3y", Double.NaN)
-            if (peValue.isFinite() && peValue > 0.0 && epsGrowth.isFinite() && epsGrowth > 0.0) {
-                f.put("peg", peValue / epsGrowth)
-                f.put("pegMethod", "Calculated: provider P/E divided by positive 3-year annual EPS CAGR (%)")
-                val meta = JSONObject(f.optJSONObject("metricMeta")?.toString() ?: "{}")
-                meta.put("peg", JSONObject().put("source", "Calculated from Screener P/E and EPS CAGR").put("period", "EPS CAGR period shown in source financials"))
-                f.put("metricMeta", meta)
-            } else {
-                f.put("pegStatus", "UNAVAILABLE_NON_POSITIVE_OR_INVALID_INPUT")
-            }
-        }
+        // PEG is provider-reported only; never derive it from P/E and EPS CAGR.
         setLatestFromTable(pnlRows, "Operating Profit", "operatingProfit")
         setLatestFromTable(pnlRows, "OPM %", "opm")
         setLatestFromTable(pnlRows, "Interest", "interestExpense")
@@ -983,19 +969,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
                 }
             }
         }
-        // PEG must use EPS growth, not profit growth. Profit growth can diverge
-        // materially from per-share growth because of dilution/buybacks and is not a
-        // valid substitute. Preserve Screener's reported PEG; derive only from EPS CAGR.
-        if (!f.has("peg")) {
-            val growth = f.optDouble("eps3y", Double.NaN).takeIf { it.isFinite() && it > 0.0 }
-            val pe = f.optDouble("pe", Double.NaN)
-            if (growth != null && pe.isFinite() && pe > 0.0) {
-                f.put("peg", pe / growth)
-                f.put("pegMethod", "P/E divided by 3-year EPS CAGR (%)")
-            } else {
-                f.put("pegStatus", "UNAVAILABLE_REQUIRES_POSITIVE_EPS_CAGR")
-            }
-        }
+        // PEG is provider-reported only; never derive it from P/E and EPS CAGR.
         // Derived ratios must use the newest fiscal column; never skip a blank latest cell.
         val currentAssets = rowFor(balanceRows, "Current Assets")?.getOrNull(1)?.let { asNumber(it) }
         val currentLiabilities = rowFor(balanceRows, "Current Liabilities")?.getOrNull(1)?.let { asNumber(it) }
