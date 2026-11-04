@@ -442,10 +442,11 @@ class DashboardUISmokeTests(unittest.TestCase):
             with self.subTest(metric=metric):
                 self.assertIn("criterion('" + metric + "'", html)
 
-    def test_peg_is_not_falsely_derived_from_profit_growth(self):
+    def test_peg_uses_screener_reported_value_without_silent_local_recalculation(self):
         html = HTML.read_text(encoding="utf-8")
-        self.assertIn("Number(f.eps3y)>0", html)
-        self.assertNotIn("Number(f.profit3y)>0)f.peg=Number(f.pe)/Number(f.profit3y)", html)
+        self.assertIn("PEG is displayed only when returned by Screener", html)
+        self.assertNotIn("f.peg=Number(f.pe)/Number(f.eps3y)", html)
+        self.assertNotIn("f.peg=Number(f.pe)/Number(f.profit3y)", html)
 
     def test_unavailable_calendar_is_not_rendered_as_verified_empty(self):
         html = HTML.read_text(encoding="utf-8")
