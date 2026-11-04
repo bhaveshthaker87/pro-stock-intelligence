@@ -496,7 +496,7 @@ class DashboardUISmokeTests(unittest.TestCase):
     def test_professional_source_status_and_chart_overprint_regressions(self):
         html = HTML.read_text(encoding="utf-8")
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn("Screener: Page Access OK", html)
+        self.assertIn("Screener: Connected ✓", html)
         self.assertNotIn("Screener Session Verified", html)
         self.assertIn("does not certify every field or its freshness", html)
         self.assertIn("Keep the plot clean: show only the most recent closed-bar signal", html)
