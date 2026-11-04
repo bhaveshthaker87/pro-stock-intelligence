@@ -770,8 +770,9 @@ private class NativeProvider(private val appAssets: AssetManager) {
             value.lowercase(Locale.ROOT).replace(Regex("[^a-z0-9]+"), " ").trim()
         val aliases = mapOf(
             "industry pe" to "industryPE", "industry p e" to "industryPE", "industry p e ratio" to "industryPE",
-            "peg ratio" to "peg", "peg" to "peg",
-            "face value" to "faceValue", "piotroski score" to "piotroski",
+            "industry p e" to "industryPE", "peg ratio" to "peg", "peg" to "peg",
+            "face value" to "faceValue", "piotroski score" to "piotroski", "piotroski" to "piotroski",
+            "fii holding" to "fii", "fii fpi holding" to "fii", "dii holding" to "dii",
             "dma 50" to "dma50", "50 dma" to "dma50", "dma 200" to "dma200", "200 dma" to "dma200",
             "promoter holding" to "promoter", "promoters" to "promoter",
             "public holding" to "public", "public" to "public",
@@ -909,14 +910,14 @@ private class NativeProvider(private val appAssets: AssetManager) {
             leverageReduced, currentRatioImproved, noShareIssue, grossMarginImproved, assetTurnoverImproved
         )
         if (!f.has("piotroski") && piotroskiInputs.all { it != null }) {
-            f.put("piotroski", piotroskiInputs.count { it == true })
-            f.put("piotroskiMethod", "Calculated Piotroski F-score 0-9 from two consecutive annual Screener P&L, balance-sheet and cash-flow periods")
+            f.put("piotroskiCalculated", piotroskiInputs.count { it == true })
+            f.put("piotroskiCalculatedMethod", "Calculated Piotroski F-score 0-9 from two consecutive annual Screener P&L, balance-sheet and cash-flow periods")
             val signalNames = listOf("ROA positive", "Operating cash flow positive", "ROA improved", "Operating cash flow exceeds net income", "Long-term debt ratio decreased", "Current ratio improved", "No increase in share capital", "Gross margin improved", "Asset turnover improved")
             val signals = JSONObject()
             signalNames.forEachIndexed { index, name -> signals.put(name, piotroskiInputs[index]) }
-            f.put("piotroskiSignals", signals)
+            f.put("piotroskiCalculatedSignals", signals)
             val meta = JSONObject(f.optJSONObject("metricMeta")?.toString() ?: "{}")
-            meta.put("piotroski", JSONObject().put("source", "Calculated from Screener annual financial statements")
+            meta.put("piotroskiCalculated", JSONObject().put("source", "Calculated from Screener annual financial statements")
                 .put("period", "Latest two reported annual periods").put("method", "Nine-signal Piotroski F-Score"))
             f.put("metricMeta", meta)
         } else if (f.has("piotroski")) {
