@@ -1260,7 +1260,8 @@ private class NativeProvider(private val appAssets: AssetManager) {
         } catch (e: Exception) {
             val status = screenerStatus()
             val blocked = screener403Observed || e.message.orEmpty().contains("403")
-            if (blocked || !screenerLoggedIn()) screenerSessionValidatedAtMs = 0L
+            // Any failed account probe invalidates the previous verification immediately.
+            screenerSessionValidatedAtMs = 0L
             status.put("connected", false).put("loggedIn", false).put("validated", false)
                 .put("requestValidated", false).put("blockedBy403", blocked)
                 .put("status", if (blocked) "HTTP_403_FORBIDDEN" else if (!screenerLoggedIn()) "LOGIN_REQUIRED" else "CONNECTION_FAILED")
