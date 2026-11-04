@@ -609,7 +609,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         start = source.index("private fun screenerConnectionTest()")
-        end = source.index("\\n    private fun ", start)
+        end = source.index("\n    private fun ", start)
         probe = source[start:end]
         self.assertIn("https://www.screener.in/screen/raw/?query=", probe)
         self.assertIn("sessionAuthenticated", probe)
