@@ -7,12 +7,13 @@ NATIVE = ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt"
 GRADLE = ROOT / "app/build.gradle"
 WORKFLOW = ROOT / ".github/workflows/build-apk.yml"
 
-class V4092IntegratedRecoveryTests(unittest.TestCase):
-    def test_version_is_aligned(self):
+class V4100IntegratedRecoveryTests(unittest.TestCase):
+    def test_v4200_version_is_aligned(self):
         gradle = GRADLE.read_text(encoding="utf-8")
         workflow = WORKFLOW.read_text(encoding="utf-8")
-        self.assertIn("versionName '40.92'", gradle)
-        self.assertIn("PRO-STOCK-INTELLIGENCE-V40-92-debug", workflow)
+        self.assertIn("versionName '42.02'", gradle)
+        self.assertIn("versionCode 95", gradle)
+        self.assertIn("PRO-STOCK-INTELLIGENCE-V42-02-debug", workflow)
 
     def test_screener_metrics_have_explicit_source_logic(self):
         source = NATIVE.read_text(encoding="utf-8")
@@ -21,10 +22,10 @@ class V4092IntegratedRecoveryTests(unittest.TestCase):
             '"piotroski score" to "piotroski"',
             '"peg ratio" to "peg"',
             '"pledged percentage" to "pledged"',
-            "Median P/E of valid peers in the Screener peer table",
+            "Industry P/E is provider-reported. Do not manufacture a substitute",
             "Reported directly by Screener company-page ratios",
-            "P/E divided by 3-year EPS CAGR (%)",
-            "UNAVAILABLE_REQUIRES_POSITIVE_EPS_CAGR",
+            "piotroskiCalculated",
+            "piotroskiCalculatedMethod",
         ):
             self.assertIn(token, source)
 
@@ -39,12 +40,12 @@ class V4092IntegratedRecoveryTests(unittest.TestCase):
         self.assertIn("OFFICIAL_NSE_EOD_UNAVAILABLE", source)
         self.assertIn("NSE_EOD_HISTORY_NOT_BUNDLED", history)
 
-    def test_chartink_is_user_driven_and_not_claimed_as_undocumented_api(self):
+    def test_chartink_is_only_opened_as_an_external_user_driven_page(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
-        self.assertIn("Chartink scan export (if available)", html)
         self.assertIn("openChartinkScanner", html)
-        self.assertIn("not an undocumented API scraper", html)
-        self.assertIn("chartink.com/screener/", html)
+        self.assertIn("window.location.href='https://chartink.com/screener/'", html)
+        self.assertNotIn("chartink.com/api", html)
+        self.assertNotIn("fetchChartinkResults", html)
 
     def test_complete_stock_metric_matrix_is_rendered_with_missing_states_and_provenance(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")

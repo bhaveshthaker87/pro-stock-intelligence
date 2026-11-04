@@ -14,6 +14,8 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("PSI_KEY_ALIAS", workflow)
         self.assertIn("PSI_KEY_PASSWORD", workflow)
         self.assertIn("apksigner verify --verbose", workflow)
+        self.assertIn('keytool -list -keystore "$KEYSTORE" -storepass "$PSI_KEYSTORE_PASSWORD" -alias "$PSI_KEY_ALIAS"', workflow)
+        self.assertIn('PROVIDER_GATEWAY_BASE_URL_SECRET: ${{ secrets.PROVIDER_GATEWAY_BASE_URL }}', workflow)
         self.assertIn("assembleRelease", workflow)
         self.assertIn("build_signed_release", workflow)
         self.assertIn("signingConfigs", gradle)
@@ -23,7 +25,9 @@ class ReleaseRegressionTests(unittest.TestCase):
         workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
         script = (ROOT / ".github/scripts/android-smoke-test.sh").read_text(encoding="utf-8")
         self.assertIn("Run Android emulator smoke test and capture screenshot", workflow)
-        self.assertIn("reactivecircus/android-emulator-runner@v2", workflow)
+        self.assertIn("bash .github/scripts/android-emulator-smoke.sh", workflow)
+        self.assertIn("bash .github/scripts/install-android-emulator-sdk.sh", workflow)
+        self.assertNotIn("reactivecircus/android-emulator-runner@v2", workflow)
         self.assertIn("PSI_DASHBOARD_DOM_READY", script)
         # The smoke test must install the built APK and wait for the dashboard DOM, not only foreground the Activity.
         self.assertIn("service check package", script)
@@ -31,9 +35,15 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("for attempt in 1 2 3 4; do", script)
         self.assertIn("APK installation failed after 4 attempts", script)
         self.assertIn("adb logcat -d -t 1200", script)
+        emulator_runner = (ROOT / ".github/scripts/android-emulator-smoke.sh").read_text(encoding="utf-8")
+        self.assertIn('PSI_SMOKE_APK="app/build/outputs/apk/release/app-release.apk"', emulator_runner)
         self.assertIn('adb shell am start -W -n "$ACTIVITY"', script)
         self.assertIn('ACTIVITY="com.prostock.intelligence/.MainActivity"', script)
         self.assertNotIn("while [ \"$attempt\" -lt 4 ]; do", workflow)
+        emulator_runner = (ROOT / ".github/scripts/android-emulator-smoke.sh").read_text(encoding="utf-8")
+        self.assertIn('PSI_SMOKE_APK="app/build/outputs/apk/release/app-release.apk"', emulator_runner)
+        emulator_runner = (ROOT / ".github/scripts/android-emulator-smoke.sh").read_text(encoding="utf-8")
+        self.assertIn('PSI_SMOKE_APK="app/build/outputs/apk/release/app-release.apk"', emulator_runner)
 
     def test_emulator_screenshot_does_not_write_to_sdcard(self):
         script = (ROOT / ".github/scripts/android-smoke-test.sh").read_text(encoding="utf-8")
@@ -112,16 +122,19 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("val threeYearsBack = periods.getOrNull(3) ?: return", source)
         self.assertNotIn("row.drop(1).mapNotNull { asNumber(it) }.take(4)", source)
 
-    def test_peer_and_news_imports_are_source_aware_and_validated(self):
+    def test_peer_news_and_corporate_events_use_direct_providers_without_csv_workarounds(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
-        self.assertIn('id="peerCsvImport"', html)
-        self.assertIn('id="newsCsvImport"', html)
-        self.assertIn("psiImportPeerFile", html)
-        self.assertIn("psiImportNewsFile", html)
+        self.assertIn('id="peersDetail"', html)
+        self.assertIn('id="newsDetail"', html)
+        self.assertIn("authenticated Screener source", html)
+        self.assertIn("official NSE/BSE feeds", html)
+        self.assertNotIn('id="peerCsvImport"', html)
+        self.assertNotIn('id="newsCsvImport"', html)
+        self.assertNotIn("psiImportPeerFile", html)
+        self.assertNotIn("psiImportNewsFile", html)
+        self.assertNotIn("psiEventCsvParse", html)
+        self.assertNotIn("psiGetImportedEvents", html)
         self.assertIn("Peer data not yet validated", html)
-        self.assertIn("Only HTTPS links are accepted", html)
-        self.assertIn("imported peer snapshot; verify period", html)
-        self.assertIn("Imported company news snapshot", html)
 
     def test_release_markers_are_derived_from_current_gradle_version(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
@@ -137,14 +150,6 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn(engine, source)
         self.assertIn(f"PRO-STOCK-INTELLIGENCE-V{version_name.replace('.', '-')}-debug", workflow)
 
-    def test_screener_xlsx_maps_infosys_ltd_company_name_to_nse_symbol(self):
-        importer = (ROOT / "app/src/main/assets/xlsx-import.js").read_text(encoding="utf-8")
-        self.assertIn("INFOSYSLTD:'INFY'", importer)
-        self.assertIn("const compact=company.toUpperCase().replace(/[^A-Z0-9]/g,'')", importer)
-        self.assertIn("Cannot safely map", importer)
-        self.assertIn("put('debtEquity'", importer)
-        self.assertIn("Derived 3-year CAGR from annual Sales row", importer)
-        self.assertIn("Derived 3-year CAGR from annual Net profit row", importer)
 
     def test_screener_data_carries_source_and_quality_metadata(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
@@ -172,21 +177,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn('raw.trim().uppercase(Locale.ROOT).endsWith(".BO") -> "BSE"', source)
 
 
-    def test_ci_syntax_checks_the_shared_csv_import_module(self):
-        workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
-        self.assertIn("node --check app/src/main/assets/csv-import.js", workflow)
 
-    def test_v4071_csv_import_path_is_wired_and_moneycontrol_is_not_claimed_as_scraped(self):
-        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
-        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        importer = (ROOT / "app/src/main/assets/csv-import.js").read_text(encoding="utf-8")
-        self.assertIn('id="dataSourcesBtn"', html)
-        self.assertIn('id="csvFile"', html)
-        self.assertIn('src="csv-import.js"', html)
-        self.assertIn("onShowFileChooser", source)
-        self.assertIn("Moneycontrol CSV", html)
-        self.assertIn("automated extraction", html)
-        self.assertIn("parseImportCsv", importer)
 
     def test_latest_fiscal_column_does_not_skip_blank_cells(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
@@ -363,7 +354,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         start = source.index("private fun screenerConnectionTest()")
         end = source.index("/**", start)
         probe = source[start:end]
-        self.assertIn('screener("INFY")', probe)
+        self.assertIn('https://www.screener.in/screen/raw/?query=', probe)
         self.assertIn('"CONNECTED_VERIFIED"', probe)
         self.assertIn('"HTTP_403_FORBIDDEN"', probe)
         self.assertIn('put("requestValidated", true)', probe)
@@ -372,7 +363,7 @@ class ReleaseRegressionTests(unittest.TestCase):
     def test_screener_ui_uses_simple_connect_and_connection_test_language(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         self.assertIn('id="session">Screener Login</button>', html)
-        self.assertIn('Screener: Page Access OK', html)
+        self.assertIn('Screener: Connected ✓', html)
         self.assertNotIn('Screener Session Verified', html)
         self.assertIn('Official Screener login is opening', html)
         self.assertIn('Screener Access Denied (403)', html)
@@ -497,12 +488,6 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("q.dayChangePct==null?'—'", html)
         self.assertIn("const displayedPrice=livePrice??referencePrice;", html)
 
-    def test_imported_price_only_fills_non_live_reference_field(self):
-        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
-        self.assertIn("d.market.screenerReferencePrice=numeric", html)
-        self.assertIn("!hasUsablePrice(d.market.price)&&!hasUsablePrice(d.market.screenerReferencePrice)", html)
-        self.assertIn("referenceOnly:true", html)
-        self.assertIn("continue;}if(excluded.has(key)", html)
 
     def test_52_week_range_is_derived_only_from_sufficient_ohlcv_history(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
@@ -559,8 +544,91 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("Historical OHLCV reference only", html)
         self.assertIn("Screener reference price only — not live or exchange-verified", html)
 
-if __name__ == "__main__":
-    unittest.main()
+    def test_app_screenshot_audit_full_research_view_and_single_metric_source(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        # Research tools must not be hidden behind a first-run simple-mode gate.
+        self.assertIn("psi-easy-expanded", html)
+        self.assertIn('id="savedQueriesSection"', html)
+        self.assertIn('id="chartTechnicalSection"', html)
+        # A single detailed metric matrix replaces duplicate ratio and scorecard values.
+        self.assertIn("Complete Stock Metrics Matrix", html)
+        self.assertNotIn('id="screenerRatioSnapshot"', html)
+        self.assertIn("Metric-level values, reporting periods and source provenance are shown once", html)
+        self.assertIn("available.length>=3&&coverage>=0.6", html)
+        # No CSV upload workaround is exposed for peer fundamentals or company news.
+        self.assertNotIn('id="peerCsvImportBtn"', html)
+        self.assertNotIn('id="newsCsvImportBtn"', html)
+        self.assertNotIn("Import peer data (CSV)", html)
+        self.assertNotIn("Import company news CSV", html)
+        # Saved Screener scans require a validated session; cookie presence alone is insufficient.
+        start = source.index("private fun runScreenerQuery(query: String)")
+        end = source.index("\n    private fun ", start)
+        self.assertIn("screenerSessionIsValidated()", source[start:end])
+
+    def test_saved_screener_queries_have_persistent_edits_and_auditable_scan_history(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        for item in ("master", "midcap", "smallcap", "q4", "q5", "oversold", "crash"):
+            self.assertIn(f'"{item}"', source)
+        self.assertIn("Large Cap Value Recovery Screener", source)
+        self.assertIn("Mid Cap Hidden Gems", source)
+        self.assertIn("Small Cap Multibagger Hunter", source)
+        self.assertIn("Quality Growth at Discount", source)
+        self.assertIn("Aggressive Growth Multibaggers", source)
+        self.assertIn("5% Crash Scanner", source)
+        self.assertIn("psi_saved_screener_query_overrides_v1", html)
+        self.assertIn("psi_screener_scan_history_v1", html)
+        self.assertIn("Save Query", html)
+        self.assertIn("Save & Run", html)
+        self.assertIn("Screener Scan History", html)
+        self.assertIn("function qAddHistory", html)
+        self.assertIn("function qRenderHistory", html)
+        # Technical scan must fail closed until an authorized historical-bar provider is configured.
+        self.assertIn("UNAVAILABLE — authorized OHLCV gateway not configured", source)
+        self.assertIn("No third-party price series is substituted", source)
+
+    def test_30_stock_audit_reports_all_eighteen_requested_fundamental_metrics(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        start = source.index("private fun screenerAudit30()")
+        end = source.index("\n    private fun ", start)
+        audit = source[start:end]
+        required = ("marketCap", "pe", "industryPE", "eps", "bookValue", "pb", "roe", "roce",
+                    "debtEquity", "sales3y", "profit3y", "shareholding", "peg", "piotroski",
+                    "fii", "dii", "pledged", "promoter")
+        for key in required:
+            self.assertIn(f'"{key}"', audit)
+        self.assertIn('"ACCESS_BLOCKED_403"', audit)
+        self.assertIn('"UNAVAILABLE_NOT_REPORTED"', audit)
+        self.assertIn('"INR_CRORE"', audit)
+        self.assertIn('"INR_PER_SHARE"', audit)
+        self.assertIn('.put("requestedStocks", symbols.size)', audit)
+        self.assertIn('.put("attemptedStocks", rows.length())', audit)
+
+    def test_screener_login_requires_authenticated_screen_endpoint_and_clear_ui_state(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        start = source.index("private fun screenerConnectionTest()")
+        end = source.index("\n    private fun ", start)
+        probe = source[start:end]
+        self.assertIn("https://www.screener.in/screen/raw/?query=", probe)
+        self.assertIn("sessionAuthenticated", probe)
+        self.assertIn("AUTHENTICATED_SCREEN_ENDPOINT", probe)
+        self.assertIn("Screener account session was not verified", probe)
+        self.assertIn('put("sessionAuthenticated", validated)', source)
+        self.assertIn("Screener: Verify Login", html)
+        self.assertIn("Screener: Login Required", html)
+        self.assertIn("CONNECTED — authenticated Screener screen access verified", html)
+        self.assertIn("Sign in to Screener", html)
+
+    def test_screener_metric_parser_has_markup_fallback_and_no_peer_median_substitution(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("Fallback for Screener markup variants", source)
+        self.assertIn("Parse only within the same <li>", source)
+        self.assertIn("Industry P/E is provider-reported", source)
+        self.assertNotIn("Median P/E of valid peers", source)
+        self.assertIn("piotroskiCalculated", source)
+
 
     def test_screener_financial_section_parser_handles_nested_div_containers(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
@@ -568,3 +636,52 @@ if __name__ == "__main__":
         self.assertIn("var depth = 1", source)
         self.assertIn("for (m in token.findAll(html, open.range.last + 1))", source)
         self.assertNotIn('html.indexOf("</div>", start)', source)
+
+
+    def test_explicit_emulator_runner_owns_bounded_adb_startup(self):
+        workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
+        emulator_runner = (ROOT / ".github/scripts/android-emulator-smoke.sh").read_text(encoding="utf-8")
+        self.assertIn("bash .github/scripts/android-emulator-smoke.sh", workflow)
+        self.assertNotIn("reactivecircus/android-emulator-runner@v2", workflow)
+        self.assertIn("adb start-server", emulator_runner)
+        self.assertIn("sys.boot_completed", emulator_runner)
+        self.assertIn("adb devices", emulator_runner)
+        self.assertNotIn("adb wait-for-device", emulator_runner)
+
+    def test_csv_xlsx_upload_and_import_fallback_are_removed(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
+        self.assertNotIn('id="csvFile"', html)
+        self.assertNotIn('id="csvSource"', html)
+        self.assertNotIn('id="useImportedCsv"', html)
+        self.assertNotIn("PSICsvImport", html)
+        self.assertNotIn("PSIXlsxImport", html)
+        self.assertNotIn("mergeImportedCsvData", html)
+        self.assertNotIn("onShowFileChooser", source)
+        self.assertNotIn("csvPickerRequestCode", source)
+        self.assertNotIn("csv-import.js", workflow)
+        self.assertNotIn("xlsx-import.js", workflow)
+
+    def test_valuation_factor_scores_relative_pe_pb_peg_and_dividend_yield(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("criterion('P/E vs Industry'", html)
+        self.assertIn("criterion('P/B vs Industry'", html)
+        self.assertIn("criterion('PEG Ratio',f.peg,'0–1.50x'", html)
+        self.assertIn("criterion('Dividend Yield',f.dividendYield,'> 0%'", html)
+        self.assertIn("(available.length>=3&&coverage>=0.6)", html)
+        valuation = html[html.index("const v=["):html.index("const t=[")]
+        self.assertEqual(valuation.count("criterion('Dividend Yield'"), 1)
+
+    def test_screener_30_stock_audit_retains_all_rows_after_403(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        audit = source[source.index("private fun screenerAudit30(): JSONObject {"):source.index("private fun screenerCookieHeader()")]
+        self.assertIn("val startedAt = System.currentTimeMillis()", audit)
+        self.assertIn('.put("completedAtEpochMs", System.currentTimeMillis())', audit)
+        self.assertIn('.put("attemptedStocks", rows.length())', audit)
+        self.assertIn('if (blocked) "ACCESS_BLOCKED_403" else "FETCH_FAILED"', audit)
+        self.assertNotIn("if (blocked) break", audit)
+
+
+if __name__ == "__main__":
+    unittest.main()

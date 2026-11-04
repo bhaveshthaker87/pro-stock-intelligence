@@ -1,0 +1,70 @@
+from pathlib import Path
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+WORKFLOW = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
+INSTALLER = (ROOT / ".github/scripts/install-android-emulator-sdk.sh").read_text(encoding="utf-8")
+EMULATOR = (ROOT / ".github/scripts/android-emulator-smoke.sh").read_text(encoding="utf-8")
+
+
+class EmulatorInfrastructureTests(unittest.TestCase):
+    def test_workflow_uses_explicit_emulator_scripts_not_action_auto_install(self):
+        self.assertIn("install-android-emulator-sdk.sh", WORKFLOW)
+        self.assertIn("android-emulator-smoke.sh", WORKFLOW)
+        self.assertNotIn("reactivecircus/android-emulator-runner", WORKFLOW)
+
+    def test_system_image_is_pinned_validated_and_retried_with_bounded_backoff(self):
+        self.assertIn("system-images;android-34;google_apis;x86_64", INSTALLER)
+        self.assertLess(INSTALLER.index('"$SDKMANAGER" --install \'emulator\''), INSTALLER.index('EMULATOR_BIN="$ANDROID_HOME/emulator/emulator"'))
+        self.assertIn('EMULATOR_BIN="$ANDROID_HOME/emulator/emulator"', INSTALLER)
+        self.assertIn('AVDMANAGER_BIN="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"', INSTALLER)
+        self.assertIn('"$GITHUB_PATH"', INSTALLER)
+        self.assertIn("for attempt in 1 2 3", INSTALLER)
+        self.assertIn("sleep $((attempt * 20))", INSTALLER)
+        self.assertIn("system.img", INSTALLER)
+        self.assertIn("source.properties", INSTALLER)
+        self.assertIn("package.xml", INSTALLER)
+        self.assertIn('rm -rf "$IMAGE_DIR"', INSTALLER)
+
+    def test_emulator_boot_and_adb_readiness_are_mandatory(self):
+        self.assertIn("sys.boot_completed", EMULATOR)
+        self.assertIn('status" == "device"', EMULATOR)
+        self.assertIn("seq 1 120", EMULATOR)
+        self.assertNotIn("adb wait-for-device", EMULATOR)
+        self.assertIn("exit 1", EMULATOR)
+
+    def test_avd_home_is_explicit_and_creation_is_verified_before_launch(self):
+        self.assertIn('export ANDROID_AVD_HOME="${ANDROID_AVD_HOME:-$HOME/.android/avd}"', EMULATOR)
+        self.assertIn('AVD_CONFIG="$ANDROID_AVD_HOME/$AVD_NAME.ini"', EMULATOR)
+        self.assertIn('emulator -list-avds | grep -Fxq "$AVD_NAME"', EMULATOR)
+        self.assertLess(EMULATOR.index('avdmanager create avd'), EMULATOR.index('emulator -avd "$AVD_NAME"'))
+
+    def test_adb_probes_are_bounded_to_prevent_hidden_ci_timeouts(self):
+        self.assertIn("timeout 12s adb -s emulator-5554 shell getprop", EMULATOR)
+        self.assertIn("timeout 8s adb devices", EMULATOR)
+        self.assertIn("timeout 10s adb start-server", EMULATOR)
+
+    def test_cleanup_is_idempotent_and_preserves_original_exit_code(self):
+        self.assertIn("trap cleanup EXIT INT TERM", EMULATOR)
+        self.assertIn("trap - EXIT INT TERM", EMULATOR)
+        self.assertIn("local rc=$?", EMULATOR)
+        self.assertIn("adb -s emulator-5554 emu kill", EMULATOR)
+
+    def test_smoke_test_is_not_skipped_and_market_data_never_promoted_to_live(self):
+        self.assertIn("android-smoke-test.sh", EMULATOR)
+        self.assertIn("marketDataStatus", WORKFLOW)
+        self.assertIn('{"REALTIME", "DELAYED", "EOD"}', WORKFLOW)
+
+    def test_emulator_host_runtime_dependencies_are_installed_before_emulator_launch(self):
+        self.assertIn("Install Android emulator host runtime dependencies", WORKFLOW)
+        self.assertIn("apt-get install --yes --no-install-recommends libpulse0", WORKFLOW)
+        self.assertIn("ldconfig -p | grep -F 'libpulse.so.0'", WORKFLOW)
+        self.assertLess(WORKFLOW.index("Install Android emulator host runtime dependencies"), WORKFLOW.index("Run Android emulator smoke test and capture screenshot"))
+
+    def test_v42_version_and_optional_input_handling_remain(self):
+        self.assertIn("versionCode='93' versionName='42.00'", WORKFLOW)
+        self.assertIn("BUILD_SIGNED_RELEASE", EMULATOR)
+
+
+if __name__ == "__main__":
+    unittest.main()
