@@ -354,7 +354,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         start = source.index("private fun screenerConnectionTest()")
         end = source.index("/**", start)
         probe = source[start:end]
-        self.assertIn('screener("INFY")', probe)
+        self.assertIn('https://www.screener.in/screen/raw/?query=', probe)
         self.assertIn('"CONNECTED_VERIFIED"', probe)
         self.assertIn('"HTTP_403_FORBIDDEN"', probe)
         self.assertIn('put("requestValidated", true)', probe)
@@ -363,7 +363,7 @@ class ReleaseRegressionTests(unittest.TestCase):
     def test_screener_ui_uses_simple_connect_and_connection_test_language(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         self.assertIn('id="session">Screener Login</button>', html)
-        self.assertIn('Screener: Page Access OK', html)
+        self.assertIn('Screener: Connected ✓', html)
         self.assertNotIn('Screener Session Verified', html)
         self.assertIn('Official Screener login is opening', html)
         self.assertIn('Screener Access Denied (403)', html)
