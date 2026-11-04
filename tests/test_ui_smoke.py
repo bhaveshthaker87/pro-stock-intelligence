@@ -22,7 +22,7 @@ _GRADLE = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
 VERSION_CODE = re.search(r"versionCode (\d+)", _GRADLE).group(1)
 VERSION_NAME = re.search(r"versionName '([^']+)'", _GRADLE).group(1)
 VERSION_TAG = f"V{VERSION_NAME}"
-ENGINE = f"{VERSION_TAG} AUTHORIZED GATEWAY + OFFICIAL NSE EOD ONLY"
+ENGINE = f"{VERSION_TAG} OFFICIAL NSE/BSE RSS + AUTHORIZED MARKET DATA"
 
 
 def launch_chromium(playwright):
