@@ -1137,12 +1137,16 @@ private class NativeProvider(private val appAssets: AssetManager) {
                 if (blocked || screener403Observed) throw IOException("Screener access blocked; remaining requests stopped")
                 val f = screener(symbol)
                 successfulPages++
-                // Reconcile the twelve requested financial metrics individually.
+                // Reconcile the original 12 baseline metrics plus all six previously
+                // missing provider metrics (18 metrics x 30 stocks = 540 checks).
                 // Keep source periods/units explicit and never convert missing data to zero.
                 val metricKeys = listOf("marketCap", "pe", "industryPE", "eps", "bookValue", "pb",
-                    "roe", "roce", "debtEquity", "sales3y", "profit3y", "shareholding")
+                    "roe", "roce", "debtEquity", "sales3y", "profit3y", "shareholding",
+                    "peg", "piotroski", "fii", "dii", "pledged", "promoter")
                 val units = mapOf(
-                    "marketCap" to "INR_CRORE", "pe" to "ratio", "industryPE" to "ratio",
+                    "marketCap" to "INR_CRORE", "pe" to "ratio", "industryPE" to "ratio", "peg" to "ratio",
+                    "piotroski" to "score_0_9", "fii" to "percent", "dii" to "percent",
+                    "pledged" to "provider_reported_percent", "promoter" to "percent",
                     "eps" to "INR_PER_SHARE", "bookValue" to "INR_PER_SHARE", "pb" to "ratio",
                     "roe" to "percent", "roce" to "percent", "debtEquity" to "ratio",
                     "sales3y" to "percent_3Y_GROWTH", "profit3y" to "percent_3Y_GROWTH",
