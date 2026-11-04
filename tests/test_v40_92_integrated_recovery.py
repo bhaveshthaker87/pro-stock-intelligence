@@ -11,9 +11,9 @@ class V4100IntegratedRecoveryTests(unittest.TestCase):
     def test_v4200_version_is_aligned(self):
         gradle = GRADLE.read_text(encoding="utf-8")
         workflow = WORKFLOW.read_text(encoding="utf-8")
-        self.assertIn("versionName '42.00'", gradle)
-        self.assertIn("versionCode 93", gradle)
-        self.assertIn("PRO-STOCK-INTELLIGENCE-V42-00-debug", workflow)
+        self.assertIn("versionName '42.02'", gradle)
+        self.assertIn("versionCode 95", gradle)
+        self.assertIn("PRO-STOCK-INTELLIGENCE-V42-02-debug", workflow)
 
     def test_screener_metrics_have_explicit_source_logic(self):
         source = NATIVE.read_text(encoding="utf-8")
@@ -22,10 +22,10 @@ class V4100IntegratedRecoveryTests(unittest.TestCase):
             '"piotroski score" to "piotroski"',
             '"peg ratio" to "peg"',
             '"pledged percentage" to "pledged"',
-            "Median P/E of valid peers in the Screener peer table",
+            "Industry P/E is provider-reported; peer median is not substituted",
             "Reported directly by Screener company-page ratios",
-            "P/E divided by 3-year EPS CAGR (%)",
-            "UNAVAILABLE_REQUIRES_POSITIVE_EPS_CAGR",
+            "piotroskiCalculated",
+            "piotroskiCalculatedMethod",
         ):
             self.assertIn(token, source)
 
