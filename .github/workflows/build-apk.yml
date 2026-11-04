@@ -139,7 +139,7 @@ jobs:
         if: always() && hashFiles('app/build/reports/screener-30-stock-reconciliation.csv') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V42-00-screener-reconciliation
+          name: PRO-STOCK-INTELLIGENCE-V42-02-screener-reconciliation
           path: app/build/reports/screener-30-stock-reconciliation.csv
           if-no-files-found: warn
 
@@ -315,7 +315,7 @@ jobs:
         if: always() && hashFiles('app/build/reports/nse-chart-parity-report.json') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V42-00-nse-chart-parity
+          name: PRO-STOCK-INTELLIGENCE-V42-02-nse-chart-parity
           path: app/build/reports/nse-chart-parity-report.json
           if-no-files-found: warn
 
@@ -425,7 +425,7 @@ jobs:
           apksigner verify --verbose --print-certs "$APK"
           BADGING="$(aapt dump badging "$APK")"
           echo "$BADGING" | grep -Fq "package: name='com.prostock.intelligence' versionCode='93' versionName='42.00'" || {
-            echo "::error::Release APK package/version metadata does not match V42.00 (versionCode 93)."
+            echo "::error::Release APK package/version metadata does not match V42.02 (versionCode 93)."
             exit 1
           }
           sha256sum "$APK" | tee "$APK.sha256"
@@ -442,7 +442,7 @@ jobs:
         if: inputs.build_signed_release == true && hashFiles('app/build/outputs/apk/release/app-release.apk') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V42-00-signed-release
+          name: PRO-STOCK-INTELLIGENCE-V42-02-signed-release
           path: |
             app/build/outputs/apk/release/app-release.apk
             app/build/outputs/apk/release/app-release.apk.sha256
@@ -460,7 +460,7 @@ jobs:
         if: always() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V42-00-debug
+          name: PRO-STOCK-INTELLIGENCE-V42-02-debug
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/app-debug.apk.sha256
@@ -476,7 +476,7 @@ jobs:
         if: always() && hashFiles('app/build/reports/lint-results-debug.html') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V42-00-lint-report
+          name: PRO-STOCK-INTELLIGENCE-V42-02-lint-report
           path: app/build/reports/lint-results-debug.html
           if-no-files-found: warn
 
@@ -536,7 +536,7 @@ jobs:
         if: always() && hashFiles('app/build/outputs/psi-emulator-logcat.txt') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V42-00-emulator-diagnostics
+          name: PRO-STOCK-INTELLIGENCE-V42-02-emulator-diagnostics
           path: |
             app/build/outputs/psi-emulator.png
             app/build/outputs/psi-emulator-logcat.txt
