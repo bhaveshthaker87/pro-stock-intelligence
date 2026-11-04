@@ -498,7 +498,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("Screener: Connected ✓", html)
         self.assertNotIn("Screener Session Verified", html)
-        self.assertIn("does not certify every field or its freshness", html)
+        self.assertIn("Screener is only validated after a live company-page request succeeds", html)
         self.assertIn("Keep the plot clean: show only the most recent closed-bar signal", html)
         self.assertIn("window.setDecorFitsSystemWindows(true)", source)
         self.assertIn("window.statusBarColor = Color.rgb(6, 38, 75)", source)
