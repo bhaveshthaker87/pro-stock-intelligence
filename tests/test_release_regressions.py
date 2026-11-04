@@ -588,13 +588,14 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("UNAVAILABLE — authorized OHLCV gateway not configured", source)
         self.assertIn("No third-party price series is substituted", source)
 
-    def test_30_stock_audit_reports_all_twelve_requested_fundamental_metrics(self):
+    def test_30_stock_audit_reports_all_eighteen_requested_fundamental_metrics(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         start = source.index("private fun screenerAudit30()")
         end = source.index("\n    private fun ", start)
         audit = source[start:end]
         required = ("marketCap", "pe", "industryPE", "eps", "bookValue", "pb", "roe", "roce",
-                    "debtEquity", "sales3y", "profit3y", "shareholding")
+                    "debtEquity", "sales3y", "profit3y", "shareholding", "peg", "piotroski",
+                    "fii", "dii", "pledged", "promoter")
         for key in required:
             self.assertIn(f'"{key}"', audit)
         self.assertIn('"ACCESS_BLOCKED_403"', audit)
@@ -603,6 +604,30 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn('"INR_PER_SHARE"', audit)
         self.assertIn('.put("requestedStocks", symbols.size)', audit)
         self.assertIn('.put("attemptedStocks", rows.length())', audit)
+
+    def test_screener_login_requires_authenticated_screen_endpoint_and_clear_ui_state(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        start = source.index("private fun screenerConnectionTest()")
+        end = source.index("\\n    private fun ", start)
+        probe = source[start:end]
+        self.assertIn("https://www.screener.in/screen/raw/?query=", probe)
+        self.assertIn("sessionAuthenticated", probe)
+        self.assertIn("AUTHENTICATED_SCREEN_ENDPOINT", probe)
+        self.assertIn("Screener account session was not verified", probe)
+        self.assertIn("Screener: Verify Login", html)
+        self.assertIn("Screener: Login Required", html)
+        self.assertIn("CONNECTED — authenticated Screener screen access verified", html)
+        self.assertIn("Sign in to Screener", html)
+
+    def test_screener_metric_parser_has_markup_fallback_and_no_peer_median_substitution(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("Fallback for Screener markup variants", source)
+        self.assertIn("Parse only within the same <li>", source)
+        self.assertIn("Industry P/E is provider-reported", source)
+        self.assertNotIn("Median P/E of valid peers", source)
+        self.assertIn("piotroskiCalculated", source)
+
 
     def test_screener_financial_section_parser_handles_nested_div_containers(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
