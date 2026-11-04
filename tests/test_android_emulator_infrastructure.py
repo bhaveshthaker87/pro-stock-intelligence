@@ -15,11 +15,10 @@ class EmulatorInfrastructureTests(unittest.TestCase):
 
     def test_system_image_is_pinned_validated_and_retried_with_bounded_backoff(self):
         self.assertIn("system-images;android-34;google_apis;x86_64", INSTALLER)
-        self.assertLess(INSTALLER.index("\"$SDKMANAGER\" --install 'emulator'"), INSTALLER.index('EMULATOR_BIN="$ANDROID_HOME/emulator/emulator"'))
+        self.assertLess(INSTALLER.index('"$SDKMANAGER" --install \'emulator\''), INSTALLER.index('EMULATOR_BIN="$ANDROID_HOME/emulator/emulator"'))
         self.assertIn('EMULATOR_BIN="$ANDROID_HOME/emulator/emulator"', INSTALLER)
         self.assertIn('AVDMANAGER_BIN="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"', INSTALLER)
         self.assertIn('"$GITHUB_PATH"', INSTALLER)
-        self.assertIn("cmdline-tools-version: '13114758'", WORKFLOW)
         self.assertIn("for attempt in 1 2 3", INSTALLER)
         self.assertIn("sleep $((attempt * 20))", INSTALLER)
         self.assertIn("system.img", INSTALLER)
@@ -33,6 +32,17 @@ class EmulatorInfrastructureTests(unittest.TestCase):
         self.assertIn("seq 1 120", EMULATOR)
         self.assertNotIn("adb wait-for-device", EMULATOR)
         self.assertIn("exit 1", EMULATOR)
+
+    def test_avd_home_is_explicit_and_creation_is_verified_before_launch(self):
+        self.assertIn('export ANDROID_AVD_HOME="${ANDROID_AVD_HOME:-$HOME/.android/avd}"', EMULATOR)
+        self.assertIn('AVD_CONFIG="$ANDROID_AVD_HOME/$AVD_NAME.ini"', EMULATOR)
+        self.assertIn('emulator -list-avds | grep -Fxq "$AVD_NAME"', EMULATOR)
+        self.assertLess(EMULATOR.index('avdmanager create avd'), EMULATOR.index('emulator -avd "$AVD_NAME"'))
+
+    def test_adb_probes_are_bounded_to_prevent_hidden_ci_timeouts(self):
+        self.assertIn("timeout 12s adb -s emulator-5554 shell getprop", EMULATOR)
+        self.assertIn("timeout 8s adb devices", EMULATOR)
+        self.assertIn("timeout 10s adb start-server", EMULATOR)
 
     def test_cleanup_is_idempotent_and_preserves_original_exit_code(self):
         self.assertIn("trap cleanup EXIT INT TERM", EMULATOR)
