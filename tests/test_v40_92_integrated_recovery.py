@@ -22,7 +22,7 @@ class V4100IntegratedRecoveryTests(unittest.TestCase):
             '"piotroski score" to "piotroski"',
             '"peg ratio" to "peg"',
             '"pledged percentage" to "pledged"',
-            "Industry P/E is provider-reported; peer median is not substituted",
+            "Industry P/E is provider-reported. Do not manufacture a substitute",
             "Reported directly by Screener company-page ratios",
             "piotroskiCalculated",
             "piotroskiCalculatedMethod",
