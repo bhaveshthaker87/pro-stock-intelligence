@@ -844,8 +844,9 @@ private class NativeProvider(private val appAssets: AssetManager) {
                     if (median.isFinite() && median > 0.0) {
                         f.put("industryPE", median)
                         f.put("industryPEMethod", "Median P/E of valid peers in the Screener peer table; n=" + peerPes.size)
-                        f.put("metricMeta", JSONObject().put("industryPE",
-                            JSONObject().put("source", "Screener.in peer table").put("period", "Peer-table reporting period not labelled")))
+                        val meta = JSONObject(f.optJSONObject("metricMeta")?.toString() ?: "{}")
+                        meta.put("industryPE", JSONObject().put("source", "Screener.in peer table (derived peer median)").put("period", "Peer-table reporting period not labelled"))
+                        f.put("metricMeta", meta)
                     }
                 }
             }
@@ -925,6 +926,21 @@ private class NativeProvider(private val appAssets: AssetManager) {
         // Prefer the explicit ratio value when present; otherwise use the latest reported EPS cell.
         if (!f.has("eps")) setLatestFromTable(pnlRows, "EPS in Rs", "eps")
         if (!f.has("eps")) setLatestFromTable(pnlRows, "EPS", "eps")
+        // PEG = P/E divided by annual EPS CAGR (%). Only calculate for positive P/E
+        // and positive, finite EPS CAGR; negative/zero growth is not a meaningful PEG.
+        if (!f.has("peg") && f.has("pe") && f.has("eps3y")) {
+            val peValue = f.optDouble("pe", Double.NaN)
+            val epsGrowth = f.optDouble("eps3y", Double.NaN)
+            if (peValue.isFinite() && peValue > 0.0 && epsGrowth.isFinite() && epsGrowth > 0.0) {
+                f.put("peg", peValue / epsGrowth)
+                f.put("pegMethod", "Calculated: provider P/E divided by positive 3-year annual EPS CAGR (%)")
+                val meta = JSONObject(f.optJSONObject("metricMeta")?.toString() ?: "{}")
+                meta.put("peg", JSONObject().put("source", "Calculated from Screener P/E and EPS CAGR").put("period", "EPS CAGR period shown in source financials"))
+                f.put("metricMeta", meta)
+            } else {
+                f.put("pegStatus", "UNAVAILABLE_NON_POSITIVE_OR_INVALID_INPUT")
+            }
+        }
         setLatestFromTable(pnlRows, "Operating Profit", "operatingProfit")
         setLatestFromTable(pnlRows, "OPM %", "opm")
         setLatestFromTable(pnlRows, "Interest", "interestExpense")
@@ -1000,17 +1016,68 @@ private class NativeProvider(private val appAssets: AssetManager) {
         if (ownershipRows.isNotEmpty()) {
             f.put("shareholding", jsonRows(ownershipRows))
             val header = ownershipRows.first()
+            // Select the newest dated reporting column instead of assuming column 1 is latest.
+            // Screener tables can be ordered oldest-first or newest-first across sections/layouts.
+            fun periodKey(raw: String): Int {
+                val text = raw.trim().lowercase(Locale.ROOT)
+                val year = Regex("(?:19|20)\\d{2}").find(text)?.value?.toIntOrNull() ?: return -1
+                val month = when {
+                    text.contains("jan") -> 1; text.contains("feb") -> 2; text.contains("mar") -> 3
+                    text.contains("apr") -> 4; text.contains("may") -> 5; text.contains("jun") -> 6
+                    text.contains("jul") -> 7; text.contains("aug") -> 8; text.contains("sep") -> 9
+                    text.contains("oct") -> 10; text.contains("nov") -> 11; text.contains("dec") -> 12
+                    Regex("[-/]0?1[-/]").containsMatchIn(text) -> 1
+                    Regex("[-/]0?2[-/]").containsMatchIn(text) -> 2
+                    Regex("[-/]0?3[-/]").containsMatchIn(text) -> 3
+                    Regex("[-/]0?4[-/]").containsMatchIn(text) -> 4
+                    Regex("[-/]0?5[-/]").containsMatchIn(text) -> 5
+                    Regex("[-/]0?6[-/]").containsMatchIn(text) -> 6
+                    Regex("[-/]0?7[-/]").containsMatchIn(text) -> 7
+                    Regex("[-/]0?8[-/]").containsMatchIn(text) -> 8
+                    Regex("[-/]0?9[-/]").containsMatchIn(text) -> 9
+                    Regex("[-/]10[-/]").containsMatchIn(text) -> 10
+                    Regex("[-/]11[-/]").containsMatchIn(text) -> 11
+                    Regex("[-/]12[-/]").containsMatchIn(text) -> 12
+                    else -> 0
+                }
+                return year * 100 + month
+            }
+            val datedColumns = header.indices.filter { it > 0 && periodKey(header[it]) >= 0 }
+            val latestColumn = datedColumns.maxByOrNull { periodKey(header[it]) }
+                ?: if (header.size > 1) header.lastIndex else -1
+            val latestPeriod = if (latestColumn > 0) header[latestColumn] else "Reporting period unavailable"
+            fun normalizedOwnershipLabel(raw: String) =
+                raw.lowercase(Locale.ROOT).replace(Regex("[^a-z0-9]+"), " ").trim()
             ownershipRows.drop(1).forEach { row ->
-                val label = row.firstOrNull()?.trim()?.lowercase(Locale.ROOT).orEmpty()
-                val lastValue = row.drop(1).firstOrNull()
-                val n = asNumber(lastValue)
-                if (n != null) {
-                    if (label == "promoters" || label.startsWith("promoters ")) f.put("promoter", n)
-                    if (label == "public" || label.startsWith("public ")) f.put("public", n)
-                    // Screener may label this as promoter pledge/pledged shares/encumbered.
-                    if (label.contains("pledg") || label.contains("encumber")) f.put("pledged", n)
+                val label = normalizedOwnershipLabel(row.firstOrNull().orEmpty())
+                val n = if (latestColumn > 0) row.getOrNull(latestColumn)?.let { asNumber(it) } else null
+                if (n != null && n in 0.0..100.0) {
+                    when (label) {
+                        "promoters", "promoter" -> f.put("promoter", n)
+                        "public" -> f.put("public", n)
+                        // Aggregate rows only: do not sum underlying categories and double-count them.
+                        "fiis", "fii", "foreign institutional investors", "foreign institutional investor" -> f.put("fii", n)
+                        "diis", "dii", "domestic institutional investors", "domestic institutional investor" -> f.put("dii", n)
+                        "promoters pledged", "promoter pledged", "pledged percentage", "pledged percent" -> {
+                            f.put("pledged", n)
+                            f.put("pledgedDefinition", "Percentage of promoter holding pledged, as labelled in the Screener shareholding table")
+                            if (f.has("promoter")) f.put("pledgedOfTotalShares", f.optDouble("promoter") * n / 100.0)
+                        }
+                    }
+                    if ((label.contains("pledg") || label.contains("encumber")) && !f.has("pledged")) {
+                        // Keep an explicit label for audit; do not infer a denominator from an ambiguous row.
+                        f.put("pledgedRaw", n)
+                        f.put("pledgedRawLabel", label)
+                    }
                 }
             }
+            val ownershipMeta = JSONObject(f.optJSONObject("metricMeta")?.toString() ?: "{}")
+            listOf("promoter", "public", "fii", "dii", "pledged").forEach { key ->
+                if (f.has(key)) ownershipMeta.put(key, JSONObject()
+                    .put("source", "Screener.in shareholding table")
+                    .put("period", latestPeriod))
+            }
+            if (ownershipMeta.length() > 0) f.put("metricMeta", ownershipMeta)
         }
         val fetchedAt = System.currentTimeMillis()
         val fieldKeys = listOf("price", "marketCap", "pe", "industryPE", "peg", "pb", "industryPB", "faceValue", "piotroski", "dma50", "dma200", "promoter", "public", "pledged", "bookValue", "dividendYield", "roce", "roe", "debtEquity", "eps", "netProfit", "operatingProfit", "opm", "sales3y", "profit3y", "profitVariance3y", "eps3y", "currentRatio", "interestCoverage", "rsi14", "high52", "low52", "quarterly", "shareholding", "pnl", "balanceSheet", "cashFlow", "ratios", "peerComparison")
