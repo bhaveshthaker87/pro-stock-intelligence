@@ -4,6 +4,14 @@ set -euo pipefail
 : "${ANDROID_HOME:?\$ANDROID_HOME must be set}"
 export ANDROID_SDK_ROOT="$ANDROID_HOME"
 export ANDROID_HOME
+# sdkmanager does not update PATH after installing optional SDK packages.
+SDK_PATHS=("$ANDROID_HOME/emulator" "$ANDROID_HOME/platform-tools" "$ANDROID_HOME/cmdline-tools/latest/bin")
+for sdk_path in "${SDK_PATHS[@]}"; do
+  if [[ -d "$sdk_path" ]]; then
+    case ":$PATH:" in *":$sdk_path:"*) ;; *) export PATH="$sdk_path:$PATH" ;; esac
+    if [[ -n "${GITHUB_PATH:-}" ]]; then printf '%s\n' "$sdk_path" >> "$GITHUB_PATH"; fi
+  fi
+done
 SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
 if [[ ! -x "$SDKMANAGER" ]]; then SDKMANAGER="$(command -v sdkmanager || true)"; fi
 [[ -x "$SDKMANAGER" ]] || { echo "::error::sdkmanager executable not found"; exit 1; }
@@ -15,8 +23,11 @@ df -Pk "$ANDROID_HOME" | awk 'NR==2 { if ($4 < 6000000) { print "::error::Less t
 # android-actions/setup-android step intentionally installs no optional packages.
 "$SDKMANAGER" --install 'emulator' 'platform-tools' 'platforms;android-34' --channel=0
 
-command -v emulator >/dev/null || { echo "::error::Android emulator executable missing after sdkmanager installation"; exit 1; }
-command -v avdmanager >/dev/null || { echo "::error::avdmanager executable missing after SDK setup"; exit 1; }
+EMULATOR_BIN="$ANDROID_HOME/emulator/emulator"
+AVDMANAGER_BIN="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
+[[ -x "$EMULATOR_BIN" ]] || { echo "::error::Android emulator package installed but $EMULATOR_BIN is missing or not executable"; find "$ANDROID_HOME/emulator" -maxdepth 2 -type f -name emulator -ls 2>/dev/null || true; exit 1; }
+[[ -x "$AVDMANAGER_BIN" ]] || { echo "::error::avdmanager executable missing at $AVDMANAGER_BIN"; exit 1; }
+[[ -x "$ANDROID_HOME/platform-tools/adb" ]] || { echo "::error::adb executable missing after platform-tools installation"; exit 1; }
 
 IMAGE_ID="system-images;android-34;google_apis;x86_64"
 IMAGE_DIR="$ANDROID_HOME/system-images/android-34/google_apis/x86_64"
@@ -56,7 +67,7 @@ fi
 
 "$SDKMANAGER" --install 'platform-tools' 'platforms;android-34' --channel=0
 valid_image || { echo "::error::Android system image failed final integrity validation"; exit 1; }
-emulator -version
-adb version
-sdkmanager --list_installed | grep -F "$IMAGE_ID"
+"$EMULATOR_BIN" -version
+"$ANDROID_HOME/platform-tools/adb" version
+"$SDKMANAGER" --list_installed | grep -F "$IMAGE_ID"
 echo "Validated emulator, platform-tools and $IMAGE_ID"
