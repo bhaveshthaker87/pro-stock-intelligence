@@ -15,7 +15,10 @@ class EmulatorInfrastructureTests(unittest.TestCase):
 
     def test_system_image_is_pinned_validated_and_retried_with_bounded_backoff(self):
         self.assertIn("system-images;android-34;google_apis;x86_64", INSTALLER)
-        self.assertLess(INSTALLER.index("\"$SDKMANAGER\" --install 'emulator'"), INSTALLER.index("command -v emulator"))
+        self.assertLess(INSTALLER.index("\"$SDKMANAGER\" --install 'emulator'"), INSTALLER.index('EMULATOR_BIN="$ANDROID_HOME/emulator/emulator"'))
+        self.assertIn('EMULATOR_BIN="$ANDROID_HOME/emulator/emulator"', INSTALLER)
+        self.assertIn('AVDMANAGER_BIN="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"', INSTALLER)
+        self.assertIn('"$GITHUB_PATH"', INSTALLER)
         self.assertIn("cmdline-tools-version: '13114758'", WORKFLOW)
         self.assertIn("for attempt in 1 2 3", INSTALLER)
         self.assertIn("sleep $((attempt * 20))", INSTALLER)
