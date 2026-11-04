@@ -1171,7 +1171,8 @@ private class NativeProvider(private val appAssets: AssetManager) {
                 row.put("status", if (blocked) "ACCESS_BLOCKED_403" else "FETCH_FAILED")
                     .put("error", message).put("metrics", JSONObject().apply {
                         listOf("marketCap", "pe", "industryPE", "eps", "bookValue", "pb", "roe", "roce",
-                            "debtEquity", "sales3y", "profit3y", "shareholding").forEach { key ->
+                            "debtEquity", "sales3y", "profit3y", "shareholding", "peg", "piotroski",
+                            "fii", "dii", "pledged", "promoter").forEach { key ->
                             put(key, JSONObject().put("value", JSONObject.NULL).put("status", if (blocked) "ACCESS_BLOCKED_403" else "UNAVAILABLE")
                                 .put("source", "Screener.in company page").put("period", "NOT_FETCHED").put("unit", "NOT_VERIFIED"))
                         }
@@ -1184,7 +1185,8 @@ private class NativeProvider(private val appAssets: AssetManager) {
             .put("attemptedStocks", rows.length()).put("successfulPages", successfulPages)
             .put("accessBlocked", blocked).put("complete", rows.length() == symbols.size && !blocked)
             .put("metrics", JSONArray().put("marketCap").put("pe").put("industryPE").put("eps").put("bookValue").put("pb")
-                .put("roe").put("roce").put("debtEquity").put("sales3y").put("profit3y").put("shareholding"))
+                .put("roe").put("roce").put("debtEquity").put("sales3y").put("profit3y").put("shareholding")
+                .put("peg").put("piotroski").put("fii").put("dii").put("pledged").put("promoter"))
             .put("rows", rows).put("note", "A page response validates only fields parsed on that page. Missing values remain unavailable; reporting periods are never inferred.")
     }
 
