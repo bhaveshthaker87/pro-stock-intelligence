@@ -4,19 +4,20 @@ from tools.validate_screener_reconciliation import FIELDS, METRICS, SYMBOLS, val
 
 
 class ScreenerReconciliationTests(unittest.TestCase):
-    def test_template_has_360_explicit_not_tested_rows_and_expected_metrics(self):
+    def test_template_has_540_explicit_not_tested_rows_and_expected_metrics(self):
         with tempfile.TemporaryDirectory() as d:
             p = write_template(Path(d) / "audit.csv")
             with p.open(newline="", encoding="utf-8") as f:
                 rows = list(csv.DictReader(f))
-            self.assertEqual(len(rows), 360)
-            self.assertEqual(len({(r["symbol"], r["metric"]) for r in rows}), 360)
+            self.assertEqual(len(rows), 540)
+            self.assertEqual(len({(r["symbol"], r["metric"]) for r in rows}), 540)
             self.assertTrue(all(r["status"] == "NOT_TESTED" for r in rows))
             self.assertEqual(len(SYMBOLS), 30)
-            self.assertEqual(len(METRICS), 12)
+            self.assertEqual(len(METRICS), 18)
             self.assertEqual(set(METRICS), {
                 "marketCap", "pe", "industryPE", "eps", "bookValue", "pb",
-                "roe", "roce", "debtEquity", "salesGrowth3Y", "profitGrowth3Y", "shareholding"
+                "roe", "roce", "debtEquity", "sales3y", "profit3y", "shareholding",
+                "peg", "piotroski", "fii", "dii", "pledged", "promoter"
             })
             self.assertNotIn("currentPrice", METRICS)
             self.assertNotIn("dividendYield", METRICS)
