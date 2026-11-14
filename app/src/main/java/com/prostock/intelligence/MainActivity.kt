@@ -926,12 +926,16 @@ private class NativeProvider(private val appAssets: AssetManager) {
                 f.put("metricMeta", meta)
             }
         }
-        // Screener renders the 52-week range as one labelled value, e.g. "₹ 3,350 / 1,976".
-        // Parse both numbers from that same row; do not infer them from other fields.
+        // Screener may label this row "High / Low", "52 Week High / Low", or
+        // "52 Week Range". Normalize punctuation before matching, and parse both
+        // values only from that exact row's number element.
         val highLowRows = ratioItems.filter { item ->
             val label = Regex("(?is)<span\\b[^>]*class=[\\\"'][^\\\"']*\\bname\\b[^\\\"']*[\\\"'][^>]*>(.*?)</span>")
                 .find(item)?.groupValues?.getOrNull(1)?.let { cleanText(it) } ?: return@filter false
-            normalizeMetricLabel(label) in setOf("high low", "52 week high low", "52 week range")
+            normalizeMetricLabel(label) in setOf(
+                "high low", "52 week high low", "52 week range",
+                "52 week high and low", "high and low", "52 week high low range"
+            )
         }
         if (highLowRows.size == 1) {
             val valueHtml = Regex("(?is)<span\\b[^>]*class=[\\\"'][^\\\"']*\\bnumber\\b[^\\\"']*[\\\"'][^>]*>(.*?)</span>")
@@ -940,8 +944,13 @@ private class NativeProvider(private val appAssets: AssetManager) {
                 Regex("(?<![A-Za-z])(?:₹\\s*)?([0-9][0-9,]*(?:\\.[0-9]+)?)").findAll(text)
                     .mapNotNull { asNumber(it.groupValues[1]) }.toList()
             }.orEmpty()
-            if (values.size == 2 && values[0] > 0 && values[1] > 0 && values[0] >= values[1]) {
+            // Reject missing, duplicate, inverted or non-positive values. A label
+            // match alone is not enough to publish a range.
+            if (values.size == 2 && values[0].isFinite() && values[1].isFinite() &&
+                values[0] > 0 && values[1] > 0 && values[0] >= values[1]) {
                 f.put("high52", values[0]).put("low52", values[1])
+                f.put("range52Source", "Screener.in company-page High / Low row")
+                f.put("range52Status", "PROVIDER_DISPLAY_VALUE_PERIOD_NOT_INDEPENDENTLY_VERIFIED")
             }
         }
 
@@ -1709,6 +1718,31 @@ private class NativeProvider(private val appAssets: AssetManager) {
             if (prevClose.isFinite() && prevClose > 0.0) {
                 out.put("previousClose", prevClose)
                 out.put("dayChangePct", ((close - prevClose) / prevClose) * 100.0)
+            }
+        }
+        // Calculate 52-week range from the full bundled NSE daily EQ history,
+        // not from the selected chart window or close-only prices. Require at
+        // least 200 valid daily bars spanning 300 calendar days.
+        if (history.length() >= 200) {
+            val firstTime = history.optJSONObject(0)?.optLong("time", 0L) ?: 0L
+            val lastTime = last.optLong("time", 0L)
+            val cutoff = lastTime - 365L * 24L * 60L * 60L * 1000L
+            val trailing = (0 until history.length()).mapNotNull { index ->
+                history.optJSONObject(index)?.takeIf { it.optLong("time", 0L) >= cutoff }
+            }
+            val highs = trailing.map { it.optDouble("high", Double.NaN) }.filter { it.isFinite() && it > 0.0 }
+            val lows = trailing.map { it.optDouble("low", Double.NaN) }.filter { it.isFinite() && it > 0.0 }
+            val minimumSpanMs = 300L * 24L * 60L * 60L * 1000L
+            if (lastTime > firstTime && lastTime - firstTime >= minimumSpanMs &&
+                trailing.size >= 200 && highs.size >= 200 && lows.size >= 200) {
+                val high52 = highs.maxOrNull() ?: Double.NaN
+                val low52 = lows.minOrNull() ?: Double.NaN
+                if (high52.isFinite() && low52.isFinite() && high52 >= low52 && low52 > 0.0) {
+                    out.put("high52", high52).put("low52", low52)
+                    .put("range52Source", "NSE CM-UDiFF Common Bhavcopy Final")
+                    .put("range52AsOf", last.optString("tradingDate"))
+                    .put("range52Status", "DERIVED_FROM_VALIDATED_NSE_EOD_HISTORY")
+                }
             }
         }
         return out
