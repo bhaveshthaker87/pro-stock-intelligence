@@ -1706,7 +1706,11 @@ private class NativeProvider(private val appAssets: AssetManager) {
         val previous = if (history.length() > 1) history.optJSONObject(history.length() - 2) else null
         val close = last.optDouble("close", Double.NaN)
         if (!close.isFinite() || close <= 0.0) throw IOException("Latest NSE EOD close is invalid")
+        // Return the exact validated history used for the quote and 52-week
+        // range so the caller does not rescan the entire bundled asset directory
+        // or accidentally combine two different history snapshots.
         val out = JSONObject().put("symbol", symbol).put("price", close).put("currency", "INR")
+            .put("rows", history)
             .put("provider", "NSE CM-UDiFF Common Bhavcopy Final").put("source", "NSE official EOD bhavcopy")
             .put("status", "EOD").put("marketDataStatus", "EOD")
             .put("quoteTimestamp", last.optLong("time") / 1000L)
