@@ -55,8 +55,12 @@ class V4100IntegratedRecoveryTests(unittest.TestCase):
 
     def test_no_fake_live_data_on_missing_gateway(self):
         source = NATIVE.read_text(encoding="utf-8")
-        self.assertIn("Yahoo/Moneycontrol fallback is disabled", source)
+        self.assertNotIn("https://query1.finance.yahoo.com", source)
+        self.assertNotIn("https://query2.finance.yahoo.com", source)
+        self.assertIn("Yahoo Finance and Moneycontrol are deliberately not quote/chart providers", source)
+        self.assertIn("Authorized NSE/vendor gateway is not configured", source)
         self.assertIn("No price or candle is fabricated", source)
+        self.assertIn("no website scraping or third-party fallback is used", source)
         self.assertIn("No third-party fallback is used", source)
 
 if __name__ == "__main__":
