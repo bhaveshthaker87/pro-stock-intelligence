@@ -730,11 +730,94 @@ private class NativeProvider(private val appAssets: AssetManager) {
             .put("marketDataDisclaimer", if (status == "REALTIME") "Provider-declared real-time quote; licensing and SLA must be verified at gateway." else "Quote is $status, not real-time. Use its disclosed timestamp and status.")
     }
 
+    private val nseWebsiteLock = Any()
+    @Volatile private var nseWebsiteCookies: String = ""
+    @Volatile private var nseWebsiteCookieAtMs: Long = 0L
+
+    /**
+     * Read-only access to the same public JSON endpoints used by NSE's own quote pages.
+     * Establishes a normal website session first; it does not solve CAPTCHAs, rotate
+     * identities, spoof tokens, or bypass a denial. A 403/429 is surfaced as unavailable.
+     */
+    private fun nseWebsiteGet(path: String, referer: String): JSONObject = synchronized(nseWebsiteLock) {
+        if (!path.startsWith("/api/")) throw IOException("NSE endpoint path rejected")
+        val now = System.currentTimeMillis()
+        if (nseWebsiteCookies.isBlank() || now - nseWebsiteCookieAtMs > 10 * 60 * 1000L) {
+            val home = (URL("https://www.nseindia.com/").openConnection() as HttpURLConnection)
+            home.connectTimeout = 6000; home.readTimeout = 8000
+            home.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/126.0.0.0 Mobile Safari/537.36")
+            home.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+            try {
+                val code = home.responseCode
+                if (code !in 200..299) throw IOException("NSE website session bootstrap returned HTTP $code")
+                nseWebsiteCookies = home.headerFields.entries.filter { it.key.equals("Set-Cookie", true) }
+                    .flatMap { it.value ?: emptyList() }.map { it.substringBefore(";") }
+                    .filter { it.contains("=") }.distinctBy { it.substringBefore("=") }.joinToString("; ")
+                if (nseWebsiteCookies.isBlank()) throw IOException("NSE website did not issue a session cookie")
+                nseWebsiteCookieAtMs = System.currentTimeMillis()
+            } finally { home.disconnect() }
+        }
+        val url = URL("https://www.nseindia.com" + path)
+        val c = url.openConnection() as HttpURLConnection
+        c.connectTimeout = 6000; c.readTimeout = 9000
+        c.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/126.0.0.0 Mobile Safari/537.36")
+        c.setRequestProperty("Accept", "application/json, text/javascript, */*; q=0.01")
+        c.setRequestProperty("Accept-Language", "en-IN,en;q=0.9")
+        c.setRequestProperty("Referer", referer)
+        c.setRequestProperty("X-Requested-With", "XMLHttpRequest")
+        c.setRequestProperty("Cookie", nseWebsiteCookies)
+        try {
+            val code = c.responseCode
+            if (code == 403 || code == 429) {
+                nseWebsiteCookies = ""; nseWebsiteCookieAtMs = 0L
+                throw IOException("NSE public website returned HTTP $code; access denied/rate limited. No bypass attempted.")
+            }
+            if (code !in 200..299) throw IOException("NSE public website returned HTTP $code")
+            val body = c.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            if (body.length !in 2..3_000_000) throw IOException("NSE returned an empty or oversized response")
+            JSONObject(body)
+        } finally { c.disconnect() }
+    }
+
     private fun nseQuote(raw: String): JSONObject {
         val symbol = canonical(raw)
-        if (symbol.isBlank()) throw IOException("Enter a valid NSE equity symbol")
-        if (!gatewayConfigured()) throw IOException("Authorized NSE/vendor gateway is not configured. Live price is unavailable; no website scraping or third-party fallback is used.")
-        return validatedGatewayQuote(symbol)
+        if (symbol.isBlank() || !symbol.matches(Regex("[A-Z0-9&_-]{1,25}"))) throw IOException("Enter a valid NSE equity symbol")
+        val page = "https://www.nseindia.com/get-quotes/equity?symbol=" + URLEncoder.encode(symbol, "UTF-8")
+        val data = nseWebsiteGet("/api/quote-equity?symbol=" + URLEncoder.encode(symbol, "UTF-8"), page)
+        val info = data.optJSONObject("priceInfo") ?: throw IOException("NSE quote payload has no priceInfo")
+        val price = info.optDouble("lastPrice", Double.NaN)
+        val previous = info.optDouble("previousClose", Double.NaN)
+        if (!price.isFinite() || price <= 0.0 || !previous.isFinite() || previous <= 0.0)
+            throw IOException("NSE quote returned invalid last/previous close")
+        val metadata = data.optJSONObject("metadata") ?: JSONObject()
+        val timestampText = metadata.optString("lastUpdateTime").trim()
+        val parsed = runCatching {
+            java.time.ZonedDateTime.parse(timestampText, java.time.format.DateTimeFormatter.ofPattern("dd-MMM-yyyy HH:mm:ss", Locale.ENGLISH))
+                .toInstant().toEpochMilli()
+        }.getOrNull()
+        val now = System.currentTimeMillis()
+        val age = parsed?.let { now - it }
+        val status = if (age != null && age in -60_000L..(15 * 60 * 1000L)) "WEBSITE_CURRENT_SNAPSHOT" else "WEBSITE_TIMESTAMP_UNVERIFIED_OR_STALE"
+        val out = JSONObject().put("symbol", symbol).put("resolvedSymbol", symbol)
+            .put("price", price).put("previousClose", previous)
+            .put("dayChangePct", info.optDouble("pChange", ((price - previous) / previous) * 100.0))
+            .put("currency", "INR").put("provider", "NSE India public quote page")
+            .put("source", "NSE India /api/quote-equity").put("status", status)
+            .put("marketDataStatus", status).put("quoteTimestampStatus", if (parsed != null) "NSE_PAGE_TIMESTAMP" else "MISSING")
+            .put("quoteAsOf", timestampText).put("quoteTimestamp", (parsed ?: 0L) / 1000L)
+            .put("quoteAgeSeconds", age?.div(1000L) ?: JSONObject.NULL)
+            .put("isExchangeCertifiedRealtime", false)
+            .put("marketDataDisclaimer", "NSE public website snapshot; not an exchange-certified/licensed real-time feed. Timestamp and freshness are shown separately.")
+            .put("rows", JSONArray()).put("historyProvider", "NSE quote page")
+            .put("historyStatus", "HISTORICAL_OHLC_NOT_RETURNED_BY_QUOTE_ENDPOINT")
+        val week = info.optJSONObject("weekHighLow")
+        week?.optDouble("max", Double.NaN)?.takeIf { it.isFinite() && it > 0 }?.let { out.put("high52", it) }
+        week?.optDouble("min", Double.NaN)?.takeIf { it.isFinite() && it > 0 }?.let { out.put("low52", it) }
+        info.optJSONObject("intraDayHighLow")?.let { day ->
+            day.optDouble("max", Double.NaN).takeIf { it.isFinite() && it > 0 }?.let { out.put("dayHigh", it) }
+            day.optDouble("min", Double.NaN).takeIf { it.isFinite() && it > 0 }?.let { out.put("dayLow", it) }
+        }
+        return out
     }
 
     private fun sectionTableRows(html: String, sectionId: String): List<List<String>> {
@@ -2001,8 +2084,44 @@ private class NativeProvider(private val appAssets: AssetManager) {
             return out
         }
         if (!gatewayConfigured()) {
-            return unavailable("NSE_INDEX_FEED_NOT_CONFIGURED",
-                "No approved NSE index-data feed is configured. Public website pages are not treated as a documented API; no third-party index snapshot is used.")
+            return try {
+                val data = nseWebsiteGet("/api/allIndices", "https://www.nseindia.com/market-data/live-market-indices")
+                val rows = data.optJSONArray("data") ?: throw IOException("NSE allIndices response has no data array")
+                val byName = mutableMapOf<String, JSONObject>()
+                for (i in 0 until rows.length()) {
+                    val row = rows.optJSONObject(i) ?: continue
+                    val name = row.optString("index").trim().uppercase(Locale.ROOT)
+                    if (name.isNotBlank()) byName[name] = row
+                }
+                val aliases = mapOf("NIFTY 50" to "NIFTY 50", "NIFTY BANK" to "NIFTY BANK",
+                    "NIFTY MIDCAP 100" to "NIFTY MIDCAP 100", "NIFTY SMALLCAP 100" to "NIFTY SMALLCAP 100",
+                    "NIFTY IT" to "NIFTY IT", "NIFTY AUTO" to "NIFTY AUTO", "NIFTY FMCG" to "NIFTY FMCG",
+                    "NIFTY PHARMA" to "NIFTY PHARMA", "NIFTY METAL" to "NIFTY METAL",
+                    "NIFTY PSU BANK" to "NIFTY PSU BANK", "NIFTY ENERGY" to "NIFTY ENERGY",
+                    "NIFTY INFRA" to "NIFTY INFRA", "NIFTY FIN SERVICE" to "NIFTY FINANCIAL SERVICES")
+                val out = JSONObject()
+                specs.forEach { (label, _) ->
+                    val row = aliases[label]?.let { byName[it] }
+                    val value = row?.optString("last")?.replace(",", "")?.toDoubleOrNull()
+                    val change = row?.optString("percentChange")?.replace(",", "")?.toDoubleOrNull()
+                    if (value != null && value.isFinite() && value > 0 && change != null && change.isFinite()) {
+                        out.put(label, JSONObject().put("value", value).put("changePct", change)
+                            .put("status", "NSE_WEBSITE_SNAPSHOT").put("priceSource", "NSE India public website")
+                            .put("provider", "NSE India /api/allIndices").put("sourceType", "WEBSITE_SNAPSHOT")
+                            .put("quoteTimestamp", JSONObject.NULL).put("isExchangeCertifiedRealtime", false)
+                            .put("marketDataDisclaimer", "Public NSE website snapshot. Timestamp not supplied in this response; not an exchange-certified/licensed real-time feed."))
+                    } else {
+                        out.put(label, JSONObject().put("value", JSONObject.NULL).put("changePct", JSONObject.NULL)
+                            .put("status", "INDEX_NOT_RETURNED_BY_NSE").put("priceSource", "NONE")
+                            .put("provider", "NSE India public website").put("sourceType", "NO_DATA")
+                            .put("quoteTimestamp", JSONObject.NULL).put("isExchangeCertifiedRealtime", false)
+                            .put("marketDataDisclaimer", "NSE public website did not return this index; no value substituted."))
+                    }
+                }
+                out
+            } catch (e: Exception) {
+                unavailable("NSE_WEBSITE_ACCESS_FAILED", "NSE public website quote unavailable: ${e.message ?: "unknown error"}. No alternate quote source is used.")
+            }
         }
         return try {
             val data = gatewayGet("/v1/indices")
