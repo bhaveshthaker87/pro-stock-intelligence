@@ -11,9 +11,9 @@ class V4100IntegratedRecoveryTests(unittest.TestCase):
     def test_v4200_version_is_aligned(self):
         gradle = GRADLE.read_text(encoding="utf-8")
         workflow = WORKFLOW.read_text(encoding="utf-8")
-        self.assertIn("versionName '42.02'", gradle)
-        self.assertIn("versionCode 95", gradle)
-        self.assertIn("PRO-STOCK-INTELLIGENCE-V42-02-debug", workflow)
+        self.assertIn("versionName '42.04'", gradle)
+        self.assertIn("versionCode 96", gradle)
+        self.assertIn("PRO-STOCK-INTELLIGENCE-V42-04-debug", workflow)
 
     def test_screener_metrics_have_explicit_source_logic(self):
         source = NATIVE.read_text(encoding="utf-8")
@@ -55,9 +55,23 @@ class V4100IntegratedRecoveryTests(unittest.TestCase):
 
     def test_no_fake_live_data_on_missing_gateway(self):
         source = NATIVE.read_text(encoding="utf-8")
-        self.assertIn("Yahoo/Moneycontrol fallback is disabled", source)
+        self.assertNotIn("https://query1.finance.yahoo.com", source)
+        self.assertNotIn("https://query2.finance.yahoo.com", source)
+        self.assertIn("Yahoo Finance and Moneycontrol are deliberately not quote/chart providers", source)
+        self.assertIn("Authorized NSE/vendor gateway is not configured", source)
         self.assertIn("No price or candle is fabricated", source)
+        self.assertIn("no website scraping or third-party fallback is used", source)
         self.assertIn("No third-party fallback is used", source)
+
+
+    def test_market_indices_never_scrape_nse_website_and_require_authorized_gateway(self):
+        source = NATIVE.read_text(encoding="utf-8")
+        method = source[source.index("private fun marketIndices(): JSONObject {"):source.index("private fun ", source.index("private fun marketIndices(): JSONObject {") + 20)]
+        self.assertIn('gatewayGet("/v1/indices")', method)
+        self.assertNotIn("nseWebsiteGet(", method)
+        self.assertNotIn("NSE_WEBSITE_SNAPSHOT", method)
+        self.assertIn("NSE_INDEX_FEED_NOT_CONFIGURED", method)
+        self.assertIn("PROVIDER_GATEWAY_VALIDATION_FAILED", method)
 
 if __name__ == "__main__":
     unittest.main()

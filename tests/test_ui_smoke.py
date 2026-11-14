@@ -246,9 +246,11 @@ class DashboardUISmokeTests(unittest.TestCase):
     def test_quote_data_disclaimer_is_explicit(self):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("marketDataDisclaimer", source)
-        self.assertIn("No bundled official NSE EOD close exists and no authorized live feed is configured", source)
+        self.assertIn("Authorized NSE/vendor gateway is not configured. Live price is unavailable", source)
+        self.assertIn("Bundled official NSE EOD, if present, is reference-only", source)
         self.assertIn("Official NSE EOD closing price", source)
         self.assertIn("Not live, delayed or intraday", source)
+        self.assertIn("No price or candle is fabricated", source)
 
 
     def test_provider_wording_does_not_claim_unverified_quotes_are_live(self):
@@ -398,6 +400,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertNotIn("https://query2.finance.yahoo.com", source)
         self.assertNotIn("https://www.nseindia.com/api/quote-equity", source)
         self.assertIn("Authorized NSE/vendor gateway is not configured.", source)
+        self.assertIn("no website scraping or third-party fallback is used", source)
         self.assertIn("No third-party fallback is used", source)
 
     def test_screener_chart_endpoint_does_not_mislabel_yahoo_history(self):

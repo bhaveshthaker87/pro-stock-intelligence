@@ -21,7 +21,7 @@ class V4100ReleaseGateTests(unittest.TestCase):
         smoke=(ROOT/".github/scripts/android-smoke-test.sh").read_text(encoding="utf-8")
         self.assertIn('apksigner verify --verbose --print-certs "$APK"',y)
         self.assertIn('aapt dump badging "$APK"',y)
-        self.assertIn("versionCode='95' versionName='42.02'",y)
+        self.assertIn("versionCode='96' versionName='42.04'",y)
         emulator_runner = (ROOT / ".github/scripts/android-emulator-smoke.sh").read_text(encoding="utf-8")
         self.assertIn('PSI_SMOKE_APK="app/build/outputs/apk/release/app-release.apk"',emulator_runner)
         self.assertIn('APK="${PSI_SMOKE_APK:-app/build/outputs/apk/debug/app-debug.apk}"',smoke)

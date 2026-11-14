@@ -730,10 +730,18 @@ private class NativeProvider(private val appAssets: AssetManager) {
             .put("marketDataDisclaimer", if (status == "REALTIME") "Provider-declared real-time quote; licensing and SLA must be verified at gateway." else "Quote is $status, not real-time. Use its disclosed timestamp and status.")
     }
 
+    /**
+     * Quotes require a configured authorized NSE/vendor gateway.
+     * The public NSE website is not a documented API contract; do not scrape it.
+     * Bundled official NSE EOD data is handled separately as a clearly labelled reference.
+     */
     private fun nseQuote(raw: String): JSONObject {
         val symbol = canonical(raw)
-        if (symbol.isBlank()) throw IOException("Enter a valid NSE equity symbol")
-        if (!gatewayConfigured()) throw IOException("Authorized NSE/vendor gateway is not configured. Live price is unavailable; no website scraping or third-party fallback is used.")
+        if (symbol.isBlank() || !symbol.matches(Regex("[A-Z0-9&_-]{1,25}")))
+            throw IOException("Enter a valid NSE equity symbol")
+        if (!gatewayConfigured()) {
+            throw IOException("Authorized NSE/vendor gateway is not configured. Live price is unavailable; no website scraping or third-party fallback is used.")
+        }
         return validatedGatewayQuote(symbol)
     }
 
@@ -926,12 +934,16 @@ private class NativeProvider(private val appAssets: AssetManager) {
                 f.put("metricMeta", meta)
             }
         }
-        // Screener renders the 52-week range as one labelled value, e.g. "₹ 3,350 / 1,976".
-        // Parse both numbers from that same row; do not infer them from other fields.
+        // Screener may label this row "High / Low", "52 Week High / Low", or
+        // "52 Week Range". Normalize punctuation before matching, and parse both
+        // values only from that exact row's number element.
         val highLowRows = ratioItems.filter { item ->
             val label = Regex("(?is)<span\\b[^>]*class=[\\\"'][^\\\"']*\\bname\\b[^\\\"']*[\\\"'][^>]*>(.*?)</span>")
                 .find(item)?.groupValues?.getOrNull(1)?.let { cleanText(it) } ?: return@filter false
-            normalizeMetricLabel(label) in setOf("high low", "52 week high low", "52 week range")
+            normalizeMetricLabel(label) in setOf(
+                "high low", "52 week high low", "52 week range",
+                "52 week high and low", "high and low", "52 week high low range"
+            )
         }
         if (highLowRows.size == 1) {
             val valueHtml = Regex("(?is)<span\\b[^>]*class=[\\\"'][^\\\"']*\\bnumber\\b[^\\\"']*[\\\"'][^>]*>(.*?)</span>")
@@ -940,8 +952,13 @@ private class NativeProvider(private val appAssets: AssetManager) {
                 Regex("(?<![A-Za-z])(?:₹\\s*)?([0-9][0-9,]*(?:\\.[0-9]+)?)").findAll(text)
                     .mapNotNull { asNumber(it.groupValues[1]) }.toList()
             }.orEmpty()
-            if (values.size == 2 && values[0] > 0 && values[1] > 0 && values[0] >= values[1]) {
+            // Reject missing, duplicate, inverted or non-positive values. A label
+            // match alone is not enough to publish a range.
+            if (values.size == 2 && values[0].isFinite() && values[1].isFinite() &&
+                values[0] > 0 && values[1] > 0 && values[0] >= values[1]) {
                 f.put("high52", values[0]).put("low52", values[1])
+                f.put("range52Source", "Screener.in company-page High / Low row")
+                f.put("range52Status", "PROVIDER_DISPLAY_VALUE_PERIOD_NOT_INDEPENDENTLY_VERIFIED")
             }
         }
 
@@ -1454,7 +1471,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
                     .put("historyProvider", "Unavailable")
                     .put("historyStatus", "HISTORICAL_DATA_UNAVAILABLE")
                     .put("providerError", e.message ?: "Market data unavailable")
-                    .put("marketDataDisclaimer", "No bundled official NSE EOD close exists and no authorized live feed is configured. No third-party fallback is used; Yahoo/Moneycontrol fallback is disabled. No price or candle is fabricated.")
+                    .put("marketDataDisclaimer", "Authorized NSE/vendor gateway is not configured. Live price is unavailable; no website scraping or third-party fallback is used. Bundled official NSE EOD, if present, is reference-only.")
             }
         }
         val fundamentalFuture = executor.submit<JSONObject> {
@@ -1697,7 +1714,11 @@ private class NativeProvider(private val appAssets: AssetManager) {
         val previous = if (history.length() > 1) history.optJSONObject(history.length() - 2) else null
         val close = last.optDouble("close", Double.NaN)
         if (!close.isFinite() || close <= 0.0) throw IOException("Latest NSE EOD close is invalid")
+        // Return the exact validated history used for the quote and 52-week
+        // range so the caller does not rescan the entire bundled asset directory
+        // or accidentally combine two different history snapshots.
         val out = JSONObject().put("symbol", symbol).put("price", close).put("currency", "INR")
+            .put("rows", history)
             .put("provider", "NSE CM-UDiFF Common Bhavcopy Final").put("source", "NSE official EOD bhavcopy")
             .put("status", "EOD").put("marketDataStatus", "EOD")
             .put("quoteTimestamp", last.optLong("time") / 1000L)
@@ -1709,6 +1730,31 @@ private class NativeProvider(private val appAssets: AssetManager) {
             if (prevClose.isFinite() && prevClose > 0.0) {
                 out.put("previousClose", prevClose)
                 out.put("dayChangePct", ((close - prevClose) / prevClose) * 100.0)
+            }
+        }
+        // Calculate 52-week range from the full bundled NSE daily EQ history,
+        // not from the selected chart window or close-only prices. Require at
+        // least 200 valid daily bars spanning 300 calendar days.
+        if (history.length() >= 200) {
+            val firstTime = history.optJSONObject(0)?.optLong("time", 0L) ?: 0L
+            val lastTime = last.optLong("time", 0L)
+            val cutoff = lastTime - 365L * 24L * 60L * 60L * 1000L
+            val trailing = (0 until history.length()).mapNotNull { index ->
+                history.optJSONObject(index)?.takeIf { it.optLong("time", 0L) >= cutoff }
+            }
+            val highs = trailing.map { it.optDouble("high", Double.NaN) }.filter { it.isFinite() && it > 0.0 }
+            val lows = trailing.map { it.optDouble("low", Double.NaN) }.filter { it.isFinite() && it > 0.0 }
+            val minimumSpanMs = 300L * 24L * 60L * 60L * 1000L
+            if (lastTime > firstTime && lastTime - firstTime >= minimumSpanMs &&
+                trailing.size >= 200 && highs.size >= 200 && lows.size >= 200) {
+                val high52 = highs.maxOrNull() ?: Double.NaN
+                val low52 = lows.minOrNull() ?: Double.NaN
+                if (high52.isFinite() && low52.isFinite() && high52 >= low52 && low52 > 0.0) {
+                    out.put("high52", high52).put("low52", low52)
+                    .put("range52Source", "NSE CM-UDiFF Common Bhavcopy Final")
+                    .put("range52AsOf", last.optString("tradingDate"))
+                    .put("range52Status", "DERIVED_FROM_VALIDATED_NSE_EOD_HISTORY")
+                }
             }
         }
         return out
@@ -1964,7 +2010,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
         }
         if (!gatewayConfigured()) {
             return unavailable("NSE_INDEX_FEED_NOT_CONFIGURED",
-                "No approved NSE index-data feed is configured. Public website pages are not treated as a documented API; no third-party index snapshot is used.")
+                "Authorized NSE index feed is not configured. Public website scraping and third-party index substitutions are disabled.")
         }
         return try {
             val data = gatewayGet("/v1/indices")
@@ -2241,7 +2287,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
         val s = canonical(raw)
         return try {
             when (p) {
-                "/api/health" -> JSONObject().put("ok", true).put("engine", "V42.02 OFFICIAL NSE/BSE RSS + AUTHORIZED MARKET DATA").put("data", JSONObject().put("ok", true).put("providerGatewayConfigured", gatewayConfigured()).put("quoteStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_FEED_NOT_CONFIGURED").put("historyStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_HISTORY_NOT_CONFIGURED").put("indicesStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_INDEX_FEED_NOT_CONFIGURED").put("eventsStatus", "OFFICIAL_NSE_BSE_RSS_CONFIGURED_RUNTIME_VALIDATION_REQUIRED").put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
+                "/api/health" -> JSONObject().put("ok", true).put("engine", "V42.04 OFFICIAL NSE/BSE RSS + AUTHORIZED MARKET DATA").put("data", JSONObject().put("ok", true).put("providerGatewayConfigured", gatewayConfigured()).put("quoteStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_FEED_NOT_CONFIGURED").put("historyStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_HISTORY_NOT_CONFIGURED").put("indicesStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_INDEX_FEED_NOT_CONFIGURED").put("eventsStatus", "OFFICIAL_NSE_BSE_RSS_CONFIGURED_RUNTIME_VALIDATION_REQUIRED").put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
                 "/api/providers/status" -> JSONObject().put("ok", true).put("data", providerStatus(raw)).toString()
                 "/api/screener/status" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
                 "/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerConnectionTest()).toString()
@@ -2266,7 +2312,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
                             .put("status", if (gatewayConfigured()) "PROVIDER_GATEWAY_VALIDATION_FAILED" else "OFFICIAL_NSE_EOD_UNAVAILABLE")
                             .put("provider", "Unavailable").put("price", JSONObject.NULL)
                             .put("quoteTimestamp", JSONObject.NULL)
-                            .put("marketDataDisclaimer", "No authorized quote gateway or validated NSE EOD reference is available. No third-party fallback is used; no Yahoo/Moneycontrol fallback and no price is fabricated.")
+                            .put("marketDataDisclaimer", "No bundled official NSE EOD close exists and no authorized live feed is configured. Authorized NSE/vendor gateway is not configured. Live price is unavailable; no website scraping or third-party fallback is used. No third-party fallback is used; Yahoo/Moneycontrol fallback is disabled. No price or candle is fabricated.")
                             .put("providerError", e.message ?: "Verified quote unavailable")
                     }
                     quote.put("rows", JSONArray()).put("historyProvider", "Unavailable")
