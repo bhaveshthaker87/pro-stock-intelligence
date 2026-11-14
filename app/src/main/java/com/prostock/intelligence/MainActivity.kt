@@ -782,6 +782,9 @@ private class NativeProvider(private val appAssets: AssetManager) {
     private fun nseQuote(raw: String): JSONObject {
         val symbol = canonical(raw)
         if (symbol.isBlank() || !symbol.matches(Regex("[A-Z0-9&_-]{1,25}"))) throw IOException("Enter a valid NSE equity symbol")
+        // Prefer a configured authorized gateway. Use the public NSE website only
+        // as a best-effort free snapshot fallback when no gateway is configured.
+        if (gatewayConfigured()) return validatedGatewayQuote(symbol)
         val page = "https://www.nseindia.com/get-quotes/equity?symbol=" + URLEncoder.encode(symbol, "UTF-8")
         val data = nseWebsiteGet("/api/quote-equity?symbol=" + URLEncoder.encode(symbol, "UTF-8"), page)
         val info = data.optJSONObject("priceInfo") ?: throw IOException("NSE quote payload has no priceInfo")
