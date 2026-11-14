@@ -5,6 +5,8 @@ import android.content.Intent
 import android.content.res.AssetManager
 import android.os.Bundle
 import android.webkit.*
+import android.webkit.JavascriptInterface
+import android.app.Dialog
 import android.net.Uri
 import android.util.Log
 import android.graphics.Color
@@ -43,6 +45,12 @@ class MainActivity : Activity() {
         Log.e("PSI_STARTUP", "ON_CREATE_BEGIN")
         CookieManager.getInstance().setAcceptCookie(true)
         web = WebView(this)
+        web.addJavascriptInterface(object {
+            @JavascriptInterface
+            fun openScreenerLogin() {
+                runOnUiThread { showScreenerLoginDialog() }
+            }
+        }, "PSIAndroid")
         Log.e("PSI_STARTUP", "WEBVIEW_CREATED")
         // Keep a branded native splash visible while the local dashboard HTML boots.
         // This prevents a blank launch screen from being mistaken for a missing app title.
@@ -204,6 +212,100 @@ class MainActivity : Activity() {
         Log.e("PSI_STARTUP", "CONTENT_VIEW_SET")
         web.loadUrl("https://appassets.androidplatform.net/assets/index.html")
         Log.e("PSI_STARTUP", "LOAD_URL_REQUESTED")
+    }
+
+    /**
+     * Keep the dashboard alive while the user signs in on Screener's official page.
+     * The login WebView shares Android's WebView cookie store with the dashboard.
+     * No credentials are read, copied, or stored by this app.
+     */
+    private fun showScreenerLoginDialog() {
+        val loginDialog = Dialog(this)
+        val shell = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setBackgroundColor(Color.rgb(247, 250, 253))
+        }
+        val toolbar = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(16, 10, 12, 10)
+            setBackgroundColor(Color.rgb(6, 38, 75))
+        }
+        val heading = android.widget.TextView(this).apply {
+            text = "Secure Screener sign-in"
+            setTextColor(Color.WHITE)
+            textSize = 16f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
+        val close = android.widget.Button(this).apply {
+            text = "DONE"
+            setTextColor(Color.WHITE)
+            setBackgroundColor(Color.rgb(18, 112, 205))
+            setOnClickListener { loginDialog.dismiss() }
+        }
+        toolbar.addView(heading, android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        toolbar.addView(close)
+        val hint = android.widget.TextView(this).apply {
+            text = "Sign in only on screener.in. Your password is entered directly on Screener and is not collected by this app."
+            setTextColor(Color.rgb(54, 78, 101))
+            textSize = 12f
+            setPadding(14, 10, 14, 10)
+        }
+        val loginWeb = WebView(this).apply {
+            setBackgroundColor(Color.WHITE)
+            settings.javaScriptEnabled = true
+            settings.domStorageEnabled = true
+            settings.databaseEnabled = true
+            settings.javaScriptCanOpenWindowsAutomatically = false
+            settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+            settings.allowFileAccess = false
+            settings.allowContentAccess = false
+            CookieManager.getInstance().setAcceptCookie(true)
+            CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
+            webChromeClient = WebChromeClient()
+            webViewClient = object : WebViewClient() {
+                override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                    val uri = request.url
+                    val host = (uri.host ?: "").lowercase(Locale.ROOT)
+                    if (uri.scheme == "https" && (host == "screener.in" || host.endsWith(".screener.in"))) return false
+                    if (uri.scheme == "https") {
+                        runCatching { startActivity(Intent(Intent.ACTION_VIEW, uri)) }
+                        return true
+                    }
+                    return true
+                }
+                override fun onPageFinished(view: WebView, url: String) {
+                    super.onPageFinished(view, url)
+                    if (url.startsWith("https://") && (Uri.parse(url).host ?: "").endsWith("screener.in")) {
+                        CookieManager.getInstance().flush()
+                    }
+                }
+            }
+        }
+        shell.addView(toolbar)
+        shell.addView(hint)
+        shell.addView(loginWeb, android.widget.LinearLayout.LayoutParams(
+            android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f
+        ))
+        loginDialog.setContentView(shell)
+        loginDialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        loginDialog.setOnDismissListener {
+            CookieManager.getInstance().flush()
+            loginWeb.stopLoading()
+            loginWeb.webChromeClient = null
+            loginWeb.webViewClient = WebViewClient()
+            loginWeb.destroy()
+            if (::web.isInitialized) {
+                web.evaluateJavascript("window.refreshScreenerStatus && window.refreshScreenerStatus()", null)
+            }
+        }
+        loginDialog.setCancelable(true)
+        loginDialog.show()
+        loginDialog.window?.setLayout(
+            android.view.WindowManager.LayoutParams.MATCH_PARENT,
+            android.view.WindowManager.LayoutParams.MATCH_PARENT
+        )
+        loginWeb.loadUrl("https://www.screener.in/login/")
     }
 
     override fun onDestroy() {
