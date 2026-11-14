@@ -2351,7 +2351,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
                             .put("status", if (gatewayConfigured()) "PROVIDER_GATEWAY_VALIDATION_FAILED" else "OFFICIAL_NSE_EOD_UNAVAILABLE")
                             .put("provider", "Unavailable").put("price", JSONObject.NULL)
                             .put("quoteTimestamp", JSONObject.NULL)
-                            .put("marketDataDisclaimer", "Authorized NSE/vendor gateway is not configured. Live price is unavailable; no website scraping or third-party fallback is used.")
+                            .put("marketDataDisclaimer", "No bundled official NSE EOD close exists and no authorized live feed is configured. Authorized NSE/vendor gateway is not configured. Live price is unavailable; no website scraping or third-party fallback is used. No third-party fallback is used; Yahoo/Moneycontrol fallback is disabled. No price or candle is fabricated.")
                             .put("providerError", e.message ?: "Verified quote unavailable")
                     }
                     quote.put("rows", JSONArray()).put("historyProvider", "Unavailable")
