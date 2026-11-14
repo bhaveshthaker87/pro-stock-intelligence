@@ -1466,7 +1466,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
             } catch (e: Exception) {
                 JSONObject().put("symbol", s)
                     .put("provider", "Unavailable")
-                    .put("status", if (gatewayConfigured()) "PROVIDER_GATEWAY_VALIDATION_FAILED" else "NSE_WEBSITE_ACCESS_FAILED")
+                    .put("status", if (gatewayConfigured()) "PROVIDER_GATEWAY_VALIDATION_FAILED" else "OFFICIAL_NSE_EOD_UNAVAILABLE")
                     .put("rows", JSONArray())
                     .put("historyProvider", "Unavailable")
                     .put("historyStatus", "HISTORICAL_DATA_UNAVAILABLE")
@@ -2011,45 +2011,6 @@ private class NativeProvider(private val appAssets: AssetManager) {
         if (!gatewayConfigured()) {
             return unavailable("NSE_INDEX_FEED_NOT_CONFIGURED",
                 "Authorized NSE index feed is not configured. Public website scraping and third-party index substitutions are disabled.")
-        }
-        return try {
-                val data = nseWebsiteGet("/api/allIndices", "https://www.nseindia.com/market-data/live-market-indices")
-                val rows = data.optJSONArray("data") ?: throw IOException("NSE allIndices response has no data array")
-                val byName = mutableMapOf<String, JSONObject>()
-                for (i in 0 until rows.length()) {
-                    val row = rows.optJSONObject(i) ?: continue
-                    val name = row.optString("index").trim().uppercase(Locale.ROOT)
-                    if (name.isNotBlank()) byName[name] = row
-                }
-                val aliases = mapOf("NIFTY 50" to "NIFTY 50", "NIFTY BANK" to "NIFTY BANK",
-                    "NIFTY MIDCAP 100" to "NIFTY MIDCAP 100", "NIFTY SMALLCAP 100" to "NIFTY SMALLCAP 100",
-                    "NIFTY IT" to "NIFTY IT", "NIFTY AUTO" to "NIFTY AUTO", "NIFTY FMCG" to "NIFTY FMCG",
-                    "NIFTY PHARMA" to "NIFTY PHARMA", "NIFTY METAL" to "NIFTY METAL",
-                    "NIFTY PSU BANK" to "NIFTY PSU BANK", "NIFTY ENERGY" to "NIFTY ENERGY",
-                    "NIFTY INFRA" to "NIFTY INFRA", "NIFTY FIN SERVICE" to "NIFTY FINANCIAL SERVICES")
-                val out = JSONObject()
-                specs.forEach { (label, _) ->
-                    val row = aliases[label]?.let { byName[it] }
-                    val value = row?.optString("last")?.replace(",", "")?.toDoubleOrNull()
-                    val change = row?.optString("percentChange")?.replace(",", "")?.toDoubleOrNull()
-                    if (value != null && value.isFinite() && value > 0 && change != null && change.isFinite()) {
-                        out.put(label, JSONObject().put("value", value).put("changePct", change)
-                            .put("status", "NSE_WEBSITE_SNAPSHOT").put("priceSource", "NSE India public website")
-                            .put("provider", "NSE India /api/allIndices").put("sourceType", "WEBSITE_SNAPSHOT")
-                            .put("quoteTimestamp", JSONObject.NULL).put("isExchangeCertifiedRealtime", false)
-                            .put("marketDataDisclaimer", "Public NSE website snapshot. Timestamp not supplied in this response; not an exchange-certified/licensed real-time feed."))
-                    } else {
-                        out.put(label, JSONObject().put("value", JSONObject.NULL).put("changePct", JSONObject.NULL)
-                            .put("status", "INDEX_NOT_RETURNED_BY_NSE").put("priceSource", "NONE")
-                            .put("provider", "NSE India public website").put("sourceType", "NO_DATA")
-                            .put("quoteTimestamp", JSONObject.NULL).put("isExchangeCertifiedRealtime", false)
-                            .put("marketDataDisclaimer", "NSE public website did not return this index; no value substituted."))
-                    }
-                }
-                out
-            } catch (e: Exception) {
-                unavailable("NSE_WEBSITE_ACCESS_FAILED", "NSE public website quote unavailable: ${e.message ?: "unknown error"}. No alternate quote source is used.")
-            }
         }
         return try {
             val data = gatewayGet("/v1/indices")
