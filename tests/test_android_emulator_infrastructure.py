@@ -62,7 +62,7 @@ class EmulatorInfrastructureTests(unittest.TestCase):
         self.assertLess(WORKFLOW.index("Install Android emulator host runtime dependencies"), WORKFLOW.index("Run Android emulator smoke test and capture screenshot"))
 
     def test_v42_version_and_optional_input_handling_remain(self):
-        self.assertIn("versionCode='93' versionName='42.00'", WORKFLOW)
+        self.assertIn("versionCode='95' versionName='42.02'", WORKFLOW)
         self.assertIn("BUILD_SIGNED_RELEASE", EMULATOR)
 
 
