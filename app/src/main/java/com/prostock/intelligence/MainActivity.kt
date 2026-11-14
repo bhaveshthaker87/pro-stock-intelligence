@@ -1537,16 +1537,16 @@ private class NativeProvider(private val appAssets: AssetManager) {
         val executor = Executors.newFixedThreadPool(2)
         val quoteFuture = executor.submit<JSONObject> {
             try {
-                if (gatewayConfigured()) nseQuote(raw) else eodQuote(raw)
+                if (gatewayConfigured()) nseQuote(raw) else nseQuote(raw)
             } catch (e: Exception) {
                 JSONObject().put("symbol", s)
                     .put("provider", "Unavailable")
-                    .put("status", if (gatewayConfigured()) "PROVIDER_GATEWAY_VALIDATION_FAILED" else "OFFICIAL_NSE_EOD_UNAVAILABLE")
+                    .put("status", if (gatewayConfigured()) "PROVIDER_GATEWAY_VALIDATION_FAILED" else "NSE_WEBSITE_ACCESS_FAILED")
                     .put("rows", JSONArray())
                     .put("historyProvider", "Unavailable")
                     .put("historyStatus", "HISTORICAL_DATA_UNAVAILABLE")
                     .put("providerError", e.message ?: "Market data unavailable")
-                    .put("marketDataDisclaimer", "No bundled official NSE EOD close exists and no authorized live feed is configured. No third-party fallback is used; Yahoo/Moneycontrol fallback is disabled. No price or candle is fabricated.")
+                    .put("marketDataDisclaimer", "NSE public website quote and authorized gateway are unavailable. No third-party fallback is used; Yahoo/Moneycontrol fallback is disabled. No price or candle is fabricated.")
             }
         }
         val fundamentalFuture = executor.submit<JSONObject> {
