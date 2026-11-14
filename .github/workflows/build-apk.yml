@@ -128,7 +128,7 @@ jobs:
           else
             python3 tools/validate_screener_reconciliation.py --template-out "$report"
             python3 tools/validate_screener_reconciliation.py --input "$report"
-            echo "::warning::Screener audit template generated; 0/360 values are independently verified."
+            echo "::warning::Screener audit template generated; 0/540 values are independently verified."
           fi
           if [ "${{ inputs.build_signed_release }}" = "true" ]; then
             test -f "$input" || { echo "::error::Signed production release requires the populated 30-stock x 18-metric (540-record) Screener reconciliation CSV."; exit 1; }
