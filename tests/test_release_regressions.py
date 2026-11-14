@@ -510,7 +510,7 @@ class ReleaseRegressionTests(unittest.TestCase):
     def test_official_nse_eod_quote_derives_52_week_range_from_full_daily_high_low(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         start = source.index("private fun eodQuote(raw: String)")
-        end = source.index("\\n    /** Build peer rows", start)
+        end = source.index("\n    /** Build peer rows", start)
         quote = source[start:end]
         self.assertIn('.put("rows", history)', quote)
         self.assertIn("history.length() >= 200", quote)
