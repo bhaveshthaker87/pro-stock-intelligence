@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate source-traceable 30-stock x 12-metric Screener reconciliation.
+"""Validate source-traceable 30-stock x 18-metric Screener reconciliation.
 
 This tool never fetches Screener or bypasses access controls. A generated template
 is NOT_TESTED until populated with values from an authorized Screener session/export.
@@ -14,14 +14,14 @@ SYMBOLS = [
  "HINDUNILVR","MARUTI","SUNPHARMA","TITAN","NTPC","POWERGRID","AXISBANK","KOTAKBANK","TATASTEEL","ONGC",
  "M&M","WIPRO","HCLTECH","TECHM","ULTRACEMCO","ASIANPAINT","BEL","HAL","TRENT","ADANIPORTS"
 ]
-# Twelve fields aligned to the approved reconciliation scope. Screener currentPrice
-# is a page snapshot/reference value and must never be represented as a live quote.
+# Keep this schema aligned exactly with NativeProvider.screenerAudit30(): 18 metrics x 30 stocks.
+# Screener page snapshots are fundamentals only and are never represented as live quotes.
 METRICS = {
- # Keep this schema aligned exactly with the approved 30-stock x 12-metric audit.
- "marketCap":"INR_CRORE", "pe":"RATIO", "industryPE":"RATIO",
- "eps":"INR_PER_SHARE", "bookValue":"INR_PER_SHARE", "pb":"RATIO",
- "roe":"PERCENT", "roce":"PERCENT", "debtEquity":"RATIO",
- "salesGrowth3Y":"PERCENT", "profitGrowth3Y":"PERCENT", "shareholding":"PERCENT"
+ "marketCap":"INR_CRORE", "pe":"ratio", "industryPE":"ratio", "eps":"INR_PER_SHARE",
+ "bookValue":"INR_PER_SHARE", "pb":"ratio", "roe":"percent", "roce":"percent",
+ "debtEquity":"ratio", "sales3y":"percent_3Y_GROWTH", "profit3y":"percent_3Y_GROWTH",
+ "shareholding":"provider_reported_table", "peg":"ratio", "piotroski":"score_0_9",
+ "fii":"percent", "dii":"percent", "pledged":"provider_reported_percent", "promoter":"percent"
 }
 STATUSES={"VERIFIED_MATCH","VERIFIED_DIFFERENCE","ACCESS_BLOCKED_403","SOURCE_UNAVAILABLE","DATA_MISSING","SYMBOL_MAPPING_ERROR","UNIT_MISMATCH","PERIOD_MISMATCH","NOT_TESTED"}
 FIELDS=[
@@ -107,10 +107,10 @@ def main():
  a=ap.parse_args()
  try:
   if a.template_out:
-   p=write_template(a.template_out); print(f"Created NOT_TESTED template: {p} (360 rows)"); return 0
+   p=write_template(a.template_out); print(f"Created NOT_TESTED template: {p} ({len(SYMBOLS)*len(METRICS)} rows)"); return 0
   if not a.input: ap.error("provide --template-out or --input")
   result=validate(a.input,a.require_complete)
-  print(f"{result['status']}: {result['verified']}/360 verified; {result['unverified']} unverified")
+  print(f"{result['status']}: {result['verified']}/{result['records']} verified; {result['unverified']} unverified")
   for k,v in result["statusCounts"].items():
    if v: print(f"{k}: {v}")
   return 0
