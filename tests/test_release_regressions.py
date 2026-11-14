@@ -367,9 +367,13 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn('id="session">Screener Login</button>', html)
         self.assertIn('Screener: Connected ✓', html)
         self.assertNotIn('Screener Session Verified', html)
-        self.assertIn('Official Screener login is opening', html)
         self.assertIn('Screener Access Denied (403)', html)
-        self.assertIn('Official Screener login is opening', html)
+        self.assertIn('window.PSIAndroid.openScreenerLogin()', html)
+        self.assertIn('Sign in on the official page, tap DONE, then Check access.', html)
+        native = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn('private fun showScreenerLoginDialog()', native)
+        self.assertIn('Secure Screener sign-in', native)
+        self.assertIn('CookieManager.getInstance().flush()', native)
 
     def test_screener_status_exposes_forbidden_state_to_ui(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
