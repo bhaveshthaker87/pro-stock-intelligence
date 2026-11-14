@@ -22,7 +22,7 @@ _GRADLE = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
 VERSION_CODE = re.search(r"versionCode (\d+)", _GRADLE).group(1)
 VERSION_NAME = re.search(r"versionName '([^']+)'", _GRADLE).group(1)
 VERSION_TAG = f"V{VERSION_NAME}"
-ENGINE = f"{VERSION_TAG} AUTHORIZED GATEWAY + CSV OHLCV FALLBACK"
+ENGINE = f"{VERSION_TAG} OFFICIAL NSE/BSE RSS + AUTHORIZED MARKET DATA"
 
 
 def launch_chromium(playwright):
@@ -363,11 +363,12 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn("Generate APK SHA-256 checksum", workflow)
         self.assertIn("Upload APK and checksum", workflow)
         self.assertIn("Run Android lint", workflow)
-        # Device/emulator and experimental-provider checks are intentionally not
-        # release-blocking: hosted emulator instability must not block a usable APK.
+        # Device/emulator checks are mandatory release gates; experimental provider tests
+        # remain explicitly separate until an authorized provider is configured.
         self.assertIn("Run Android emulator smoke test and capture screenshot", workflow)
-        self.assertIn("reactivecircus/android-emulator-runner@v2", workflow)
-        self.assertIn("Run Android emulator smoke test and capture screenshot", workflow)
+        self.assertIn("bash .github/scripts/android-emulator-smoke.sh", workflow)
+        self.assertIn("bash .github/scripts/install-android-emulator-sdk.sh", workflow)
+        self.assertNotIn("reactivecircus/android-emulator-runner@v2", workflow)
         self.assertNotIn("Test experimental NSE gateway", workflow)
 
     def test_source_claims_disclose_unintegrated_moneycontrol_and_history(self):
@@ -403,49 +404,17 @@ class DashboardUISmokeTests(unittest.TestCase):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("Screener.in does not expose a documented chart-data API", source)
 
-    def test_csv_import_modal_parses_and_persists_authorized_export(self):
-        errors = []
-        with sync_playwright() as p:
-            browser = launch_chromium(p)
-            page = browser.new_page(viewport={"width": 1440, "height": 1000})
-            page.on("pageerror", lambda e: errors.append(str(e)))
-            html = HTML.read_text(encoding="utf-8")
-            importer = (Path(__file__).parents[1] / "app/src/main/assets/csv-import.js").read_text(encoding="utf-8")
-            html = html.replace('<script src="csv-import.js"></script>', '<script>\n' + importer + '\n</script>')
-            mock_js = '''
-              Object.defineProperty(window,"localStorage",{value:{_s:{},getItem(k){return this._s[k]??null},setItem(k,v){this._s[k]=String(v)},removeItem(k){delete this._s[k]}}});
-              const MOCK_API = ''' + json.dumps(self.mock_api, separators=(",", ":")) + ''';
-              window.fetch=(u,opts)=>{const path=String(u).split("?")[0];const key=Object.keys(MOCK_API).find(k=>path.endsWith(k));const value=key?MOCK_API[key]:{ok:false,error:"unmocked "+path};return Promise.resolve(new Response(JSON.stringify(value),{status:200,headers:{"Content-Type":"application/json"}}));};
-            '''
-            pos = html.find('<script')
-            html = html[:pos] + '<script>' + mock_js + '</script>' + html[pos:]
-            page.set_content(html, wait_until="domcontentloaded", timeout=30000)
-            page.locator('#dataSourcesBtn').click()
-            self.assertTrue(page.locator('#dataSourcesModal').is_visible())
-            page.locator('#csvSource').select_option('Screener.in CSV')
-            page.locator('#csvFile').set_input_files({"name":"sample.csv","mimeType":"text/csv","buffer":b"Name,NSE Code,Market Capitalization,Stock P/E,Dividend yield\nInfosys,INFY,650000,25.4,1.8"})
-            page.wait_for_function("document.querySelector('#csvImportStatus').textContent.includes('Imported 1 stock row')", timeout=5000)
-            store = page.evaluate("JSON.parse(localStorage.getItem('psi.provider.csv.v1'))")
-            self.assertEqual(store['sources']['Screener.in CSV']['rows']['INFY']['fields']['dividendYield'], 1.8)
-            # Also exercise the historical CSV path using the selected stock.
-            page.locator('#search').fill('INFY')
-            page.locator('#csvSource').select_option('User CSV')
-            lines = ['Date,Open,High,Low,Close,Volume']
-            from datetime import date, timedelta
-            for i in range(24, -1, -1):
-                day = date(2025, 1, 1) + timedelta(days=i)
-                close = 100 + i
-                lines.append(f'{day.isoformat()},{close-1},{close+2},{close-2},{close},1000')
-            page.locator('#csvFile').set_input_files({"name":"infy-history.csv","mimeType":"text/csv","buffer":("\n".join(lines)).encode()})
-            page.wait_for_function("document.querySelector('#csvImportStatus').textContent.includes('Imported 0 stock row(s) and 25 historical bar(s)')", timeout=5000)
-            page.locator('#dataSourcesClose').click()
-            page.locator('#analyze').click()
-            page.wait_for_function("document.querySelector('#providerStatus').textContent.includes('CSV fallback:')", timeout=12000)
-            self.assertIn('1 missing field(s) filled', page.locator('#providerStatus').inner_text())
-            page.wait_for_function("window.chartRows && window.chartRows.length === 25", timeout=12000)
-            self.assertIn('user-imported historical CSV', page.locator('#chartStatus').inner_text())
-            self.assertEqual(errors, [])
-            browser.close()
+    def test_csv_xlsx_upload_and_import_fallback_are_absent(self):
+        html = HTML.read_text(encoding="utf-8")
+        native = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertNotIn('id="csvFile"', html)
+        self.assertNotIn('id="csvSource"', html)
+        self.assertNotIn('id="csvImportStatus"', html)
+        self.assertNotIn("PSICsvImport", html)
+        self.assertNotIn("PSIXlsxImport", html)
+        self.assertNotIn("mergeImportedCsvData", html)
+        self.assertNotIn("onShowFileChooser", native)
+        self.assertNotIn("csvPickerRequestCode", native)
 
     def test_brand_logo_asset_header_and_android_launcher_icon_exist(self):
         root = Path(__file__).parents[1]
@@ -473,10 +442,11 @@ class DashboardUISmokeTests(unittest.TestCase):
             with self.subTest(metric=metric):
                 self.assertIn("criterion('" + metric + "'", html)
 
-    def test_peg_is_not_falsely_derived_from_profit_growth(self):
+    def test_peg_uses_screener_reported_value_without_silent_local_recalculation(self):
         html = HTML.read_text(encoding="utf-8")
-        self.assertIn("Number(f.eps3y)>0", html)
-        self.assertNotIn("Number(f.profit3y)>0)f.peg=Number(f.pe)/Number(f.profit3y)", html)
+        self.assertIn("PEG is displayed only when returned by Screener", html)
+        self.assertNotIn("f.peg=Number(f.pe)/Number(f.eps3y)", html)
+        self.assertNotIn("f.peg=Number(f.pe)/Number(f.profit3y)", html)
 
     def test_unavailable_calendar_is_not_rendered_as_verified_empty(self):
         html = HTML.read_text(encoding="utf-8")
@@ -526,13 +496,16 @@ class DashboardUISmokeTests(unittest.TestCase):
     def test_professional_source_status_and_chart_overprint_regressions(self):
         html = HTML.read_text(encoding="utf-8")
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn("Screener: Page Access OK", html)
+        self.assertIn("Screener: Connected ✓", html)
         self.assertNotIn("Screener Session Verified", html)
-        self.assertIn("does not certify every field or its freshness", html)
+        self.assertIn("Screener is only validated after a live company-page request succeeds", html)
         self.assertIn("Keep the plot clean: show only the most recent closed-bar signal", html)
         self.assertIn("window.setDecorFitsSystemWindows(true)", source)
         self.assertIn("window.statusBarColor = Color.rgb(6, 38, 75)", source)
-        self.assertIn("Import peer data", html)
+        self.assertNotIn("Import peer data", html)
+        self.assertNotIn("peerCsvImport", html)
+        self.assertNotIn("newsCsvImport", html)
+        self.assertIn("authenticated Screener source", html)
         self.assertIn("Open official NSE announcements", html)
         self.assertIn("metrics not present in this source", html)
 
