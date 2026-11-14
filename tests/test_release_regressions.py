@@ -340,7 +340,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         self.assertIn("d.connected&&d.loggedIn&&d.validated&&d.requestValidated", html)
         self.assertIn("Screener Access Denied (403)", html)
-        self.assertIn("Official Screener login is opening", html)
+        self.assertIn("Sign in on the official page, tap DONE, then Check access.", html)
         self.assertNotIn("✓ Screener Cookie Found — verify", html)
 
     def test_v4081_mobile_indices_and_chart_are_compact_and_stale_chart_clears(self):
