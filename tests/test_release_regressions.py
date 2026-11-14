@@ -1,6 +1,8 @@
 from pathlib import Path
 import re
 import unittest
+import importlib.util
+import tempfile
 
 ROOT = Path(__file__).parents[1]
 
@@ -682,6 +684,29 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn('if (blocked) "ACCESS_BLOCKED_403" else "FETCH_FAILED"', audit)
         self.assertNotIn("if (blocked) break", audit)
 
+
+    def test_reconciliation_validator_covers_all_540_app_metric_checks(self):
+        validator_path = ROOT / "tools/validate_screener_reconciliation.py"
+        spec = importlib.util.spec_from_file_location("screener_reconciliation_validator", validator_path)
+        validator = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(validator)
+        self.assertEqual(len(validator.SYMBOLS), 30)
+        self.assertEqual(len(validator.METRICS), 18)
+        with tempfile.TemporaryDirectory() as directory:
+            template = Path(directory) / "reconciliation.csv"
+            validator.write_template(template)
+            result = validator.validate(template)
+        self.assertEqual(result["records"], 540)
+        self.assertEqual(result["verified"], 0)
+        self.assertEqual(result["unverified"], 540)
+
+    def test_signed_release_checks_current_v42_02_package_metadata(self):
+        workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
+        gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
+        self.assertIn("versionCode 95; versionName '42.02'", gradle)
+        self.assertIn("versionCode='95' versionName='42.02'", workflow)
+        self.assertNotIn("versionCode='93' versionName='42.00'", workflow)
+        self.assertIn("540-record", workflow)
 
 if __name__ == "__main__":
     unittest.main()
