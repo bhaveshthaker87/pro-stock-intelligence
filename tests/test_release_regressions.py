@@ -512,6 +512,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         start = source.index("private fun eodQuote(raw: String)")
         end = source.index("\\n    /** Build peer rows", start)
         quote = source[start:end]
+        self.assertIn('.put("rows", history)', quote)
         self.assertIn("history.length() >= 200", quote)
         self.assertIn("lastTime - firstTime >= minimumSpanMs", quote)
         self.assertIn("trailing.size >= 200", quote)
