@@ -296,7 +296,7 @@ class MainActivity : Activity() {
             loginWeb.webViewClient = WebViewClient()
             loginWeb.destroy()
             if (::web.isInitialized) {
-                web.evaluateJavascript("window.refreshScreenerStatus && window.refreshScreenerStatus()", null)
+                web.evaluateJavascript("window.refreshScreenerStatus && window.refreshScreenerStatus().then(s=>{if(s&&s.connected){const a=document.getElementById('analyze');if(a)a.click();}})", null)
             }
         }
         loginDialog.setCancelable(true)
