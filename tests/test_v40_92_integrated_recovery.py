@@ -11,9 +11,9 @@ class V4100IntegratedRecoveryTests(unittest.TestCase):
     def test_v4200_version_is_aligned(self):
         gradle = GRADLE.read_text(encoding="utf-8")
         workflow = WORKFLOW.read_text(encoding="utf-8")
-        self.assertIn("versionName '42.02'", gradle)
-        self.assertIn("versionCode 95", gradle)
-        self.assertIn("PRO-STOCK-INTELLIGENCE-V42-02-debug", workflow)
+        self.assertIn("versionName '42.04'", gradle)
+        self.assertIn("versionCode 96", gradle)
+        self.assertIn("PRO-STOCK-INTELLIGENCE-V42-04-debug", workflow)
 
     def test_screener_metrics_have_explicit_source_logic(self):
         source = NATIVE.read_text(encoding="utf-8")
