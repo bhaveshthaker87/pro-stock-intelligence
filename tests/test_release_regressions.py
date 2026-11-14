@@ -495,6 +495,31 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("const displayedPrice=livePrice??referencePrice;", html)
 
 
+    def test_screener_52_week_high_low_accepts_common_label_variants_and_preserves_provenance(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        start = source.index("// Screener may label this row")
+        end = source.index("val pnlRows", start)
+        parser = source[start:end]
+        for label in ("high low", "52 week high low", "52 week range", "52 week high and low", "high and low"):
+            self.assertIn(label, parser)
+        self.assertIn('f.put("range52Source", "Screener.in company-page High / Low row")', parser)
+        self.assertIn('f.put("range52Status", "PROVIDER_DISPLAY_VALUE_PERIOD_NOT_INDEPENDENTLY_VERIFIED")', parser)
+        self.assertIn("values.size == 2", parser)
+        self.assertIn("values[0] >= values[1]", parser)
+
+    def test_official_nse_eod_quote_derives_52_week_range_from_full_daily_high_low(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        start = source.index("private fun eodQuote(raw: String)")
+        end = source.index("\\n    /** Build peer rows", start)
+        quote = source[start:end]
+        self.assertIn("history.length() >= 200", quote)
+        self.assertIn("lastTime - firstTime >= minimumSpanMs", quote)
+        self.assertIn("trailing.size >= 200", quote)
+        self.assertIn("highs.maxOrNull()", quote)
+        self.assertIn("lows.minOrNull()", quote)
+        self.assertIn('out.put("high52", high52).put("low52", low52)', quote)
+        self.assertIn('put("range52Status", "DERIVED_FROM_VALIDATED_NSE_EOD_HISTORY")', quote)
+
     def test_52_week_range_is_derived_only_from_sufficient_ohlcv_history(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         self.assertIn("function derive52WeekRange(rows)", html)
