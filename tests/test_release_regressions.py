@@ -732,8 +732,8 @@ class ReleaseRegressionTests(unittest.TestCase):
     def test_signed_release_checks_current_v42_02_package_metadata(self):
         workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 95; versionName '42.02'", gradle)
-        self.assertIn("versionCode='95' versionName='42.02'", workflow)
+        self.assertIn("versionCode 96; versionName '42.04'", gradle)
+        self.assertIn("versionCode='96' versionName='42.04'", workflow)
         self.assertNotIn("versionCode='93' versionName='42.00'", workflow)
         self.assertIn("540-record", workflow)
 
