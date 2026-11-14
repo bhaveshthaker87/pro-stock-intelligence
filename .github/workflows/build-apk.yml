@@ -131,7 +131,7 @@ jobs:
             echo "::warning::Screener audit template generated; 0/360 values are independently verified."
           fi
           if [ "${{ inputs.build_signed_release }}" = "true" ]; then
-            test -f "$input" || { echo "::error::Signed production release requires the populated 30-stock Screener reconciliation CSV."; exit 1; }
+            test -f "$input" || { echo "::error::Signed production release requires the populated 30-stock x 18-metric (540-record) Screener reconciliation CSV."; exit 1; }
             python3 tools/validate_screener_reconciliation.py --input "$input" --require-complete
           fi
 
@@ -424,8 +424,8 @@ jobs:
           test -s "$APK"
           apksigner verify --verbose --print-certs "$APK"
           BADGING="$(aapt dump badging "$APK")"
-          echo "$BADGING" | grep -Fq "package: name='com.prostock.intelligence' versionCode='93' versionName='42.00'" || {
-            echo "::error::Release APK package/version metadata does not match V42.02 (versionCode 93)."
+          echo "$BADGING" | grep -Fq "package: name='com.prostock.intelligence' versionCode='95' versionName='42.02'" || {
+            echo "::error::Release APK package/version metadata does not match V42.02 (versionCode 95)."
             exit 1
           }
           sha256sum "$APK" | tee "$APK.sha256"
@@ -433,7 +433,7 @@ jobs:
             echo "## Signed production APK"
             echo "**Status: SIGNATURE AND PACKAGE METADATA VERIFIED**"
             echo "- Application ID: com.prostock.intelligence"
-            echo "- Version: 42.00 (93)"
+            echo "- Version: 42.02 (95)"
             echo "- SHA-256 checksum generated."
             echo "- Runtime installation/launch verification is performed by the emulator smoke step."
           } >> "$GITHUB_STEP_SUMMARY"
