@@ -298,6 +298,12 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("if(hasUsablePrice(q.price))applyQuote(q,d.name||$('company').textContent,sym)", html)
 
 
+    def test_screener_fundamentals_are_not_overwritten_by_null_fast_quote_fields(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("const mergedMarket={...screenerFundamentals};", html)
+        self.assertIn("if(value!==null&&value!==undefined&&value!=='') mergedMarket[key]=value;", html)
+        self.assertNotIn("const mergedMarket={...screenerFundamentals,...currentMarket};", html)
+
     def test_screener_top_ratios_parser_accepts_ul_container_and_reports_403(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         pattern = re.search(r'val ratioContainer = Regex\("""(.*?)"""\)', source)
