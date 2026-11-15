@@ -1826,6 +1826,9 @@ private class NativeProvider(private val appAssets: AssetManager) {
     }
 
     private fun nseMcpTool(endpoint: String, tool: String, args: JSONObject): JSONObject {
+        if (!BuildConfig.ENABLE_NSE_MCP_DATA) {
+            throw IOException("NSE MCP data is disabled pending written confirmation that this app's stock-analysis use is permitted. Official bundled NSE EOD fallback remains available.")
+        }
         val init = JSONObject().put("jsonrpc", "2.0").put("id", 1).put("method", "initialize")
             .put("params", JSONObject().put("protocolVersion", "2025-03-26")
                 .put("capabilities", JSONObject()).put("clientInfo", JSONObject()
