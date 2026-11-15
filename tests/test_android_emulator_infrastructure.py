@@ -64,7 +64,7 @@ class EmulatorInfrastructureTests(unittest.TestCase):
 
     def test_current_version_and_optional_input_handling_remain(self):
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        version_code = re.search(r"versionCode (\\d+)", gradle).group(1)
+        version_code = re.search(r"versionCode (\d+)", gradle).group(1)
         version_name = re.search(r"versionName '([^']+)'", gradle).group(1)
         self.assertIn(f"versionCode='{version_code}' versionName='{version_name}'", WORKFLOW)
         self.assertIn(f"PRO-STOCK-INTELLIGENCE-V{version_name.replace('.', '-')}-debug", WORKFLOW)
