@@ -145,7 +145,7 @@ class DashboardUISmokeTests(unittest.TestCase):
             self.assertLess(chart_check["rsiError"], 1e-6, chart_check)
             self.assertTrue(chart_check["rsiRange"], chart_check)
             page.evaluate("document.body.classList.remove('psi-easy-mode')")
-            self.assertEqual(page.locator(".tab").count(), 6)
+            self.assertEqual(page.locator(".tab").count(), 9)
             for tab in page.locator(".tab").all():
                 tab.click()
                 self.assertIn("active", tab.get_attribute("class"))
