@@ -815,7 +815,8 @@ class ReleaseRegressionTests(unittest.TestCase):
         end = source.index("private fun screenerCookieHeader()", start)
         audit = source[start:end]
         self.assertIn("NOT_RECONCILED_NO_INDEPENDENT_APP_SNAPSHOT", audit)
-        self.assertIn('put("appValue", JSONObject.NULL)', audit)
+        self.assertIn('put("appValue", value)', audit)
+        self.assertIn("APP_PARSER_SNAPSHOT_CAPTURED_AWAITING_SEPARATE_SCREENER_EXPORT", audit)
         self.assertIn('put("verifiedComparisons", 0)', audit)
         self.assertIn('put("unreconciledMetrics", symbols.size * 18)', audit)
 
