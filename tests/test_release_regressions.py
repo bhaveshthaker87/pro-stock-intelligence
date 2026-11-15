@@ -738,5 +738,17 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertNotIn("versionCode='93' versionName='42.00'", workflow)
         self.assertIn("540-record", workflow)
 
+    def test_quote_endpoint_preserves_validated_nse_eod_history_instead_of_overwriting_it(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        start = source.index('"/api/quote", "/api/fast"')
+        end = source.index('"/api/history"', start)
+        route = source[start:end]
+        self.assertIn("val quoteRows = quote.optJSONArray(\"rows\")", route)
+        self.assertIn("else readBundledNseEod(s)", route)
+        self.assertIn('.put("rows", eodRows)', route)
+        self.assertIn('"VALIDATED_OFFICIAL_NSE_EOD"', route)
+        self.assertNotIn('quote.put("rows", JSONArray())', route)
+        self.assertNotIn('.put("rows", JSONArray())', route)
+
 if __name__ == "__main__":
     unittest.main()
