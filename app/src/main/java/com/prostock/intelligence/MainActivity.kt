@@ -1761,6 +1761,8 @@ private class NativeProvider(private val appAssets: AssetManager) {
             val body = (if (code in 200..299) connection.inputStream else connection.errorStream)
                 ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
             if (code !in 200..299) throw IOException("NSE MCP HTTP $code: " + body.take(240))
+            val responseSession = connection.getHeaderField("Mcp-Session-Id") ?: sessionId
+            if (!payload.has("id") && body.isBlank()) return Pair(JSONObject(), responseSession)
             val parsedBody = body.lineSequence().filter { it.startsWith("data:") }
                 .map { it.removePrefix("data:").trim() }.lastOrNull { it.startsWith("{") } ?: body.trim()
             val json = try { JSONObject(parsedBody) } catch (e: Exception) {
@@ -1768,7 +1770,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
             }
             val error = json.optJSONObject("error")
             if (error != null) throw IOException("NSE MCP protocol error: " + error.optString("message", "unknown error"))
-            return Pair(json, connection.getHeaderField("Mcp-Session--Id") ?: connection.getHeaderField("Mcp-Session-Id") ?: sessionId)
+            return Pair(json, responseSession)
         } finally { connection.disconnect() }
     }
 
