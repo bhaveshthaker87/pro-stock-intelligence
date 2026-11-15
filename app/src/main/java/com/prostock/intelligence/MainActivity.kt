@@ -1517,6 +1517,27 @@ private class NativeProvider(private val appAssets: AssetManager) {
             }
         }
         val quote = result(quoteFuture, JSONObject().put("symbol", s).put("rows", JSONArray()).put("provider", "Unavailable").put("status", "AUTHORIZED_NSE_FEED_NOT_CONFIGURED").put("providerError", "Authorized NSE quote feed is not configured"))
+        // The combined analysis has an 11-second shared deadline. NSE MCP can
+        // exceed that deadline, so the quote future may be cancelled before its
+        // EOD fallback executes. Recover the official bundled NSE close here,
+        // synchronously, rather than returning a blank price with candles only.
+        val receivedPrice = quote.optDouble("price", Double.NaN)
+        if (!receivedPrice.isFinite() || receivedPrice <= 0.0) {
+            try {
+                val eod = eodQuote(s)
+                val keys = eod.keys()
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    if (!quote.has(key) || quote.isNull(key)) quote.put(key, eod.get(key))
+                }
+                quote.put("fallbackLevel", "BUNDLED_NSE_EOD_AFTER_PROVIDER_TIMEOUT")
+                quote.put("historyProvider", "NSE official EOD bhavcopy")
+                quote.put("historyStatus", "VALIDATED_OFFICIAL_NSE_EOD")
+                quote.put("marketDataStatus", "EOD")
+            } catch (_: Exception) {
+                // Preserve the explicit unavailable state; never synthesize a price.
+            }
+        }
         annotateQuoteQuality(quote)
         val f = result(fundamentalFuture, JSONObject().put("symbol", s).put("name", stockName(s)).put("providerError", "Screener.in request timed out"))
         executor.shutdownNow()
