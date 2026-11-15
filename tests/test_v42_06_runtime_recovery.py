@@ -30,5 +30,19 @@ class V4206RuntimeRecoveryTests(unittest.TestCase):
         self.assertIn("/api/screen/querytext", HTML)
         self.assertIn("/api/screener/live", HTML)
 
+    def test_long_research_sections_are_collapsed_by_default(self):
+        self.assertIn("psi-v42-06-professional-compact-ui", HTML)
+        self.assertIn("psiAiMoreBtn", HTML)
+        self.assertIn("psiFactorMoreBtn", HTML)
+        self.assertIn("psi-ai-compact", HTML)
+        self.assertIn("psi-factor-compact", HTML)
+
+    def test_combined_analysis_recovers_nse_eod_close_after_quote_deadline(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        combined = source[source.index("private fun combined("):source.index("private fun historyData")]
+        self.assertIn("BUNDLED_NSE_EOD_AFTER_PROVIDER_TIMEOUT", combined)
+        self.assertIn("val eod = eodQuote(s)", combined)
+        self.assertIn("VALIDATED_OFFICIAL_NSE_EOD", combined)
+
 if __name__ == "__main__":
     unittest.main()
