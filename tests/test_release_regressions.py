@@ -730,12 +730,14 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertEqual(result["verified"], 0)
         self.assertEqual(result["unverified"], 540)
 
-    def test_signed_release_checks_current_v42_02_package_metadata(self):
+    def test_signed_release_checks_current_package_metadata(self):
         workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 96; versionName '42.04'", gradle)
-        self.assertIn("versionCode='96' versionName='42.04'", workflow)
-        self.assertNotIn("versionCode='93' versionName='42.00'", workflow)
+        version_code = re.search(r"versionCode (\d+)", gradle).group(1)
+        version_name = re.search(r"versionName '([^']+)'", gradle).group(1)
+        self.assertIn(f"versionCode {version_code}; versionName '{version_name}'", gradle)
+        self.assertIn(f"versionCode='{version_code}' versionName='{version_name}'", workflow)
+        self.assertIn(f"PRO-STOCK-INTELLIGENCE-V{version_name.replace('.', '-')}-signed-release", workflow)
         self.assertIn("540-record", workflow)
 
     def test_quote_endpoint_preserves_validated_nse_eod_history_instead_of_overwriting_it(self):
