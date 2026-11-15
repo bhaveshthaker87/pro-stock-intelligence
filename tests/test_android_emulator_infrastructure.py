@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -61,8 +62,12 @@ class EmulatorInfrastructureTests(unittest.TestCase):
         self.assertIn("ldconfig -p | grep -F 'libpulse.so.0'", WORKFLOW)
         self.assertLess(WORKFLOW.index("Install Android emulator host runtime dependencies"), WORKFLOW.index("Run Android emulator smoke test and capture screenshot"))
 
-    def test_v42_version_and_optional_input_handling_remain(self):
-        self.assertIn("versionCode='96' versionName='42.04'", WORKFLOW)
+    def test_current_version_and_optional_input_handling_remain(self):
+        gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
+        version_code = re.search(r"versionCode (\\d+)", gradle).group(1)
+        version_name = re.search(r"versionName '([^']+)'", gradle).group(1)
+        self.assertIn(f"versionCode='{version_code}' versionName='{version_name}'", WORKFLOW)
+        self.assertIn(f"PRO-STOCK-INTELLIGENCE-V{version_name.replace('.', '-')}-debug", WORKFLOW)
         self.assertIn("BUILD_SIGNED_RELEASE", EMULATOR)
 
 
