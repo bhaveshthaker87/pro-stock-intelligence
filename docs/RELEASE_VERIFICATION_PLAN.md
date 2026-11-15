@@ -47,3 +47,10 @@ Do not merge or label a build release-ready unless every mandatory gate below ha
 - Build #950 failed because the old smoke test asserted six tabs after the UI changed to nine sections. The assertion was replaced with explicit checks for all nine destinations, active state, and the Sources modal.
 - The updated test change must be re-run by GitHub Actions before this plan can be marked complete.
 - Previous CI diagnostics showed PROVIDER_GATEWAY_BASE_URL missing and Screener 30-stock reconciliation at 0/540 verified. These remain release blockers for live-provider/signing claims until reconfigured and re-tested.
+
+
+## Latest implementation update
+- Shared NSE quote resolver: configured authorized gateway, then official NSE delayed MCP, then bundled NSE EOD. Returned status and provider timestamp are retained; no Yahoo Finance or Moneycontrol fallback.
+- Screener connection probe now requires at least 4 of 7 core fields (market cap, P/E, EPS, book value, ROE, ROCE, debt/equity). Low-coverage pages are explicitly flagged.
+- The current 30 × 18 Screener audit is still source-side collection, not an app-vs-Screener comparison. The API now marks all 540 values as unreconciled until an independent app snapshot exists; it reports 0 verified comparisons rather than manufacturing a pass.
+- Device login, actual chart/quote behavior, signed APK and checksum remain separate release gates.
