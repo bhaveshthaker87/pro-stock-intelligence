@@ -1462,7 +1462,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
         val executor = Executors.newFixedThreadPool(2)
         val quoteFuture = executor.submit<JSONObject> {
             try {
-                if (gatewayConfigured()) nseQuote(raw) else eodQuote(raw)
+                if (gatewayConfigured()) nseQuote(raw) else try { nseMcpQuote(raw) } catch (_: Exception) { eodQuote(raw) }
             } catch (e: Exception) {
                 JSONObject().put("symbol", s)
                     .put("provider", "Unavailable")
@@ -1705,6 +1705,96 @@ private class NativeProvider(private val appAssets: AssetManager) {
 
     // No unlicensed third-party quote/chart adapters are retained. Quotes and candles
     // come only from the authorized gateway or validated official NSE EOD bundle.
+
+    /**
+     * Minimal Streamable-HTTP MCP client for NSE's official no-auth personal-use feeds.
+     * NSE MCP is not a REST API: initialize a session, send initialized notification,
+     * then call the advertised tool. Parse both JSON and SSE response envelopes.
+     */
+    private fun nseMcpRequest(endpoint: String, payload: JSONObject, sessionId: String? = null): Pair<JSONObject, String?> {
+        val connection = (URL(endpoint).openConnection() as HttpURLConnection)
+        connection.connectTimeout = 7000
+        connection.readTimeout = 12000
+        connection.requestMethod = "POST"
+        connection.doOutput = true
+        connection.setRequestProperty("Content-Type", "application/json")
+        connection.setRequestProperty("Accept", "application/json, text/event-stream")
+        connection.setRequestProperty("MCP-Protocol-Version", "2025-03-26")
+        if (!sessionId.isNullOrBlank()) connection.setRequestProperty("Mcp-Session-Id", sessionId)
+        try {
+            connection.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
+            val code = connection.responseCode
+            val body = (if (code in 200..299) connection.inputStream else connection.errorStream)
+                ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+            if (code !in 200..299) throw IOException("NSE MCP HTTP $code: " + body.take(240))
+            val parsedBody = body.lineSequence().filter { it.startsWith("data:") }
+                .map { it.removePrefix("data:").trim() }.lastOrNull { it.startsWith("{") } ?: body.trim()
+            val json = try { JSONObject(parsedBody) } catch (e: Exception) {
+                throw IOException("NSE MCP returned an unsupported response envelope: " + body.take(180), e)
+            }
+            val error = json.optJSONObject("error")
+            if (error != null) throw IOException("NSE MCP protocol error: " + error.optString("message", "unknown error"))
+            return Pair(json, connection.getHeaderField("Mcp-Session--Id") ?: connection.getHeaderField("Mcp-Session-Id") ?: sessionId)
+        } finally { connection.disconnect() }
+    }
+
+    private fun nseMcpTool(endpoint: String, tool: String, args: JSONObject): JSONObject {
+        val init = JSONObject().put("jsonrpc", "2.0").put("id", 1).put("method", "initialize")
+            .put("params", JSONObject().put("protocolVersion", "2025-03-26")
+                .put("capabilities", JSONObject()).put("clientInfo", JSONObject()
+                    .put("name", "ProStockIntelligence").put("version", "42.05")))
+        val (initialized, session) = nseMcpRequest(endpoint, init)
+        if (initialized.optJSONObject("result") == null) throw IOException("NSE MCP initialize did not return a result")
+        val notification = JSONObject().put("jsonrpc", "2.0").put("method", "notifications/initialized")
+        nseMcpRequest(endpoint, notification, session)
+        val call = JSONObject().put("jsonrpc", "2.0").put("id", 2).put("method", "tools/call")
+            .put("params", JSONObject().put("name", tool).put("arguments", args))
+        val (response, _) = nseMcpRequest(endpoint, call, session)
+        val result = response.optJSONObject("result") ?: throw IOException("NSE MCP tool returned no result")
+        if (result.optBoolean("isError", false)) throw IOException("NSE MCP tool $tool reported an error")
+        val content = result.optJSONArray("content") ?: throw IOException("NSE MCP tool $tool returned no content")
+        for (i in 0 until content.length()) {
+            val block = content.optJSONObject(i) ?: continue
+            if (block.optString("type") != "text") continue
+            val raw = block.optString("text")
+            val parsed = try { JSONObject(raw) } catch (_: Exception) { null }
+            if (parsed != null) {
+                if (parsed.has("error") && !parsed.isNull("error")) throw IOException("NSE MCP $tool: " + parsed.optString("error"))
+                return parsed
+            }
+            throw IOException("NSE MCP $tool returned non-JSON text: " + raw.take(180))
+        }
+        throw IOException("NSE MCP $tool returned no text payload")
+    }
+
+    private fun nseMcpQuote(raw: String): JSONObject {
+        val symbol = canonical(raw)
+        val data = nseMcpTool("https://mcp.nseindia.in/cmmkt/mcp", "cm_get_stock_quote",
+            JSONObject().put("symbol", symbol))
+        val stock = data.optJSONObject("stock") ?: throw IOException("NSE MCP quote missing stock object")
+        val returnedSymbol = canonical(stock.optString("symbol"))
+        if (returnedSymbol != symbol) throw IOException("NSE MCP returned a different symbol; quote rejected")
+        val price = stock.optDouble("lastTradedPrice", Double.NaN)
+        val stampText = stock.optString("latestTimestamp", data.optString("updatedAt"))
+        if (!price.isFinite() || price <= 0.0 || stampText.isBlank()) throw IOException("NSE MCP quote missing valid price/timestamp")
+        val stamp = parseGatewayTime(stampText)
+        val age = System.currentTimeMillis() - stamp
+        if (age < -60000L || age > 30L * 60L * 1000L) throw IOException("NSE MCP quote timestamp is future-dated or stale")
+        val out = JSONObject().put("symbol", symbol).put("price", price)
+            .put("previousClose", stock.optDouble("preClose", Double.NaN))
+            .put("dayChangePct", stock.optDouble("perChange", Double.NaN))
+            .put("high52", stock.optDouble("fiftyTwoWeekHigh", Double.NaN))
+            .put("low52", stock.optDouble("fiftyTwoWeekLow", Double.NaN))
+            .put("provider", "Official NSE CM Market MCP")
+            .put("source", "NSE CM Market MCP").put("status", "DELAYED")
+            .put("marketDataStatus", "DELAYED").put("quoteTimestamp", stamp / 1000L)
+            .put("marketDataDisclaimer", "Official NSE MCP delayed market snapshot; expected delay approximately 1–3 minutes. Not tick-by-tick.")
+            .put("isExchangeCertifiedRealtime", false)
+        listOf("previousClose", "dayChangePct", "high52", "low52").forEach { key ->
+            if (out.optDouble(key, Double.NaN).isNaN()) out.put(key, JSONObject.NULL)
+        }
+        return out
+    }
 
     private fun eodQuote(raw: String): JSONObject {
         val symbol = canonical(raw)
