@@ -26,10 +26,16 @@ class BundledNseEodTests(unittest.TestCase):
         self.assertIn("Official NSE EOD closing price", source)
         self.assertIn("Not live, delayed or intraday", source)
 
-    def test_gateway_validation_failure_does_not_downgrade_to_eod(self):
+    def test_gateway_validation_failure_uses_delayed_then_eod_fallback(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn('if (gatewayConfigured()) nseQuote(raw) else eodQuote(raw)', source)
-        self.assertIn('if (gatewayConfigured()) nseQuote(raw) else eodQuote(raw)', source)
+        start = source.index("private fun marketQuote(raw: String)")
+        end = source.index("private fun nseQuote(raw: String)", start)
+        pipeline = source[start:end]
+        self.assertLess(pipeline.index("nseQuote(raw)"), pipeline.index("nseMcpQuote(raw)"))
+        self.assertLess(pipeline.index("nseMcpQuote(raw)"), pipeline.index("eodQuote(raw)"))
+        self.assertIn('put("fallbackLevel", "NSE_MCP_DELAYED")', pipeline)
+        self.assertIn('put("fallbackLevel", "BUNDLED_NSE_EOD")', pipeline)
+        self.assertIn("No verified NSE quote available", pipeline)
 
 
 if __name__ == "__main__":
