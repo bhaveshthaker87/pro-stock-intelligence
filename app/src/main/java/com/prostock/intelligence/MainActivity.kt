@@ -27,6 +27,8 @@ import kotlin.math.abs
 class MainActivity : Activity() {
     private lateinit var web: WebView
     private lateinit var provider: NativeProvider
+    private var screenerCsvPickerCallback: ValueCallback<Array<Uri>>? = null
+    private val screenerCsvPickerRequestCode = 7417
 
     private fun jsonResponse(json: String): WebResourceResponse =
         WebResourceResponse("application/json", "UTF-8", ByteArrayInputStream(json.toByteArray(Charsets.UTF_8))).apply {
@@ -112,6 +114,23 @@ class MainActivity : Activity() {
             .build()
         Log.e("PSI_STARTUP", "ASSET_LOADER_READY")
         web.webChromeClient = object : WebChromeClient() {
+            override fun onShowFileChooser(
+                view: WebView,
+                filePathCallback: ValueCallback<Array<Uri>>,
+                fileChooserParams: FileChooserParams
+            ): Boolean {
+                screenerCsvPickerCallback?.onReceiveValue(null)
+                screenerCsvPickerCallback = filePathCallback
+                return try {
+                    val intent = fileChooserParams.createIntent()
+                    startActivityForResult(intent, screenerCsvPickerRequestCode)
+                    true
+                } catch (_: Exception) {
+                    screenerCsvPickerCallback?.onReceiveValue(null)
+                    screenerCsvPickerCallback = null
+                    false
+                }
+            }
             override fun onConsoleMessage(message: ConsoleMessage): Boolean {
                 if (message.messageLevel() == ConsoleMessage.MessageLevel.ERROR) {
                     Log.e("PSI_WEB", "${message.message()} (${message.sourceId()}:${message.lineNumber()})")
@@ -212,6 +231,18 @@ class MainActivity : Activity() {
         Log.e("PSI_STARTUP", "CONTENT_VIEW_SET")
         web.loadUrl("https://appassets.androidplatform.net/assets/index.html")
         Log.e("PSI_STARTUP", "LOAD_URL_REQUESTED")
+    }
+
+    @Deprecated("Deprecated in Android; retained for WebView file chooser compatibility")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == screenerCsvPickerRequestCode) {
+            val result = if (resultCode == RESULT_OK && data != null)
+                WebChromeClient.FileChooserParams.parseResult(resultCode, data) else null
+            screenerCsvPickerCallback?.onReceiveValue(result)
+            screenerCsvPickerCallback = null
+            return
+        }
+        super.onActivityResult(requestCode, resultCode, data)
     }
 
     /**
