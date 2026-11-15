@@ -6,7 +6,7 @@
 - Search results explicitly identify the NSE EOD report as the source and do not imply BSE coverage or live quotes.
 - Peer comparison can show official NSE EOD closes and day changes for curated same-sector peers when their symbols exist in the bundled history; missing fundamentals remain blank until a dated Screener export or authorized source is supplied.
 - Official NSE CM Market MCP delayed data (approximately 1–3 minutes) is enabled by default for personal, non-commercial informational use. Values retain DELAYED/EOD status and provider timestamps; this is not a real-time trading feed.
-- Screener fundamentals require a valid user-authorized session. HTTP 401/403 is not bypassed. The app now exports a 30-stock parser snapshot for comparison against an official Screener CSV export; imported values are not yet used as automatic fundamentals.
+- Screener fundamentals require a valid user-authorized session. HTTP 401/403 is not bypassed. If company-page requests are blocked, the app accepts an official Screener CSV export as a clearly labelled, timestamped fundamentals fallback. It also exports a separate 30-stock app parser snapshot for the 540-field reconciliation.
 - Exact index levels/history, automatic dividends/corporate actions, results calendar and embedded company news remain dependent on a validated authorized source or permitted dated import; official links are shown instead of fabricated rows.
 - CI success proves build/tests/emulator checks only; it does not certify live-feed licensing, complete fundamentals, or investment performance.
 
