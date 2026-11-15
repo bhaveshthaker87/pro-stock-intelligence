@@ -39,4 +39,19 @@ class ScreenerReconciliationBuilderTests(unittest.TestCase):
    self.assertEqual(len(rows),540)
    self.assertTrue(all(r["status"]=="VERIFIED_MATCH" for r in rows))
 
+ def test_rejects_using_the_same_imported_csv_as_its_own_reference(self):
+  import hashlib
+  with tempfile.TemporaryDirectory() as td:
+   root=Path(td); csv_path=root/"screener-export.csv"
+   csv_path.write_text("NSE Code,Name,Stock P/E\\nINFY,Infosys,20\\n",encoding="utf-8")
+   digest=hashlib.sha256(csv_path.read_bytes()).hexdigest()
+   app_path=root/"app-snapshot.json"
+   app_path.write_text(json.dumps({"snapshotOrigin":"SCREENER_CSV_IMPORT_PARSER","sourceExportSha256":digest,"rows":[]}),encoding="utf-8")
+   out=root/"out.csv"
+   cmd=[sys.executable,str(ROOT/"tools/build_screener_reconciliation.py"),"--app-snapshot",str(app_path),
+        "--screener-csv",str(csv_path),"--output",str(out),"--screener-exported-at","2026-11-15T12:00:00+05:30"]
+   p=subprocess.run(cmd,cwd=ROOT,text=True,capture_output=True)
+   self.assertNotEqual(p.returncode,0)
+   self.assertIn("Circular audit blocked",p.stderr)
+
 if __name__=="__main__": unittest.main()
