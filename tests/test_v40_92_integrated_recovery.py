@@ -8,12 +8,14 @@ GRADLE = ROOT / "app/build.gradle"
 WORKFLOW = ROOT / ".github/workflows/build-apk.yml"
 
 class V4100IntegratedRecoveryTests(unittest.TestCase):
-    def test_v4200_version_is_aligned(self):
+    def test_current_version_is_aligned(self):
         gradle = GRADLE.read_text(encoding="utf-8")
         workflow = WORKFLOW.read_text(encoding="utf-8")
-        self.assertRegex(gradle, r"versionName '\\d+\\.\\d+'")
-        self.assertIn("versionCode 96", gradle)
-        self.assertIn("PRO-STOCK-INTELLIGENCE-V42-04-debug", workflow)
+        version_code = re.search(r"versionCode (\d+)", gradle).group(1)
+        version_name = re.search(r"versionName '([^']+)'", gradle).group(1)
+        self.assertRegex(version_name, r"^\d+\.\d+$")
+        self.assertIn(f"versionCode {version_code}; versionName '{version_name}'", gradle)
+        self.assertIn(f"PRO-STOCK-INTELLIGENCE-V{version_name.replace('.', '-')}-debug", workflow)
 
     def test_screener_metrics_have_explicit_source_logic(self):
         source = NATIVE.read_text(encoding="utf-8")
