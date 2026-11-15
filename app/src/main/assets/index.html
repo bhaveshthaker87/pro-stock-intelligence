@@ -2106,7 +2106,6 @@ $('openMoneycontrolStock')?.addEventListener('click',()=>{const s=String(window.
 $('openScreenerStock')?.addEventListener('click',()=>{const s=String(window.sym||$('search')?.value||'INFY').trim().toUpperCase().replace(/\.(NS|BO)$/,'');window.location.href='https://www.screener.in/company/'+encodeURIComponent(s)+'/';});
 $('openChartinkScanner')?.addEventListener('click',()=>{window.location.href='https://chartink.com/screener/';});
 $('dataSourcesBtn')?.addEventListener('click',()=>{refreshCsvModalStatus();refreshProviderDiagnostics();$('dataSourcesModal')?.classList.add('open');});$('dataSourcesClose')?.addEventListener('click',()=>$('dataSourcesModal')?.classList.remove('open'));$('dataSourcesModal')?.addEventListener('click',e=>{if(e.target.id==='dataSourcesModal')e.currentTarget.classList.remove('open')});
-$('dataSourcesBtn')?.addEventListener('click',()=>{refreshProviderDiagnostics();$('dataSourcesModal')?.classList.add('open');});$('dataSourcesClose')?.addEventListener('click',()=>$('dataSourcesModal')?.classList.remove('open'));$('dataSourcesModal')?.addEventListener('click',e=>{if(e.target.id==='dataSourcesModal')e.currentTarget.classList.remove('open')});
 </script>
 
 <style id="v4081-header-hit-target-fix">
@@ -2121,14 +2120,6 @@ $('dataSourcesBtn')?.addEventListener('click',()=>{refreshProviderDiagnostics();
 }
 </style>
 
-<style id="v4081-header-hit-target-fix">
-/* Keep the sticky header from covering the market panel's interactive controls. */
-.top{z-index:20;isolation:isolate}
-#indices{position:relative;z-index:1;scroll-margin-top:calc(84px + env(safe-area-inset-top))}
-#indices .market-head{position:relative;z-index:1}
-#indices .market-refresh{position:relative;z-index:1}
-@media(min-width:761px){.top{min-height:72px}}
-</style>
 
 
 <style id="psi-easy-first-screen">
@@ -2150,7 +2141,10 @@ body.psi-easy-mode .cname{font-size:18px!important;overflow-wrap:anywhere}
 body.psi-easy-mode .miniMetrics,body.psi-easy-mode .actions,body.psi-easy-mode .tabs{display:none!important}
 body.psi-easy-mode .pricebig{font-size:27px!important}
 body.psi-easy-mode #providerStatus{font-size:12px!important;line-height:1.45}
-body.psi-easy-mode .researchRibbon,body.psi-easy-mode .aiCommand,body.psi-easy-mode .querySection,body.psi-easy-mode .intelHub,body.psi-easy-mode .lower{display:none!important}\n/* Keep the requested fundamentals matrix visible in the default/simple view. */\nbody.psi-easy-mode .factor{display:block!important}\nbody.psi-easy-mode .detailsgrid{display:grid!important}
+body.psi-easy-mode .researchRibbon,body.psi-easy-mode .aiCommand,body.psi-easy-mode .querySection,body.psi-easy-mode .intelHub,body.psi-easy-mode .lower{display:none!important}
+/* Keep the requested fundamentals matrix visible in the default/simple view. */
+body.psi-easy-mode .factor{display:block!important}
+body.psi-easy-mode .detailsgrid{display:grid!important}
 body.psi-easy-mode .summarySectionLabel{margin-top:12px}
 body.psi-easy-mode .summarygrid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important;margin-top:8px!important}
 body.psi-easy-mode .summarycard{min-height:110px!important;padding:11px!important}
@@ -2204,3 +2198,27 @@ body.psi-easy-mode .psiEasyTools small{color:#60788e;line-height:1.4}
 @media(max-width:900px){.metricGrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:600px){.metricMatrix{padding:10px}.metricMatrixHead{display:block}.metricMatrixHead>span{display:inline-block;margin-top:7px}.metricGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.metricTile{padding:8px}.metricTile strong{font-size:15px}}
 </style>
+
+<script id="psi-v42-06-runtime-recovery">
+(function(){
+  function reportRuntimeFailure(message){
+    const status=document.getElementById('providerStatus');
+    if(status) status.textContent='Dashboard error: '+String(message||'Unknown JavaScript failure').slice(0,240);
+  }
+  window.addEventListener('unhandledrejection',function(event){
+    const reason=event&&event.reason;
+    reportRuntimeFailure(reason&&reason.message?reason.message:reason||'Unhandled asynchronous error');
+  });
+  function startDefaultAnalysis(){
+    const search=document.getElementById('search');
+    const analyze=document.getElementById('analyze');
+    if(!search||!analyze){setTimeout(startDefaultAnalysis,250);return;}
+    if(window.__PSI_AUTO_ANALYSIS_STARTED)return;
+    window.__PSI_AUTO_ANALYSIS_STARTED=true;
+    if(!search.value.trim())search.value='INFY';
+    setTimeout(function(){analyze.click();},350);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',startDefaultAnalysis,{once:true});
+  else startDefaultAnalysis();
+})();
+</script>
