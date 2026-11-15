@@ -1,12 +1,19 @@
-# PRO STOCK INTELLIGENCE V42.06 — NSE EOD full-universe search
+# PRO STOCK INTELLIGENCE V42.07 — NSE EOD full-universe search
 
 ## Release notes
-- Android version: V42.06 candidate / versionCode 98 (release signing and production gates remain pending).
+- Android version: V42.07 candidate / versionCode 99 (release signing and production gates remain pending).
 - Search suggestions now read the newest bundled official NSE CM-UDiFF EQ bhavcopy and search all symbols present in that report, rather than relying only on 28 hard-coded examples.
 - Search results explicitly identify the NSE EOD report as the source and do not imply BSE coverage or live quotes.
 - Peer comparison can show official NSE EOD closes and day changes for curated same-sector peers when their symbols exist in the bundled history; missing fundamentals remain blank until a dated Screener export or authorized source is supplied.
-- Live/delayed quotes require the authorized NSE/vendor gateway or a timely validated official NSE MCP response. If those time out, the app now recovers the last validated official NSE EOD close and daily OHLCV history from the bundled NSE bhavcopy. EOD values are clearly labelled with their trading date and are never represented as live or intraday.
+- Delayed NSE MCP is disabled by default pending written permission for this app's intended use. With the ₹0 budget, the app uses the bundled official NSE EOD close and daily OHLCV history as a clearly labelled EOD reference; it does not claim delayed/live quotes.
 - Screener fundamentals require a valid user-authorized session. CSV/XLSX upload and imported-data fallbacks have been removed; HTTP 401/403 is not bypassed.
 - Exact index levels/history, automatic dividends/corporate actions, results calendar and embedded company news remain dependent on a validated authorized source or permitted dated import; official links are shown instead of fabricated rows.
 - CI success proves build/tests/emulator checks only; it does not certify live-feed licensing, complete fundamentals, or investment performance.
 
+
+
+## V42.07 zero-budget policy
+- NSE MCP requests are disabled by default through `enableNseMcpData=false`; enable only after written permission for this app's intended use.
+- Screener.in remains the sole fundamentals source. No Yahoo Finance or Moneycontrol live quote fallback is used.
+- When official bundled NSE EOD data is missing, the price remains unavailable. No price is fabricated or silently relabelled.
+- See `docs/V42.07_ZERO_BUDGET_DATA_POLICY.md` for release gates and limitations.
