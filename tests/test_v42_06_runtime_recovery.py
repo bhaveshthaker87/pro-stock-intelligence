@@ -19,7 +19,7 @@ class V4206RuntimeRecoveryTests(unittest.TestCase):
     def test_easy_mode_css_does_not_contain_literal_newline_escapes(self):
         match = re.search(r'<style id="psi-easy-first-screen">(.*?)</style>', HTML, re.S)
         self.assertIsNotNone(match)
-        self.assertNotIn(r"\\n/* Keep the requested fundamentals matrix", match.group(1))
+        self.assertNotIn(r"\n/* Keep the requested fundamentals matrix", match.group(1))
         self.assertIn("body.psi-easy-mode .factor{display:block!important}", match.group(1))
 
     def test_data_sources_controls_are_registered_once(self):
