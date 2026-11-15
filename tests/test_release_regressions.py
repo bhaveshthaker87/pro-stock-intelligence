@@ -645,8 +645,13 @@ class ReleaseRegressionTests(unittest.TestCase):
         probe = source[start:end]
         self.assertIn("https://www.screener.in/screen/raw/?query=", probe)
         self.assertIn("sessionAuthenticated", probe)
-        self.assertIn("AUTHENTICATED_SCREEN_ENDPOINT", probe)
-        self.assertIn("Screener account session was not verified", probe)
+        self.assertIn("SCREEN_RESULTS_AND_COMPANY_PAGE_PROBED", probe)
+        self.assertIn('screener("INFY")', probe)
+        self.assertIn("companyFieldsParsed", probe)
+        self.assertIn("subscriptionAccessVerified", probe)
+        audit_route = source[source.index('"/api/screener/audit30"'):source.index('"/api/screener/live"')]
+        self.assertIn("screenerSessionIsValidated()", audit_route)
+        self.assertIn("Run Check access first", audit_route)
         self.assertIn('put("sessionAuthenticated", validated)', source)
         self.assertIn("Screener: Verify Login", html)
         self.assertIn("Screener: Login Required", html)
@@ -730,13 +735,77 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertEqual(result["verified"], 0)
         self.assertEqual(result["unverified"], 540)
 
-    def test_signed_release_checks_current_v42_02_package_metadata(self):
+    def test_signed_release_checks_current_package_metadata(self):
         workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 96; versionName '42.04'", gradle)
-        self.assertIn("versionCode='96' versionName='42.04'", workflow)
-        self.assertNotIn("versionCode='93' versionName='42.00'", workflow)
+        version_code = re.search(r"versionCode (\d+)", gradle).group(1)
+        version_name = re.search(r"versionName '([^']+)'", gradle).group(1)
+        self.assertIn(f"versionCode {version_code}; versionName '{version_name}'", gradle)
+        self.assertIn(f"versionCode='{version_code}' versionName='{version_name}'", workflow)
+        self.assertIn(f"PRO-STOCK-INTELLIGENCE-V{version_name.replace('.', '-')}-signed-release", workflow)
         self.assertIn("540-record", workflow)
+
+    def test_quote_endpoint_preserves_validated_nse_eod_history_instead_of_overwriting_it(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        start = source.index('"/api/quote", "/api/fast"')
+        end = source.index('"/api/history"', start)
+        route = source[start:end]
+        self.assertIn("val quoteRows = quote.optJSONArray(\"rows\")", route)
+        self.assertIn("else readBundledNseEod(s)", route)
+        self.assertIn('.put("rows", eodRows)', route)
+        self.assertIn('"VALIDATED_OFFICIAL_NSE_EOD"', route)
+        self.assertNotIn('quote.put("rows", JSONArray())', route)
+        self.assertNotIn('.put("rows", JSONArray())', route)
+
+    def test_main_navigation_uses_separate_compact_sections(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        for page in ("overview", "chart", "financials", "ownership", "peers", "news", "scans", "events", "sources"):
+            self.assertIn(f'data-page="{page}"', html)
+        self.assertIn("appNav", html)
+        self.assertIn("visibleTopLevel", html)
+        self.assertIn("savedQueriesSection", html)
+        self.assertIn("marketIntelligenceHub", html)
+
+    def test_official_nse_mcp_fallback_uses_streamable_http_tools(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("https://mcp.nseindia.in/cmmkt/mcp", source)
+        self.assertIn("https://mcp.nseindia.in/bhavcopy/cm/mcp", source)
+        self.assertIn('"cm_get_stock_quote"', source)
+        self.assertIn('"get_stock_history"', source)
+        self.assertIn('"notifications/initialized"', source)
+        self.assertIn('"tools/call"', source)
+        self.assertIn('"Official NSE CM Market MCP"', source)
+        self.assertIn('"Official NSE Bhavcopy MCP"', source)
+        self.assertIn("marketDataStatus", source)
+
+    def test_quote_paths_share_one_ordered_nse_delayed_then_eod_pipeline(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("private fun marketQuote(raw: String)", source)
+        start = source.index("private fun marketQuote(raw: String)")
+        end = source.index("private fun nseQuote(raw: String)", start)
+        pipeline = source[start:end]
+        self.assertLess(pipeline.index("nseQuote(raw)"), pipeline.index("nseMcpQuote(raw)"))
+        self.assertLess(pipeline.index("nseMcpQuote(raw)"), pipeline.index("eodQuote(raw)"))
+        self.assertIn('put("fallbackLevel", "NSE_MCP_DELAYED")', pipeline)
+        self.assertIn('put("fallbackLevel", "BUNDLED_NSE_EOD")', pipeline)
+        self.assertIn("marketQuote(raw)", source)
+
+    def test_screener_connection_requires_minimum_core_field_coverage(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("companyFields < 4", source)
+        self.assertIn("coreKeys = listOf", source)
+        self.assertIn("coreAvailable >= 4", source)
+        self.assertIn("PAGE_VALIDATED_CORE_COVERAGE_FAILED", source)
+
+    def test_screener_540_audit_never_claims_app_comparison_without_independent_snapshot(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        start = source.index("private fun screenerAudit30()")
+        end = source.index("private fun screenerCookieHeader()", start)
+        audit = source[start:end]
+        self.assertIn("NOT_RECONCILED_NO_INDEPENDENT_APP_SNAPSHOT", audit)
+        self.assertIn('put("appValue", JSONObject.NULL)', audit)
+        self.assertIn('put("verifiedComparisons", 0)', audit)
+        self.assertIn('put("unreconciledMetrics", symbols.size * 18)', audit)
 
 if __name__ == "__main__":
     unittest.main()

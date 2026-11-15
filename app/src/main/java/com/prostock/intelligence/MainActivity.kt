@@ -735,6 +735,23 @@ private class NativeProvider(private val appAssets: AssetManager) {
      * The public NSE website is not a documented API contract; do not scrape it.
      * Bundled official NSE EOD data is handled separately as a clearly labelled reference.
      */
+    /** Single quote resolution pipeline shared by fast quote and full bootstrap paths.
+     * Priority: configured authorized gateway -> official NSE delayed MCP -> bundled official NSE EOD.
+     * Each returned payload retains its own source timestamp and DELAYED/EOD status.
+     */
+    private fun marketQuote(raw: String): JSONObject {
+        val failures = mutableListOf<String>()
+        if (gatewayConfigured()) {
+            try { return nseQuote(raw).put("fallbackLevel", "AUTHORIZED_GATEWAY") }
+            catch (e: Exception) { failures.add("gateway: ${e.message ?: "failed"}") }
+        }
+        try { return nseMcpQuote(raw).put("fallbackLevel", "NSE_MCP_DELAYED") }
+        catch (e: Exception) { failures.add("NSE MCP: ${e.message ?: "failed"}") }
+        try { return eodQuote(raw).put("fallbackLevel", "BUNDLED_NSE_EOD") }
+        catch (e: Exception) { failures.add("NSE EOD: ${e.message ?: "failed"}") }
+        throw IOException("No verified NSE quote available. " + failures.joinToString("; "))
+    }
+
     private fun nseQuote(raw: String): JSONObject {
         val symbol = canonical(raw)
         if (symbol.isBlank() || !symbol.matches(Regex("[A-Z0-9&_-]{1,25}")))
@@ -1204,12 +1221,17 @@ private class NativeProvider(private val appAssets: AssetManager) {
         if (!f.has("pe")) qualityFlags.put("PE_UNAVAILABLE_OR_NON_POSITIVE")
         if (!f.has("eps")) qualityFlags.put("EPS_UNAVAILABLE")
         if (!f.has("roce")) qualityFlags.put("ROCE_UNAVAILABLE")
+        val coreKeys = listOf("marketCap", "pe", "eps", "bookValue", "roe", "roce", "debtEquity")
+        val coreAvailable = coreKeys.count { f.has(it) && !f.isNull(it) }
+        val coreCoveragePass = coreAvailable >= 4
+        if (!coreCoveragePass) qualityFlags.put("CORE_FUNDAMENTAL_COVERAGE_BELOW_4_OF_7")
         f.put("name", pageTitle).put("symbol", s).put("sector", stockSector(s)).put("provider", "Screener.in")
             .put("sourceUrl", pageUrl).put("fetchedAtEpochMs", fetchedAt)
             .put("reportingPeriodStatus", "Provider-reported periods are retained in source tables; top-ratio fields have no explicit period unless metricMeta supplies one")
-            .put("fundamentalStatus", if (available >= 6) "PAGE_VALIDATED_PARTIAL_FIELDS_MAY_BE_MISSING" else "PAGE_VALIDATED_LOW_COVERAGE")
+            .put("fundamentalStatus", if (!coreCoveragePass) "PAGE_VALIDATED_CORE_COVERAGE_FAILED" else if (available >= 6) "PAGE_VALIDATED_PARTIAL_FIELDS_MAY_BE_MISSING" else "PAGE_VALIDATED_LOW_COVERAGE")
             .put("availableFundamentalFields", available).put("expectedFundamentalFields", fieldKeys.size)
-            .put("qualityFlags", qualityFlags)
+            .put("coreFieldsAvailable", coreAvailable).put("coreFieldsExpected", coreKeys.size)
+            .put("coreCoveragePass", coreCoveragePass).put("qualityFlags", qualityFlags)
         return f
     }
 
@@ -1250,7 +1272,10 @@ private class NativeProvider(private val appAssets: AssetManager) {
                     val value = if (f.has(key) && !f.isNull(key)) f.opt(key) else JSONObject.NULL
                     val meta = f.optJSONObject("metricMeta")?.optJSONObject(key) ?: JSONObject()
                     metrics.put(key, JSONObject().put("value", value)
-                        .put("status", if (value !== JSONObject.NULL) "PAGE_VALUE_PARSED" else "UNAVAILABLE_NOT_REPORTED")
+                        .put("appValue", JSONObject.NULL)
+                        .put("difference", JSONObject.NULL)
+                        .put("comparisonStatus", "NOT_RECONCILED_NO_INDEPENDENT_APP_SNAPSHOT")
+                        .put("status", if (value !== JSONObject.NULL) "SCREENER_VALUE_PARSED_ONLY" else "UNAVAILABLE_NOT_REPORTED")
                         .put("source", meta.optString("source", "Screener.in company page"))
                         .put("period", meta.optString("period", f.optString("reportingPeriodStatus", "PERIOD_NOT_LABELLED")))
                         .put("unit", units[key] ?: "NOT_SPECIFIED")
@@ -1276,7 +1301,10 @@ private class NativeProvider(private val appAssets: AssetManager) {
         return JSONObject().put("source", "Screener.in authenticated company-page requests")
             .put("startedAtEpochMs", startedAt).put("completedAtEpochMs", System.currentTimeMillis()).put("requestedStocks", symbols.size)
             .put("attemptedStocks", rows.length()).put("successfulPages", successfulPages)
-            .put("accessBlocked", blocked).put("complete", rows.length() == symbols.size && !blocked)
+            .put("accessBlocked", blocked).put("complete", rows.length() == symbols.size && !blocked && false)
+            .put("comparisonStatus", "NOT_RECONCILED_NO_INDEPENDENT_APP_SNAPSHOT")
+            .put("verifiedComparisons", 0).put("unreconciledMetrics", symbols.size * 18)
+            .put("comparisonNote", "This endpoint collects Screener-side values only. App-vs-Screener comparison requires a separately captured app snapshot; identical-source comparison is deliberately not counted as verification.")
             .put("metrics", JSONArray().put("marketCap").put("pe").put("industryPE").put("eps").put("bookValue").put("pb")
                 .put("roe").put("roce").put("debtEquity").put("sales3y").put("profit3y").put("shareholding")
                 .put("peg").put("piotroski").put("fii").put("dii").put("pledged").put("promoter"))
@@ -1325,19 +1353,18 @@ private class NativeProvider(private val appAssets: AssetManager) {
 
     private fun screenerConnectionTest(): JSONObject {
         return try {
-            // A public company page can load without an account. Never report a valid
-            // session unless the session cookie exists before the protected-page probe.
+            // A cookie alone is not proof. Validate both the account-dependent
+            // saved-screen request and the exact company-page parser used by fundamentals.
             if (!screenerLoggedIn()) throw IOException("LOGIN_REQUIRED: no Screener session cookie detected. Open the official login page, sign in, return, and test again.")
-            // Use the same company-page path and parser as normal fundamentals retrieval.
-            // A company page is public and cannot prove account authentication.
-            // Validate the account session against Screener's own screen-results endpoint,
-            // which is the feature used by this app's saved Screener queries.
             val validationQuery = URLEncoder.encode("Market Capitalization > 0", "UTF-8")
             val validationHtml = get("https://www.screener.in/screen/raw/?query=" + validationQuery)
-            val hasResultsTable = Regex("(?is)<table\\b[^>]*>.*?<tr\\b[^>]*>.*?<th\\b").containsMatchIn(validationHtml)
-            val looksLikeLogin = Regex("(?is)<title[^>]*>.*?(?:login|sign in).*?</title>|name=[\\\"']password[\\\"']").containsMatchIn(validationHtml)
-            if (looksLikeLogin || !hasResultsTable) {
-                throw IOException("Screener account session was not verified: the authenticated screen-results endpoint did not return its results table.")
+            val hasResultsTable = Regex("""(?is)<table\b[^>]*>.*?<tr\b[^>]*>.*?<th\b""").containsMatchIn(validationHtml)
+            val looksLikeLogin = Regex("""(?is)<title[^>]*>.*?(?:login|sign in).*?</title>|name=["']password["']""").containsMatchIn(validationHtml)
+            if (looksLikeLogin || !hasResultsTable) throw IOException("Screener account/session check failed: saved-screen results table was not returned.")
+            val companyProbe = screener("INFY")
+            val companyFields = companyProbe.optInt("availableFundamentalFields", 0)
+            if (companyProbe.optString("symbol") != "INFY" || companyProbe.optString("provider") != "Screener.in" || companyFields < 4) {
+                throw IOException("Screener company-page probe failed: INFY parser coverage below minimum (4 core fields required).")
             }
             screenerSessionValidatedAtMs = System.currentTimeMillis()
             screener403Observed = false
@@ -1346,9 +1373,12 @@ private class NativeProvider(private val appAssets: AssetManager) {
                 .put("requestValidated", true).put("httpStatus", 200)
                 .put("status", "CONNECTED_VERIFIED")
                 .put("sessionAuthenticated", true)
-                .put("message", "Authenticated Screener screen-results access verified successfully. Company fundamentals and saved-screen access are now enabled subject to the account's permissions and provider availability.")
-                .put("accessLevel", "AUTHENTICATED_SCREEN_ENDPOINT")
-                .put("subscriptionAccessVerified", true)
+                .put("message", "Screener saved-screen request and INFY company-page parser both returned valid responses. Available company fields remain individually validated.")
+                .put("accessLevel", "SCREEN_RESULTS_AND_COMPANY_PAGE_PROBED")
+                .put("companyPageProbe", "INFY")
+                .put("companyFieldsParsed", companyFields)
+                .put("subscriptionAccessVerified", false)
+                .put("subscriptionAccessNote", "A successful screen-results response does not independently prove every paid subscription entitlement.")
                 .put("validationEndpoint", "https://www.screener.in/screen/raw/")
                 .put("validationQuery", "Market Capitalization > 0")
             status
@@ -1462,7 +1492,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
         val executor = Executors.newFixedThreadPool(2)
         val quoteFuture = executor.submit<JSONObject> {
             try {
-                if (gatewayConfigured()) nseQuote(raw) else eodQuote(raw)
+                marketQuote(raw)
             } catch (e: Exception) {
                 JSONObject().put("symbol", s)
                     .put("provider", "Unavailable")
@@ -1641,6 +1671,40 @@ private class NativeProvider(private val appAssets: AssetManager) {
                 .put("chartMode", "OHLCV").put("statusText", "Provider OHLCV • as of " + data.optString("asOf"))
                 .put("rangeRequested", range).put("interval", interval).put("quoteTimestamp", asOf / 1000L)
         }
+        // Official NSE Bhavcopy MCP fallback: maximum 3 months per request.
+        // It is EOD only; do not present these bars as intraday/live candles.
+        try {
+            val mcp = nseMcpTool("https://mcp.nseindia.in/bhavcopy/cm/mcp", "get_stock_history",
+                JSONObject().put("symbol", symbol).put("months", 3).put("endDate", "today"))
+            val input = mcp.optJSONArray("data") ?: throw IOException("NSE MCP history missing data array")
+            val rows = JSONArray()
+            for (i in 0 until input.length()) {
+                val row = input.optJSONObject(i) ?: continue
+                val day = row.optString("date").take(10)
+                val date = try { java.time.LocalDate.parse(day) } catch (_: Exception) { continue }
+                val time = date.atStartOfDay(java.time.ZoneId.of("Asia/Kolkata")).toInstant().toEpochMilli()
+                val o = row.optDouble("open", Double.NaN); val h = row.optDouble("high", Double.NaN)
+                val l = row.optDouble("low", Double.NaN); val c = row.optDouble("close", Double.NaN)
+                val v = row.optDouble("volume", 0.0)
+                if (!o.isFinite() || !h.isFinite() || !l.isFinite() || !c.isFinite() ||
+                    o <= 0 || h < maxOf(o, c, l) || l > minOf(o, c, h) || v < 0) continue
+                rows.put(JSONObject().put("time", time).put("date", time).put("open", o)
+                    .put("high", h).put("low", l).put("close", c).put("volume", v))
+            }
+            if (rows.length() >= 2) {
+                return JSONObject().put("symbol", symbol).put("rows", rows)
+                    .put("provider", "Official NSE Bhavcopy MCP")
+                    .put("historyProvider", "Official NSE Bhavcopy MCP")
+                    .put("historyStatus", "VALIDATED_OFFICIAL_NSE_MCP_EOD")
+                    .put("marketDataStatus", "EOD").put("chartMode", "OHLCV")
+                    .put("statusText", "Official NSE MCP daily EOD • up to 3 months per request • not intraday")
+                    .put("rangeRequested", range).put("interval", "1d")
+                    .put("quoteTimestamp", rows.optJSONObject(rows.length()-1)?.optLong("time")?.div(1000L) ?: JSONObject.NULL)
+                    .put("sourceDisclaimer", "NSE MCP Bhavcopy daily EOD history; response limited to 3 months for this request.")
+            }
+        } catch (_: Exception) {
+            // Continue to the locally bundled official NSE history; preserve its availability.
+        }
         val localRows = readBundledNseEod(symbol)
         if (localRows.length() >= 2) {
             val latest = localRows.optJSONObject(localRows.length() - 1)
@@ -1705,6 +1769,112 @@ private class NativeProvider(private val appAssets: AssetManager) {
 
     // No unlicensed third-party quote/chart adapters are retained. Quotes and candles
     // come only from the authorized gateway or validated official NSE EOD bundle.
+
+    /**
+     * Minimal Streamable-HTTP MCP client for NSE's official no-auth personal-use feeds.
+     * NSE MCP is not a REST API: initialize a session, send initialized notification,
+     * then call the advertised tool. Parse both JSON and SSE response envelopes.
+     */
+    private fun nseMcpRequest(endpoint: String, payload: JSONObject, sessionId: String? = null): Pair<JSONObject, String?> {
+        val connection = (URL(endpoint).openConnection() as HttpURLConnection)
+        connection.connectTimeout = 7000
+        connection.readTimeout = 12000
+        connection.requestMethod = "POST"
+        connection.doOutput = true
+        connection.setRequestProperty("Content-Type", "application/json")
+        connection.setRequestProperty("Accept", "application/json, text/event-stream")
+        connection.setRequestProperty("MCP-Protocol-Version", "2025-03-26")
+        if (!sessionId.isNullOrBlank()) connection.setRequestProperty("Mcp-Session-Id", sessionId)
+        try {
+            connection.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
+            val code = connection.responseCode
+            val body = (if (code in 200..299) connection.inputStream else connection.errorStream)
+                ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+            if (code !in 200..299) throw IOException("NSE MCP HTTP $code: " + body.take(240))
+            val responseSession = connection.getHeaderField("Mcp-Session-Id") ?: sessionId
+            if (!payload.has("id") && body.isBlank()) return Pair(JSONObject(), responseSession)
+            val parsedBody = body.lineSequence().filter { it.startsWith("data:") }
+                .map { it.removePrefix("data:").trim() }.lastOrNull { it.startsWith("{") } ?: body.trim()
+            val json = try { JSONObject(parsedBody) } catch (e: Exception) {
+                throw IOException("NSE MCP returned an unsupported response envelope: " + body.take(180), e)
+            }
+            val error = json.optJSONObject("error")
+            if (error != null) throw IOException("NSE MCP protocol error: " + error.optString("message", "unknown error"))
+            return Pair(json, responseSession)
+        } finally { connection.disconnect() }
+    }
+
+    private fun nseMcpTool(endpoint: String, tool: String, args: JSONObject): JSONObject {
+        val init = JSONObject().put("jsonrpc", "2.0").put("id", 1).put("method", "initialize")
+            .put("params", JSONObject().put("protocolVersion", "2025-03-26")
+                .put("capabilities", JSONObject()).put("clientInfo", JSONObject()
+                    .put("name", "ProStockIntelligence").put("version", "42.05")))
+        val (initialized, session) = nseMcpRequest(endpoint, init)
+        if (initialized.optJSONObject("result") == null) throw IOException("NSE MCP initialize did not return a result")
+        val notification = JSONObject().put("jsonrpc", "2.0").put("method", "notifications/initialized")
+        nseMcpRequest(endpoint, notification, session)
+        val call = JSONObject().put("jsonrpc", "2.0").put("id", 2).put("method", "tools/call")
+            .put("params", JSONObject().put("name", tool).put("arguments", args))
+        val (response, _) = nseMcpRequest(endpoint, call, session)
+        val result = response.optJSONObject("result") ?: throw IOException("NSE MCP tool returned no result")
+        if (result.optBoolean("isError", false)) throw IOException("NSE MCP tool $tool reported an error")
+        val content = result.optJSONArray("content") ?: throw IOException("NSE MCP tool $tool returned no content")
+        for (i in 0 until content.length()) {
+            val block = content.optJSONObject(i) ?: continue
+            if (block.optString("type") != "text") continue
+            val raw = block.optString("text")
+            val parsed = try { JSONObject(raw) } catch (_: Exception) { null }
+            if (parsed != null) {
+                if (parsed.has("error") && !parsed.isNull("error")) throw IOException("NSE MCP $tool: " + parsed.optString("error"))
+                return parsed
+            }
+            throw IOException("NSE MCP $tool returned non-JSON text: " + raw.take(180))
+        }
+        throw IOException("NSE MCP $tool returned no text payload")
+    }
+
+    private fun parseNseMcpTime(value: String): Long {
+        val raw = value.trim()
+        raw.toLongOrNull()?.let { return if (it < 10_000_000_000L) it * 1000L else it }
+        try { return java.time.OffsetDateTime.parse(raw).toInstant().toEpochMilli() } catch (_: Exception) {}
+        try { return java.time.Instant.parse(raw).toEpochMilli() } catch (_: Exception) {}
+        for (pattern in listOf("dd-MMM-yyyy HH:mm:ss", "dd-MM-yyyy HH:mm:ss", "yyyy-MM-dd HH:mm:ss")) {
+            try {
+                val formatter = java.time.format.DateTimeFormatter.ofPattern(pattern, Locale.ENGLISH)
+                return java.time.LocalDateTime.parse(raw, formatter).atZone(java.time.ZoneId.of("Asia/Kolkata")).toInstant().toEpochMilli()
+            } catch (_: Exception) {}
+        }
+        throw IOException("NSE MCP quote timestamp is missing or unrecognized")
+    }
+
+    private fun nseMcpQuote(raw: String): JSONObject {
+        val symbol = canonical(raw)
+        val data = nseMcpTool("https://mcp.nseindia.in/cmmkt/mcp", "cm_get_stock_quote",
+            JSONObject().put("symbol", symbol))
+        val stock = data.optJSONObject("stock") ?: throw IOException("NSE MCP quote missing stock object")
+        val returnedSymbol = canonical(stock.optString("symbol"))
+        if (returnedSymbol != symbol) throw IOException("NSE MCP returned a different symbol; quote rejected")
+        val price = stock.optDouble("lastTradedPrice", Double.NaN)
+        val stampText = stock.optString("latestTimestamp", data.optString("updatedAt"))
+        if (!price.isFinite() || price <= 0.0 || stampText.isBlank()) throw IOException("NSE MCP quote missing valid price/timestamp")
+        val stamp = parseNseMcpTime(stampText)
+        val age = System.currentTimeMillis() - stamp
+        if (age < -60000L || age > 30L * 60L * 1000L) throw IOException("NSE MCP quote timestamp is future-dated or stale")
+        val out = JSONObject().put("symbol", symbol).put("price", price)
+            .put("previousClose", stock.optDouble("preClose", Double.NaN))
+            .put("dayChangePct", stock.optDouble("perChange", Double.NaN))
+            .put("high52", stock.optDouble("fiftyTwoWeekHigh", Double.NaN))
+            .put("low52", stock.optDouble("fiftyTwoWeekLow", Double.NaN))
+            .put("provider", "Official NSE CM Market MCP")
+            .put("source", "NSE CM Market MCP").put("status", "DELAYED")
+            .put("marketDataStatus", "DELAYED").put("quoteTimestamp", stamp / 1000L)
+            .put("marketDataDisclaimer", "Official NSE MCP delayed market snapshot; expected delay approximately 1–3 minutes. Not tick-by-tick.")
+            .put("isExchangeCertifiedRealtime", false)
+        listOf("previousClose", "dayChangePct", "high52", "low52").forEach { key ->
+            if (out.optDouble(key, Double.NaN).isNaN()) out.put(key, JSONObject.NULL)
+        }
+        return out
+    }
 
     private fun eodQuote(raw: String): JSONObject {
         val symbol = canonical(raw)
@@ -2287,7 +2457,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
         val s = canonical(raw)
         return try {
             when (p) {
-                "/api/health" -> JSONObject().put("ok", true).put("engine", "V42.04 OFFICIAL NSE/BSE RSS + AUTHORIZED MARKET DATA").put("data", JSONObject().put("ok", true).put("providerGatewayConfigured", gatewayConfigured()).put("quoteStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_FEED_NOT_CONFIGURED").put("historyStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_HISTORY_NOT_CONFIGURED").put("indicesStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_INDEX_FEED_NOT_CONFIGURED").put("eventsStatus", "OFFICIAL_NSE_BSE_RSS_CONFIGURED_RUNTIME_VALIDATION_REQUIRED").put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
+                "/api/health" -> JSONObject().put("ok", true).put("engine", "V42.05 OFFICIAL NSE/BSE RSS + AUTHORIZED MARKET DATA").put("data", JSONObject().put("ok", true).put("providerGatewayConfigured", gatewayConfigured()).put("quoteStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_FEED_NOT_CONFIGURED").put("historyStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_HISTORY_NOT_CONFIGURED").put("indicesStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_INDEX_FEED_NOT_CONFIGURED").put("eventsStatus", "OFFICIAL_NSE_BSE_RSS_CONFIGURED_RUNTIME_VALIDATION_REQUIRED").put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
                 "/api/providers/status" -> JSONObject().put("ok", true).put("data", providerStatus(raw)).toString()
                 "/api/screener/status" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
                 "/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerConnectionTest()).toString()
@@ -2306,7 +2476,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
                 }
                 "/api/quote", "/api/fast" -> {
                     val quote = try {
-                        if (gatewayConfigured()) nseQuote(raw) else eodQuote(raw)
+                        marketQuote(raw)
                     } catch (e: Exception) {
                         JSONObject().put("symbol", s)
                             .put("status", if (gatewayConfigured()) "PROVIDER_GATEWAY_VALIDATION_FAILED" else "OFFICIAL_NSE_EOD_UNAVAILABLE")
@@ -2315,11 +2485,21 @@ private class NativeProvider(private val appAssets: AssetManager) {
                             .put("marketDataDisclaimer", "No bundled official NSE EOD close exists and no authorized live feed is configured. Authorized NSE/vendor gateway is not configured. Live price is unavailable; no website scraping or third-party fallback is used. No third-party fallback is used; Yahoo/Moneycontrol fallback is disabled. No price or candle is fabricated.")
                             .put("providerError", e.message ?: "Verified quote unavailable")
                     }
-                    quote.put("rows", JSONArray()).put("historyProvider", "Unavailable")
-                        .put("historyStatus", "AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED")
+                    // Preserve the validated NSE EOD candles returned by eodQuote().
+                    // The old unconditional empty-array write erased both the quote's
+                    // history and the chart payload, even when the bundled NSE data existed.
+                    val quoteRows = quote.optJSONArray("rows")
+                    val eodRows = if (quoteRows != null && quoteRows.length() >= 2) quoteRows else readBundledNseEod(s)
+                    val historyAvailable = eodRows.length() >= 2
+                    if (!quote.has("historyProvider") && historyAvailable) {
+                        quote.put("historyProvider", "NSE official EOD bhavcopy bundled with app")
+                    }
+                    quote.put("historyStatus", if (historyAvailable) "VALIDATED_OFFICIAL_NSE_EOD" else "NSE_EOD_HISTORY_NOT_BUNDLED")
                     val data = JSONObject().put("symbol", s).put("name", stockName(s)).put("quote", quote)
                         .put("provider", quote.optString("provider", "Unavailable"))
-                        .put("rows", JSONArray())
+                        .put("rows", eodRows)
+                        .put("historyProvider", quote.optString("historyProvider", "Unavailable"))
+                        .put("historyStatus", if (historyAvailable) "VALIDATED_OFFICIAL_NSE_EOD" else "NSE_EOD_HISTORY_NOT_BUNDLED")
                     JSONObject().put("ok", true).put("data", data).toString()
                 }
                 "/api/history" -> JSONObject().put("ok", true).put("data", historyData(s, q["range"] ?: "1y")).toString()
@@ -2330,7 +2510,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
                     JSONObject().put("ok", true).put("data", data).toString()
                 }
                 "/api/screener/audit30" -> {
-                    if (!screenerLoggedIn()) throw IOException("Screener login is not active. Sign in on the official page first.")
+                    if (!screenerSessionIsValidated()) throw IOException("Screener access is not verified. Run Check access first; the audit will not start from cookie presence alone.")
                     JSONObject().put("ok", true).put("data", screenerAudit30()).toString()
                 }
                 "/api/screener/live" -> {
