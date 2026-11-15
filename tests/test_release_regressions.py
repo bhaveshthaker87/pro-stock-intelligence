@@ -750,5 +750,26 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertNotIn('quote.put("rows", JSONArray())', route)
         self.assertNotIn('.put("rows", JSONArray())', route)
 
+    def test_main_navigation_uses_separate_compact_sections(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        for page in ("overview", "chart", "financials", "ownership", "peers", "news", "scans", "events", "sources"):
+            self.assertIn(f'data-page="{page}"', html)
+        self.assertIn("appNav", html)
+        self.assertIn("visibleTopLevel", html)
+        self.assertIn("savedQueriesSection", html)
+        self.assertIn("marketIntelligenceHub", html)
+
+    def test_official_nse_mcp_fallback_uses_streamable_http_tools(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("https://mcp.nseindia.in/cmmkt/mcp", source)
+        self.assertIn("https://mcp.nseindia.in/bhavcopy/cm/mcp", source)
+        self.assertIn('"cm_get_stock_quote"', source)
+        self.assertIn('"get_stock_history"', source)
+        self.assertIn('"notifications/initialized"', source)
+        self.assertIn('"tools/call"', source)
+        self.assertIn('"Official NSE CM Market MCP"', source)
+        self.assertIn('"Official NSE Bhavcopy MCP"', source)
+        self.assertIn("marketDataStatus", source)
+
 if __name__ == "__main__":
     unittest.main()
