@@ -273,9 +273,9 @@ def android_dividends() -> dict[str, Any]:
 @app.get("/v1/indices")
 def android_indices() -> dict[str, Any]:
     raw = _nse("/allIndices")
-    now = datetime.now(timezone.utc).isoformat()
     candidates = _items(raw)
     rows = []
+    source_times: list[datetime] = []
     aliases = {
         "NIFTY 50": ("NIFTY 50", "NIFTY 50"),
         "NIFTY BANK": ("NIFTY BANK", "NIFTY BANK"),
@@ -297,7 +297,18 @@ def android_indices() -> dict[str, Any]:
             continue
         if number <= 0:
             continue
-        rows.append({"name": name, "value": number, "changePct": change})
-    if not rows:
-        raise HTTPException(status_code=503, detail="NSE /allIndices returned no parseable index rows; no index values were fabricated.")
-    return {"ok": True, "data": {"source": "NSE public website (unofficial endpoint)", "marketDataStatus": "EOD", "asOf": now, "rows": rows, "live_data_verified": False}}
+        stamp_text = str(_first(row, "time", "lastUpdateTime", "timestamp", "date") or "").strip()
+        if not stamp_text:
+            continue
+        try:
+            stamp_iso = _nse_time(stamp_text)
+            stamp_dt = datetime.fromisoformat(stamp_iso)
+        except (HTTPException, ValueError):
+            continue
+        source_times.append(stamp_dt)
+        rows.append({"name": name, "value": number, "changePct": change, "sourceTimestamp": stamp_iso})
+    if not rows or not source_times:
+        raise HTTPException(status_code=503, detail="NSE /allIndices returned no rows with a parseable exchange source timestamp; fetch time is not substituted.")
+    # Use the actual source timestamp from the returned NSE index rows, never request/response time.
+    as_of = max(source_times).isoformat()
+    return {"ok": True, "data": {"source": "NSE public website (unofficial endpoint)", "marketDataStatus": "EOD", "asOf": as_of, "rows": rows, "live_data_verified": False, "unsupportedIndices": ["SENSEX", "GOLD FUTURES (GLOBAL)", "SILVER FUTURES (GLOBAL)", "BRENT CRUDE (GLOBAL)"]}}
