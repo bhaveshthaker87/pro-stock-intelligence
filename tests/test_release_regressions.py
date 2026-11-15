@@ -645,8 +645,13 @@ class ReleaseRegressionTests(unittest.TestCase):
         probe = source[start:end]
         self.assertIn("https://www.screener.in/screen/raw/?query=", probe)
         self.assertIn("sessionAuthenticated", probe)
-        self.assertIn("AUTHENTICATED_SCREEN_ENDPOINT", probe)
-        self.assertIn("Screener account session was not verified", probe)
+        self.assertIn("SCREEN_RESULTS_AND_COMPANY_PAGE_PROBED", probe)
+        self.assertIn('screener("INFY")', probe)
+        self.assertIn("companyFieldsParsed", probe)
+        self.assertIn("subscriptionAccessVerified", probe)
+        audit_route = source[source.index('"/api/screener/audit30"'):source.index('"/api/screener/live"')]
+        self.assertIn("screenerSessionIsValidated()", audit_route)
+        self.assertIn("Run Check access first", audit_route)
         self.assertIn('put("sessionAuthenticated", validated)', source)
         self.assertIn("Screener: Verify Login", html)
         self.assertIn("Screener: Login Required", html)
