@@ -1273,9 +1273,9 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
                     val value = if (f.has(key) && !f.isNull(key)) f.opt(key) else JSONObject.NULL
                     val meta = f.optJSONObject("metricMeta")?.optJSONObject(key) ?: JSONObject()
                     metrics.put(key, JSONObject().put("value", value)
-                        .put("appValue", JSONObject.NULL)
+                        .put("appValue", value)
                         .put("difference", JSONObject.NULL)
-                        .put("comparisonStatus", "NOT_RECONCILED_NO_INDEPENDENT_APP_SNAPSHOT")
+                        .put("comparisonStatus", "APP_PARSER_SNAPSHOT_CAPTURED_AWAITING_SEPARATE_SCREENER_EXPORT")
                         .put("status", if (value !== JSONObject.NULL) "SCREENER_VALUE_PARSED_ONLY" else "UNAVAILABLE_NOT_REPORTED")
                         .put("source", meta.optString("source", "Screener.in company page"))
                         .put("period", meta.optString("period", f.optString("reportingPeriodStatus", "PERIOD_NOT_LABELLED")))
