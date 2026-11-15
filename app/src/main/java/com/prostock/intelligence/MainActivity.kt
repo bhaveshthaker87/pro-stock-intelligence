@@ -735,6 +735,23 @@ private class NativeProvider(private val appAssets: AssetManager) {
      * The public NSE website is not a documented API contract; do not scrape it.
      * Bundled official NSE EOD data is handled separately as a clearly labelled reference.
      */
+    /** Single quote resolution pipeline shared by fast quote and full bootstrap paths.
+     * Priority: configured authorized gateway -> official NSE delayed MCP -> bundled official NSE EOD.
+     * Each returned payload retains its own source timestamp and DELAYED/EOD status.
+     */
+    private fun marketQuote(raw: String): JSONObject {
+        val failures = mutableListOf<String>()
+        if (gatewayConfigured()) {
+            try { return nseQuote(raw).put("fallbackLevel", "AUTHORIZED_GATEWAY") }
+            catch (e: Exception) { failures.add("gateway: ${e.message ?: "failed"}") }
+        }
+        try { return nseMcpQuote(raw).put("fallbackLevel", "NSE_MCP_DELAYED") }
+        catch (e: Exception) { failures.add("NSE MCP: ${e.message ?: "failed"}") }
+        try { return eodQuote(raw).put("fallbackLevel", "BUNDLED_NSE_EOD") }
+        catch (e: Exception) { failures.add("NSE EOD: ${e.message ?: "failed"}") }
+        throw IOException("No verified NSE quote available. " + failures.joinToString("; "))
+    }
+
     private fun nseQuote(raw: String): JSONObject {
         val symbol = canonical(raw)
         if (symbol.isBlank() || !symbol.matches(Regex("[A-Z0-9&_-]{1,25}")))
@@ -1204,12 +1221,17 @@ private class NativeProvider(private val appAssets: AssetManager) {
         if (!f.has("pe")) qualityFlags.put("PE_UNAVAILABLE_OR_NON_POSITIVE")
         if (!f.has("eps")) qualityFlags.put("EPS_UNAVAILABLE")
         if (!f.has("roce")) qualityFlags.put("ROCE_UNAVAILABLE")
+        val coreKeys = listOf("marketCap", "pe", "eps", "bookValue", "roe", "roce", "debtEquity")
+        val coreAvailable = coreKeys.count { f.has(it) && !f.isNull(it) }
+        val coreCoveragePass = coreAvailable >= 4
+        if (!coreCoveragePass) qualityFlags.put("CORE_FUNDAMENTAL_COVERAGE_BELOW_4_OF_7")
         f.put("name", pageTitle).put("symbol", s).put("sector", stockSector(s)).put("provider", "Screener.in")
             .put("sourceUrl", pageUrl).put("fetchedAtEpochMs", fetchedAt)
             .put("reportingPeriodStatus", "Provider-reported periods are retained in source tables; top-ratio fields have no explicit period unless metricMeta supplies one")
-            .put("fundamentalStatus", if (available >= 6) "PAGE_VALIDATED_PARTIAL_FIELDS_MAY_BE_MISSING" else "PAGE_VALIDATED_LOW_COVERAGE")
+            .put("fundamentalStatus", if (!coreCoveragePass) "PAGE_VALIDATED_CORE_COVERAGE_FAILED" else if (available >= 6) "PAGE_VALIDATED_PARTIAL_FIELDS_MAY_BE_MISSING" else "PAGE_VALIDATED_LOW_COVERAGE")
             .put("availableFundamentalFields", available).put("expectedFundamentalFields", fieldKeys.size)
-            .put("qualityFlags", qualityFlags)
+            .put("coreFieldsAvailable", coreAvailable).put("coreFieldsExpected", coreKeys.size)
+            .put("coreCoveragePass", coreCoveragePass).put("qualityFlags", qualityFlags)
         return f
     }
 
@@ -1250,7 +1272,10 @@ private class NativeProvider(private val appAssets: AssetManager) {
                     val value = if (f.has(key) && !f.isNull(key)) f.opt(key) else JSONObject.NULL
                     val meta = f.optJSONObject("metricMeta")?.optJSONObject(key) ?: JSONObject()
                     metrics.put(key, JSONObject().put("value", value)
-                        .put("status", if (value !== JSONObject.NULL) "PAGE_VALUE_PARSED" else "UNAVAILABLE_NOT_REPORTED")
+                        .put("appValue", JSONObject.NULL)
+                        .put("difference", JSONObject.NULL)
+                        .put("comparisonStatus", "NOT_RECONCILED_NO_INDEPENDENT_APP_SNAPSHOT")
+                        .put("status", if (value !== JSONObject.NULL) "SCREENER_VALUE_PARSED_ONLY" else "UNAVAILABLE_NOT_REPORTED")
                         .put("source", meta.optString("source", "Screener.in company page"))
                         .put("period", meta.optString("period", f.optString("reportingPeriodStatus", "PERIOD_NOT_LABELLED")))
                         .put("unit", units[key] ?: "NOT_SPECIFIED")
@@ -1276,7 +1301,10 @@ private class NativeProvider(private val appAssets: AssetManager) {
         return JSONObject().put("source", "Screener.in authenticated company-page requests")
             .put("startedAtEpochMs", startedAt).put("completedAtEpochMs", System.currentTimeMillis()).put("requestedStocks", symbols.size)
             .put("attemptedStocks", rows.length()).put("successfulPages", successfulPages)
-            .put("accessBlocked", blocked).put("complete", rows.length() == symbols.size && !blocked)
+            .put("accessBlocked", blocked).put("complete", rows.length() == symbols.size && !blocked && false)
+            .put("comparisonStatus", "NOT_RECONCILED_NO_INDEPENDENT_APP_SNAPSHOT")
+            .put("verifiedComparisons", 0).put("unreconciledMetrics", symbols.size * 18)
+            .put("comparisonNote", "This endpoint collects Screener-side values only. App-vs-Screener comparison requires a separately captured app snapshot; identical-source comparison is deliberately not counted as verification.")
             .put("metrics", JSONArray().put("marketCap").put("pe").put("industryPE").put("eps").put("bookValue").put("pb")
                 .put("roe").put("roce").put("debtEquity").put("sales3y").put("profit3y").put("shareholding")
                 .put("peg").put("piotroski").put("fii").put("dii").put("pledged").put("promoter"))
@@ -1335,8 +1363,8 @@ private class NativeProvider(private val appAssets: AssetManager) {
             if (looksLikeLogin || !hasResultsTable) throw IOException("Screener account/session check failed: saved-screen results table was not returned.")
             val companyProbe = screener("INFY")
             val companyFields = companyProbe.optInt("availableFundamentalFields", 0)
-            if (companyProbe.optString("symbol") != "INFY" || companyProbe.optString("provider") != "Screener.in" || companyFields < 1) {
-                throw IOException("Screener company-page probe failed: INFY fundamentals parser returned no validated fields.")
+            if (companyProbe.optString("symbol") != "INFY" || companyProbe.optString("provider") != "Screener.in" || companyFields < 4) {
+                throw IOException("Screener company-page probe failed: INFY parser coverage below minimum (4 core fields required).")
             }
             screenerSessionValidatedAtMs = System.currentTimeMillis()
             screener403Observed = false
@@ -1464,7 +1492,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
         val executor = Executors.newFixedThreadPool(2)
         val quoteFuture = executor.submit<JSONObject> {
             try {
-                if (gatewayConfigured()) nseQuote(raw) else try { nseMcpQuote(raw) } catch (_: Exception) { eodQuote(raw) }
+                marketQuote(raw)
             } catch (e: Exception) {
                 JSONObject().put("symbol", s)
                     .put("provider", "Unavailable")
@@ -2448,7 +2476,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
                 }
                 "/api/quote", "/api/fast" -> {
                     val quote = try {
-                        if (gatewayConfigured()) nseQuote(raw) else eodQuote(raw)
+                        marketQuote(raw)
                     } catch (e: Exception) {
                         JSONObject().put("symbol", s)
                             .put("status", if (gatewayConfigured()) "PROVIDER_GATEWAY_VALIDATION_FAILED" else "OFFICIAL_NSE_EOD_UNAVAILABLE")
