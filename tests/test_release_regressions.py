@@ -695,7 +695,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("adb devices", emulator_runner)
         self.assertNotIn("adb wait-for-device", emulator_runner)
 
-    def test_csv_xlsx_upload_and_import_fallback_are_removed(self):
+    def test_only_official_screener_csv_fallback_is_enabled(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
@@ -705,8 +705,10 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertNotIn("PSICsvImport", html)
         self.assertNotIn("PSIXlsxImport", html)
         self.assertNotIn("mergeImportedCsvData", html)
-        self.assertNotIn("onShowFileChooser", source)
-        self.assertNotIn("csvPickerRequestCode", source)
+        self.assertIn('id="screenerCsvFile"', html)
+        self.assertIn("applyScreenerCsvFallback", html)
+        self.assertIn("onShowFileChooser", source)
+        self.assertIn("screenerCsvPickerRequestCode", source)
         self.assertNotIn("csv-import.js", workflow)
         self.assertNotIn("xlsx-import.js", workflow)
 
