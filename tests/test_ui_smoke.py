@@ -158,8 +158,13 @@ class DashboardUISmokeTests(unittest.TestCase):
                 self.assertEqual(page.locator(f".tab:not([data-page='{page_name}'])[aria-current='page']").count(), 0)
             # Sources is a modal-backed page; all other sections use explicit top-level visibility.
             self.assertIn("show", page.locator("#dataSourcesModal").get_attribute("class"))
-            page.locator(".tab[data-page='overview']").click()  # Return before dashboard-level controls.
+            # Saved scans belong to the Scans destination, not Overview. Assert the
+            # actual control is visible after navigation before exercising it.
+            scans_tab = page.locator(".tab[data-page='scans']")
+            scans_tab.click()
+            self.assertEqual(page.locator("body").get_attribute("data-nav-page"), "scans")
             self.assertEqual(page.locator(".qcard").count(), 5)
+            self.assertTrue(page.locator("[data-qrun='master']").is_visible())
             page.locator("[data-qrun='master']").click()
             page.wait_for_timeout(150)
             self.assertTrue(page.locator("#qresult_master").inner_text())
