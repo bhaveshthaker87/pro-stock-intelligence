@@ -145,11 +145,20 @@ class DashboardUISmokeTests(unittest.TestCase):
             self.assertLess(chart_check["rsiError"], 1e-6, chart_check)
             self.assertTrue(chart_check["rsiRange"], chart_check)
             page.evaluate("document.body.classList.remove('psi-easy-mode')")
-            self.assertEqual(page.locator(".tab").count(), 9)
-            for tab in page.locator(".tab").all():
+            expected_pages = ["overview", "chart", "financials", "ownership", "peers", "news", "scans", "events", "sources"]
+            tabs = page.locator(".tab")
+            self.assertEqual(tabs.count(), len(expected_pages))
+            self.assertEqual([tabs.nth(i).get_attribute("data-page") for i in range(tabs.count())], expected_pages)
+            for page_name in expected_pages:
+                tab = page.locator(f".tab[data-page='{page_name}']")
                 tab.click()
+                self.assertEqual(page.locator("body").get_attribute("data-nav-page"), page_name)
                 self.assertIn("active", tab.get_attribute("class"))
-            page.locator(".tab").first.click()  # Return to Overview before testing dashboard-level query controls.
+                self.assertEqual(tab.get_attribute("aria-current"), "page")
+                self.assertEqual(page.locator(f".tab:not([data-page='{page_name}'])[aria-current='page']").count(), 0)
+            # Sources is a modal-backed page; all other sections use explicit top-level visibility.
+            self.assertIn("show", page.locator("#dataSourcesModal").get_attribute("class"))
+            page.locator(".tab[data-page='overview']").click()  # Return before dashboard-level controls.
             self.assertEqual(page.locator(".qcard").count(), 5)
             page.locator("[data-qrun='master']").click()
             page.wait_for_timeout(150)
