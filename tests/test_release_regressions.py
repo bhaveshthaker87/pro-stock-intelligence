@@ -351,6 +351,16 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("max-height:150px!important", html)
 
 
+    def test_v4207_audit_snapshot_exports_app_parser_values_for_external_reconciliation(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        audit = source[source.index("private fun screenerAudit30()"):source.index("private fun screenerCookieHeader()")]
+        self.assertIn('.put("appValue", value)', audit)
+        self.assertIn("APP_PARSER_SNAPSHOT_CAPTURED_AWAITING_SEPARATE_SCREENER_EXPORT", audit)
+        self.assertIn('id="screenerAuditDownloadBtn"', html)
+        self.assertIn("psi-screener-app-parser-snapshot-30.json", html)
+        self.assertIn("window.psiScreenerAudit30", html)
+
     def test_screener_connect_endpoint_performs_real_company_page_validation(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         start = source.index("private fun screenerConnectionTest()")
