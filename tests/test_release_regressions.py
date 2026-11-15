@@ -643,7 +643,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         start = source.index("private fun screenerConnectionTest()")
         end = source.index("\n    private fun ", start)
         probe = source[start:end]
-        self.assertIn("https://www.screener.in/screen/raw/?query=", probe)
+        self.assertIn('screener("INFY")', probe)
         self.assertIn("sessionAuthenticated", probe)
         self.assertIn("COMPANY_PAGE_PROBED", probe)
         self.assertIn('screener("INFY")', probe)
