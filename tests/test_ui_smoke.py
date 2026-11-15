@@ -540,5 +540,19 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn("Open official NSE announcements", html)
         self.assertIn("metrics not present in this source", html)
 
+    def test_v4207_nse_mcp_is_disabled_by_default_pending_written_permission(self):
+        root = Path(__file__).parents[1]
+        gradle = (root / "app/build.gradle").read_text(encoding="utf-8")
+        source = (root / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("versionCode 99", gradle)
+        self.assertIn("versionName '42.07'", gradle)
+        self.assertIn("ENABLE_NSE_MCP_DATA", gradle)
+        self.assertIn("getOrElse('false')", gradle)
+        self.assertIn("if (!BuildConfig.ENABLE_NSE_MCP_DATA)", source)
+        self.assertIn("pending written confirmation", source)
+        self.assertIn("Official bundled NSE EOD fallback remains available", source)
+        self.assertIn('put("marketDataStatus", "EOD")', source)
+        self.assertIn("NSE official EOD bhavcopy", source)
+
 if __name__ == "__main__":
     unittest.main()
