@@ -2315,11 +2315,21 @@ private class NativeProvider(private val appAssets: AssetManager) {
                             .put("marketDataDisclaimer", "No bundled official NSE EOD close exists and no authorized live feed is configured. Authorized NSE/vendor gateway is not configured. Live price is unavailable; no website scraping or third-party fallback is used. No third-party fallback is used; Yahoo/Moneycontrol fallback is disabled. No price or candle is fabricated.")
                             .put("providerError", e.message ?: "Verified quote unavailable")
                     }
-                    quote.put("rows", JSONArray()).put("historyProvider", "Unavailable")
-                        .put("historyStatus", "AUTHORIZED_NSE_HISTORICAL_FEED_NOT_CONFIGURED")
+                    // Preserve the validated NSE EOD candles returned by eodQuote().
+                    // The old unconditional empty-array write erased both the quote's
+                    // history and the chart payload, even when the bundled NSE data existed.
+                    val quoteRows = quote.optJSONArray("rows")
+                    val eodRows = if (quoteRows != null && quoteRows.length() >= 2) quoteRows else readBundledNseEod(s)
+                    val historyAvailable = eodRows.length() >= 2
+                    if (!quote.has("historyProvider") && historyAvailable) {
+                        quote.put("historyProvider", "NSE official EOD bhavcopy bundled with app")
+                    }
+                    quote.put("historyStatus", if (historyAvailable) "VALIDATED_OFFICIAL_NSE_EOD" else "NSE_EOD_HISTORY_NOT_BUNDLED")
                     val data = JSONObject().put("symbol", s).put("name", stockName(s)).put("quote", quote)
                         .put("provider", quote.optString("provider", "Unavailable"))
-                        .put("rows", JSONArray())
+                        .put("rows", eodRows)
+                        .put("historyProvider", quote.optString("historyProvider", "Unavailable"))
+                        .put("historyStatus", if (historyAvailable) "VALIDATED_OFFICIAL_NSE_EOD" else "NSE_EOD_HISTORY_NOT_BUNDLED")
                     JSONObject().put("ok", true).put("data", data).toString()
                 }
                 "/api/history" -> JSONObject().put("ok", true).put("data", historyData(s, q["range"] ?: "1y")).toString()
