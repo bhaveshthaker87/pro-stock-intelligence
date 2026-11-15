@@ -1325,19 +1325,18 @@ private class NativeProvider(private val appAssets: AssetManager) {
 
     private fun screenerConnectionTest(): JSONObject {
         return try {
-            // A public company page can load without an account. Never report a valid
-            // session unless the session cookie exists before the protected-page probe.
+            // A cookie alone is not proof. Validate both the account-dependent
+            // saved-screen request and the exact company-page parser used by fundamentals.
             if (!screenerLoggedIn()) throw IOException("LOGIN_REQUIRED: no Screener session cookie detected. Open the official login page, sign in, return, and test again.")
-            // Use the same company-page path and parser as normal fundamentals retrieval.
-            // A company page is public and cannot prove account authentication.
-            // Validate the account session against Screener's own screen-results endpoint,
-            // which is the feature used by this app's saved Screener queries.
             val validationQuery = URLEncoder.encode("Market Capitalization > 0", "UTF-8")
             val validationHtml = get("https://www.screener.in/screen/raw/?query=" + validationQuery)
-            val hasResultsTable = Regex("(?is)<table\\b[^>]*>.*?<tr\\b[^>]*>.*?<th\\b").containsMatchIn(validationHtml)
-            val looksLikeLogin = Regex("(?is)<title[^>]*>.*?(?:login|sign in).*?</title>|name=[\\\"']password[\\\"']").containsMatchIn(validationHtml)
-            if (looksLikeLogin || !hasResultsTable) {
-                throw IOException("Screener account session was not verified: the authenticated screen-results endpoint did not return its results table.")
+            val hasResultsTable = Regex("""(?is)<table\b[^>]*>.*?<tr\b[^>]*>.*?<th\b""").containsMatchIn(validationHtml)
+            val looksLikeLogin = Regex("""(?is)<title[^>]*>.*?(?:login|sign in).*?</title>|name=["']password["']""").containsMatchIn(validationHtml)
+            if (looksLikeLogin || !hasResultsTable) throw IOException("Screener account/session check failed: saved-screen results table was not returned.")
+            val companyProbe = screener("INFY")
+            val companyFields = companyProbe.optInt("availableFundamentalFields", 0)
+            if (companyProbe.optString("symbol") != "INFY" || companyProbe.optString("provider") != "Screener.in" || companyFields < 1) {
+                throw IOException("Screener company-page probe failed: INFY fundamentals parser returned no validated fields.")
             }
             screenerSessionValidatedAtMs = System.currentTimeMillis()
             screener403Observed = false
@@ -1346,9 +1345,12 @@ private class NativeProvider(private val appAssets: AssetManager) {
                 .put("requestValidated", true).put("httpStatus", 200)
                 .put("status", "CONNECTED_VERIFIED")
                 .put("sessionAuthenticated", true)
-                .put("message", "Authenticated Screener screen-results access verified successfully. Company fundamentals and saved-screen access are now enabled subject to the account's permissions and provider availability.")
-                .put("accessLevel", "AUTHENTICATED_SCREEN_ENDPOINT")
-                .put("subscriptionAccessVerified", true)
+                .put("message", "Screener saved-screen request and INFY company-page parser both returned valid responses. Available company fields remain individually validated.")
+                .put("accessLevel", "SCREEN_RESULTS_AND_COMPANY_PAGE_PROBED")
+                .put("companyPageProbe", "INFY")
+                .put("companyFieldsParsed", companyFields)
+                .put("subscriptionAccessVerified", false)
+                .put("subscriptionAccessNote", "A successful screen-results response does not independently prove every paid subscription entitlement.")
                 .put("validationEndpoint", "https://www.screener.in/screen/raw/")
                 .put("validationQuery", "Market Capitalization > 0")
             status
@@ -2480,7 +2482,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
                     JSONObject().put("ok", true).put("data", data).toString()
                 }
                 "/api/screener/audit30" -> {
-                    if (!screenerLoggedIn()) throw IOException("Screener login is not active. Sign in on the official page first.")
+                    if (!screenerSessionIsValidated()) throw IOException("Screener access is not verified. Run Check access first; the audit will not start from cookie presence alone.")
                     JSONObject().put("ok", true).put("data", screenerAudit30()).toString()
                 }
                 "/api/screener/live" -> {
