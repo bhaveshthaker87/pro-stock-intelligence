@@ -41,7 +41,7 @@ class MainActivity : Activity() {
         window.navigationBarColor = Color.rgb(6, 38, 75)
         @Suppress("DEPRECATION")
         window.decorView.systemUiVisibility = 0
-        provider = NativeProvider(assets)
+        provider = NativeProvider(assets, this)
         Log.e("PSI_STARTUP", "ON_CREATE_BEGIN")
         CookieManager.getInstance().setAcceptCookie(true)
         web = WebView(this)
@@ -327,7 +327,8 @@ class MainActivity : Activity() {
     }
 }
 
-private class NativeProvider(private val appAssets: AssetManager) {
+private class NativeProvider(private val appAssets: AssetManager, private val appContext: android.content.Context) {
+    private val screenerUserAgent: String by lazy { WebSettings.getDefaultUserAgent(appContext) }
     // One short-lived cache is shared by analyze, bootstrap, factor and peer requests.
     // Store immutable JSON snapshots as strings so callers cannot mutate the cached object.
     private data class CachedFundamentals(val payload: String, val fetchedAtMs: Long)
@@ -411,7 +412,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
         c.connectTimeout = 4000
         c.readTimeout = 6000
         c.instanceFollowRedirects = true
-        c.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/126.0.0.0 Mobile Safari/537.36 PRO-STOCK-INTELLIGENCE/1.0")
+        c.setRequestProperty("User-Agent", screenerUserAgent)
         c.setRequestProperty("Accept", "application/json,text/html,application/xhtml+xml,*/*")
         c.setRequestProperty("Accept-Language", "en-IN,en;q=0.9")
         val host = URL(url).host.lowercase(Locale.ROOT)
@@ -1345,7 +1346,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
             .put("blockedBy403", blocked).put("validated", validated).put("requestValidated", validated)
             .put("status", if (blocked) "HTTP_403_FORBIDDEN" else if (validated) "CONNECTED_VERIFIED" else if (cookieDetected) "SESSION_UNVERIFIED" else "LOGIN_REQUIRED")
             .put("httpStatus", if (blocked) 403 else if (validated) 200 else JSONObject.NULL)
-            .put("recommendedAction", if (blocked) "Reopen official Screener login inside the app and check access once; no CSV workaround is required or used for automatic metrics." else if (validated) "Select a stock to load available Screener fundamentals automatically." else "Sign in through the official page inside the app; return and check access once.")
+            .put("recommendedAction", if (blocked) "Reopen official Screener login inside the app. If company-page access remains blocked, use an official Screener export for data import; do not retry automated requests." else if (validated) "Select a stock to load available Screener fundamentals automatically." else "Sign in through the official page inside the app; return and check access once.")
             .put("loginUrl", "https://www.screener.in/login/")
             .put("validationExpiresInSeconds", if (validated) ((30L * 60L * 1000L - (System.currentTimeMillis() - screenerSessionValidatedAtMs)).coerceAtLeast(0L) / 1000L) else 0)
             .put("message", message)
@@ -1353,14 +1354,10 @@ private class NativeProvider(private val appAssets: AssetManager) {
 
     private fun screenerConnectionTest(): JSONObject {
         return try {
-            // A cookie alone is not proof. Validate both the account-dependent
-            // saved-screen request and the exact company-page parser used by fundamentals.
+            // Validate the endpoint the app actually needs for fundamentals.
+            // Screener's /screen/raw/ endpoint can be restricted separately by account tier;
+            // requiring it here incorrectly marks a valid company-page session as 403.
             if (!screenerLoggedIn()) throw IOException("LOGIN_REQUIRED: no Screener session cookie detected. Open the official login page, sign in, return, and test again.")
-            val validationQuery = URLEncoder.encode("Market Capitalization > 0", "UTF-8")
-            val validationHtml = get("https://www.screener.in/screen/raw/?query=" + validationQuery)
-            val hasResultsTable = Regex("""(?is)<table\b[^>]*>.*?<tr\b[^>]*>.*?<th\b""").containsMatchIn(validationHtml)
-            val looksLikeLogin = Regex("""(?is)<title[^>]*>.*?(?:login|sign in).*?</title>|name=["']password["']""").containsMatchIn(validationHtml)
-            if (looksLikeLogin || !hasResultsTable) throw IOException("Screener account/session check failed: saved-screen results table was not returned.")
             val companyProbe = screener("INFY")
             val companyFields = companyProbe.optInt("availableFundamentalFields", 0)
             if (companyProbe.optString("symbol") != "INFY" || companyProbe.optString("provider") != "Screener.in" || companyFields < 4) {
@@ -1373,14 +1370,13 @@ private class NativeProvider(private val appAssets: AssetManager) {
                 .put("requestValidated", true).put("httpStatus", 200)
                 .put("status", "CONNECTED_VERIFIED")
                 .put("sessionAuthenticated", true)
-                .put("message", "Screener saved-screen request and INFY company-page parser both returned valid responses. Available company fields remain individually validated.")
-                .put("accessLevel", "SCREEN_RESULTS_AND_COMPANY_PAGE_PROBED")
+                .put("message", "Screener INFY company page returned valid data. Saved-screen query access is checked separately when a scan is run.")
+                .put("accessLevel", "COMPANY_PAGE_PROBED")
                 .put("companyPageProbe", "INFY")
                 .put("companyFieldsParsed", companyFields)
                 .put("subscriptionAccessVerified", false)
                 .put("subscriptionAccessNote", "A successful screen-results response does not independently prove every paid subscription entitlement.")
-                .put("validationEndpoint", "https://www.screener.in/screen/raw/")
-                .put("validationQuery", "Market Capitalization > 0")
+                 .put("validationEndpoint", "https://www.screener.in/company/INFY/")
             status
         } catch (e: Exception) {
             val status = screenerStatus()
@@ -1391,7 +1387,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
                 .put("requestValidated", false).put("blockedBy403", blocked)
                 .put("status", if (blocked) "HTTP_403_FORBIDDEN" else if (!screenerLoggedIn()) "LOGIN_REQUIRED" else "CONNECTION_FAILED")
                 .put("httpStatus", if (blocked) 403 else JSONObject.NULL)
-                .put("message", if (blocked) "Screener returned HTTP 403. Sign in through the official page inside the app and check once. If it persists, automated access is denied; no CSV workaround is used for these metrics." else e.message ?: "Screener connection test failed.")
+                .put("message", if (blocked) "Screener returned HTTP 403 for the company-page request. Re-authenticate in the official page; if company pages remain blocked, use the official Screener export workflow for the affected data. No access-control bypass is attempted." else e.message ?: "Screener connection test failed.")
                 .put("recommendedAction", if (blocked) "Reopen official Screener login inside the app and check access once; no CSV workaround is required or used for automatic metrics." else "Open official Screener login inside the app, sign in, return, then test once.")
         }
     }
