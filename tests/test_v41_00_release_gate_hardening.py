@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import unittest
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -21,7 +22,10 @@ class V4100ReleaseGateTests(unittest.TestCase):
         smoke=(ROOT/".github/scripts/android-smoke-test.sh").read_text(encoding="utf-8")
         self.assertIn('apksigner verify --verbose --print-certs "$APK"',y)
         self.assertIn('aapt dump badging "$APK"',y)
-        self.assertIn("versionCode='96' versionName='42.04'",y)
+        gradle=(ROOT/"app/build.gradle").read_text(encoding="utf-8")
+        version_code=re.search(r"versionCode (\d+)",gradle).group(1)
+        version_name=re.search(r"versionName '([^']+)'",gradle).group(1)
+        self.assertIn(f"versionCode='{version_code}' versionName='{version_name}'",y)
         emulator_runner = (ROOT / ".github/scripts/android-emulator-smoke.sh").read_text(encoding="utf-8")
         self.assertIn('PSI_SMOKE_APK="app/build/outputs/apk/release/app-release.apk"',emulator_runner)
         self.assertIn('APK="${PSI_SMOKE_APK:-app/build/outputs/apk/debug/app-debug.apk}"',smoke)
