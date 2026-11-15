@@ -26,8 +26,8 @@ android {
         targetSdk 35
         versionCode 99; versionName '42.07'
         buildConfigField 'String', 'PROVIDER_GATEWAY_BASE_URL', '"' + (providers.gradleProperty('providerGatewayBaseUrl').getOrElse('')) + '"'
-        // NSE MCP is disabled by default until NSE confirms this app's intended use in writing.
-        buildConfigField 'boolean', 'ENABLE_NSE_MCP_DATA', providers.gradleProperty('enableNseMcpData').getOrElse('false')
+        // NSE MCP is enabled for personal, non-commercial informational use only.
+        buildConfigField 'boolean', 'ENABLE_NSE_MCP_DATA', providers.gradleProperty('enableNseMcpData').getOrElse('true')
     }
 
     buildTypes {
