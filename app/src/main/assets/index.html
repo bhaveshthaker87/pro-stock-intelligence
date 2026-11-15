@@ -1806,6 +1806,7 @@ function setNavPage(page){
     if(page==='overview'&&(cls.contains('summarygrid')||cls.contains('factor')))show=true;
     el.style.display=show?'':'none';
   });
+  const indexPanel=$('indices');if(indexPanel)indexPanel.style.display=(page==='overview'||page==='events')?'':'none';
   const details=$('detailsSection');
   if(details)[...details.children].forEach(el=>el.style.display=(wanted&&el.id===wanted)?'':'none');
   document.querySelectorAll('.tab').forEach((b,i)=>{b.classList.toggle('active',navPages[i]===page);b.setAttribute('aria-current',navPages[i]===page?'page':'false');});
@@ -1815,6 +1816,7 @@ function setNavPage(page){
   if(page==='events'&&typeof loadIndices==='function')loadIndices();
 }
 document.querySelectorAll('.tab').forEach((b,i)=>{b.type='button';b.onclick=()=>setNavPage(b.dataset.page||navPages[i]||'overview');});
+setNavPage('overview');
 document.querySelectorAll('[data-scroll]').forEach(b=>b.addEventListener('click',()=>{const sel=b.dataset.scroll;const page=sel==='#chartTechnicalSection'?'chart':sel==='#financialsSection'?'financials':sel==='#newsSection'?'news':'overview';setNavPage(page);}));
 const STORAGE_KEYS={watch:'psi_watchlist_v39',alerts:'psi_alerts_v39'};
 function readStore(k){try{return JSON.parse(localStorage.getItem(k)||'[]')}catch(e){return []}}
