@@ -6,7 +6,7 @@ only when both independent captures contain a comparable value with a known unit
 source timestamps. Missing columns/values remain DATA_MISSING.
 """
 from __future__ import annotations
-import argparse, csv, json, math, re, sys
+import argparse, csv, hashlib, json, math, re, sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -82,6 +82,13 @@ def main():
         exported_at=datetime.fromisoformat(args.screener_exported_at.replace("Z","+00:00"))
         if exported_at.tzinfo is None: raise ValueError("--screener-exported-at must include timezone")
         app=json.loads(Path(args.app_snapshot).read_text(encoding="utf-8"))
+        if app.get("snapshotOrigin") == "SCREENER_CSV_IMPORT_PARSER":
+            ref_hash=hashlib.sha256(Path(args.screener_csv).read_bytes()).hexdigest()
+            imported_hash=str(app.get("sourceExportSha256") or "")
+            if not imported_hash:
+                raise ValueError("Imported-parser snapshot has no SHA-256 fingerprint; export a second independent Screener CSV and rebuild the app snapshot.")
+            if ref_hash == imported_hash:
+                raise ValueError("Circular audit blocked: the reference CSV is the same file used to create the app parser snapshot. Export a second Screener CSV separately.")
         app_rows={str(r.get("symbol","")).upper():r for r in app.get("rows",[])}
         csv_rows,headers,symbol_col=load_export(args.screener_csv)
         ref_by_symbol={str(r.get(symbol_col,"")).strip().upper(): (r,i) for i,r in enumerate(csv_rows,2)}
