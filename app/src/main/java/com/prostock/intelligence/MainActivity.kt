@@ -1388,7 +1388,7 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
                 .put("status", if (blocked) "HTTP_403_FORBIDDEN" else if (!screenerLoggedIn()) "LOGIN_REQUIRED" else "CONNECTION_FAILED")
                 .put("httpStatus", if (blocked) 403 else JSONObject.NULL)
                 .put("message", if (blocked) "Screener returned HTTP 403 for the company-page request. Re-authenticate in the official page; if company pages remain blocked, use the official Screener export workflow for the affected data. No access-control bypass is attempted." else e.message ?: "Screener connection test failed.")
-                .put("recommendedAction", if (blocked) "Reopen official Screener login inside the app and check access once; no CSV workaround is required or used for automatic metrics." else "Open official Screener login inside the app, sign in, return, then test once.")
+                .put("recommendedAction", if (blocked) "Reopen official Screener login inside the app. If company-page access remains blocked, use the official Screener CSV export and the app's parser snapshot for reconciliation." else "Open official Screener login inside the app, sign in, return, then test once.")
         }
     }
 
