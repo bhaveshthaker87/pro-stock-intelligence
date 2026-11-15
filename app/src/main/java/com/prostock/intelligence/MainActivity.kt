@@ -1803,6 +1803,20 @@ private class NativeProvider(private val appAssets: AssetManager) {
         throw IOException("NSE MCP $tool returned no text payload")
     }
 
+    private fun parseNseMcpTime(value: String): Long {
+        val raw = value.trim()
+        raw.toLongOrNull()?.let { return if (it < 10_000_000_000L) it * 1000L else it }
+        try { return java.time.OffsetDateTime.parse(raw).toInstant().toEpochMilli() } catch (_: Exception) {}
+        try { return java.time.Instant.parse(raw).toEpochMilli() } catch (_: Exception) {}
+        for (pattern in listOf("dd-MMM-yyyy HH:mm:ss", "dd-MM-yyyy HH:mm:ss", "yyyy-MM-dd HH:mm:ss")) {
+            try {
+                val formatter = java.time.format.DateTimeFormatter.ofPattern(pattern, Locale.ENGLISH)
+                return java.time.LocalDateTime.parse(raw, formatter).atZone(java.time.ZoneId.of("Asia/Kolkata")).toInstant().toEpochMilli()
+            } catch (_: Exception) {}
+        }
+        throw IOException("NSE MCP quote timestamp is missing or unrecognized")
+    }
+
     private fun nseMcpQuote(raw: String): JSONObject {
         val symbol = canonical(raw)
         val data = nseMcpTool("https://mcp.nseindia.in/cmmkt/mcp", "cm_get_stock_quote",
@@ -1813,7 +1827,7 @@ private class NativeProvider(private val appAssets: AssetManager) {
         val price = stock.optDouble("lastTradedPrice", Double.NaN)
         val stampText = stock.optString("latestTimestamp", data.optString("updatedAt"))
         if (!price.isFinite() || price <= 0.0 || stampText.isBlank()) throw IOException("NSE MCP quote missing valid price/timestamp")
-        val stamp = parseGatewayTime(stampText)
+        val stamp = parseNseMcpTime(stampText)
         val age = System.currentTimeMillis() - stamp
         if (age < -60000L || age > 30L * 60L * 1000L) throw IOException("NSE MCP quote timestamp is future-dated or stale")
         val out = JSONObject().put("symbol", symbol).put("price", price)
