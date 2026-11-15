@@ -24,8 +24,10 @@ android {
         applicationId 'com.prostock.intelligence'
         minSdk 26
         targetSdk 35
-        versionCode 98; versionName '42.06'
+        versionCode 99; versionName '42.07'
         buildConfigField 'String', 'PROVIDER_GATEWAY_BASE_URL', '"' + (providers.gradleProperty('providerGatewayBaseUrl').getOrElse('')) + '"'
+        // NSE MCP is disabled by default until NSE confirms this app's intended use in writing.
+        buildConfigField 'boolean', 'ENABLE_NSE_MCP_DATA', providers.gradleProperty('enableNseMcpData').getOrElse('false')
     }
 
     buildTypes {
