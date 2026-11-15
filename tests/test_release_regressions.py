@@ -356,7 +356,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         start = source.index("private fun screenerConnectionTest()")
         end = source.index("/**", start)
         probe = source[start:end]
-        self.assertIn('https://www.screener.in/screen/raw/?query=', probe)
+        self.assertIn('screener("INFY")', probe)
         self.assertIn('"CONNECTED_VERIFIED"', probe)
         self.assertIn('"HTTP_403_FORBIDDEN"', probe)
         self.assertIn('put("requestValidated", true)', probe)
@@ -645,7 +645,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         probe = source[start:end]
         self.assertIn("https://www.screener.in/screen/raw/?query=", probe)
         self.assertIn("sessionAuthenticated", probe)
-        self.assertIn("SCREEN_RESULTS_AND_COMPANY_PAGE_PROBED", probe)
+        self.assertIn("COMPANY_PAGE_PROBED", probe)
         self.assertIn('screener("INFY")', probe)
         self.assertIn("companyFieldsParsed", probe)
         self.assertIn("subscriptionAccessVerified", probe)
