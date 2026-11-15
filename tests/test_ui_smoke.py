@@ -435,17 +435,20 @@ class DashboardUISmokeTests(unittest.TestCase):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("Screener.in does not expose a documented chart-data API", source)
 
-    def test_csv_xlsx_upload_and_import_fallback_are_absent(self):
+    def test_only_official_screener_csv_fallback_is_enabled_not_generic_imports(self):
         html = HTML.read_text(encoding="utf-8")
         native = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertNotIn('id="csvFile"', html)
         self.assertNotIn('id="csvSource"', html)
-        self.assertNotIn('id="csvImportStatus"', html)
         self.assertNotIn("PSICsvImport", html)
         self.assertNotIn("PSIXlsxImport", html)
         self.assertNotIn("mergeImportedCsvData", html)
-        self.assertNotIn("onShowFileChooser", native)
-        self.assertNotIn("csvPickerRequestCode", native)
+        self.assertIn('id="screenerCsvFile"', html)
+        self.assertIn('id="screenerCsvAsOf"', html)
+        self.assertIn("applyScreenerCsvFallback", html)
+        self.assertIn("Screener.in official CSV export (user imported)", html)
+        self.assertIn("onShowFileChooser", native)
+        self.assertIn("screenerCsvPickerRequestCode", native)
 
     def test_brand_logo_asset_header_and_android_launcher_icon_exist(self):
         root = Path(__file__).parents[1]
