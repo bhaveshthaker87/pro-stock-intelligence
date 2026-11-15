@@ -1641,6 +1641,40 @@ private class NativeProvider(private val appAssets: AssetManager) {
                 .put("chartMode", "OHLCV").put("statusText", "Provider OHLCV • as of " + data.optString("asOf"))
                 .put("rangeRequested", range).put("interval", interval).put("quoteTimestamp", asOf / 1000L)
         }
+        // Official NSE Bhavcopy MCP fallback: maximum 3 months per request.
+        // It is EOD only; do not present these bars as intraday/live candles.
+        try {
+            val mcp = nseMcpTool("https://mcp.nseindia.in/bhavcopy/cm/mcp", "get_stock_history",
+                JSONObject().put("symbol", symbol).put("months", 3).put("endDate", "today"))
+            val input = mcp.optJSONArray("data") ?: throw IOException("NSE MCP history missing data array")
+            val rows = JSONArray()
+            for (i in 0 until input.length()) {
+                val row = input.optJSONObject(i) ?: continue
+                val day = row.optString("date").take(10)
+                val date = try { java.time.LocalDate.parse(day) } catch (_: Exception) { continue }
+                val time = date.atStartOfDay(java.time.ZoneId.of("Asia/Kolkata")).toInstant().toEpochMilli()
+                val o = row.optDouble("open", Double.NaN); val h = row.optDouble("high", Double.NaN)
+                val l = row.optDouble("low", Double.NaN); val c = row.optDouble("close", Double.NaN)
+                val v = row.optDouble("volume", 0.0)
+                if (!o.isFinite() || !h.isFinite() || !l.isFinite() || !c.isFinite() ||
+                    o <= 0 || h < maxOf(o, c, l) || l > minOf(o, c, h) || v < 0) continue
+                rows.put(JSONObject().put("time", time).put("date", time).put("open", o)
+                    .put("high", h).put("low", l).put("close", c).put("volume", v))
+            }
+            if (rows.length() >= 2) {
+                return JSONObject().put("symbol", symbol).put("rows", rows)
+                    .put("provider", "Official NSE Bhavcopy MCP")
+                    .put("historyProvider", "Official NSE Bhavcopy MCP")
+                    .put("historyStatus", "VALIDATED_OFFICIAL_NSE_MCP_EOD")
+                    .put("marketDataStatus", "EOD").put("chartMode", "OHLCV")
+                    .put("statusText", "Official NSE MCP daily EOD • up to 3 months per request • not intraday")
+                    .put("rangeRequested", range).put("interval", "1d")
+                    .put("quoteTimestamp", rows.optJSONObject(rows.length()-1)?.optLong("time")?.div(1000L) ?: JSONObject.NULL)
+                    .put("sourceDisclaimer", "NSE MCP Bhavcopy daily EOD history; response limited to 3 months for this request.")
+            }
+        } catch (_: Exception) {
+            // Continue to the locally bundled official NSE history; preserve its availability.
+        }
         val localRows = readBundledNseEod(symbol)
         if (localRows.length() >= 2) {
             val latest = localRows.optJSONObject(localRows.length() - 1)
