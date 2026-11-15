@@ -2222,3 +2222,64 @@ body.psi-easy-mode .psiEasyTools small{color:#60788e;line-height:1.4}
   else startDefaultAnalysis();
 })();
 </script>
+
+<style id="psi-v42-06-professional-compact-ui">
+:root{--psi-navy:#102a56;--psi-blue:#2563eb;--psi-cyan:#0891b2;--psi-violet:#7c3aed;--psi-green:#059669;--psi-amber:#d97706;--psi-red:#dc2626}
+body{background:radial-gradient(ellipse at 8% 0%,rgba(37,99,235,.10),transparent 34%),radial-gradient(ellipse at 95% 8%,rgba(8,145,178,.09),transparent 30%),#f3f7fc!important;color:#142b45}
+.stocktop{background:linear-gradient(120deg,#102a56 0%,#164e8b 55%,#087e9b 100%)!important;color:#fff!important;border:1px solid #244d7b!important;box-shadow:0 14px 32px rgba(16,42,86,.22)!important}
+.stocktop .cname,.stocktop .pricebig,.stocktop .change,.stocktop .quoteMeta,.stocktop .links{color:#fff!important}
+.stocktop .miniMetrics .mm{background:rgba(255,255,255,.12)!important;border:1px solid rgba(255,255,255,.18)!important;color:#eaf5ff!important}
+.stocktop .miniMetrics .mm strong{color:#fff!important}
+.appNav{background:linear-gradient(100deg,#102a56,#173e70 55%,#164e63)!important;border:1px solid #294e78!important;box-shadow:0 8px 22px rgba(16,42,86,.18)!important}
+.appNav .tab{background:rgba(255,255,255,.08)!important;border-color:rgba(255,255,255,.16)!important;color:#e6f3ff!important}
+.appNav .tab.active{background:linear-gradient(120deg,#2563eb,#0891b2)!important;border-color:transparent!important;color:#fff!important;box-shadow:0 4px 14px rgba(8,145,178,.28)!important}
+.researchRibbon,.aiCommand,.summarycard,.factor,.querySection,.intelHub,.detailsgrid .detailcard{border-radius:16px!important;box-shadow:0 8px 24px rgba(26,57,91,.08)!important}
+.researchRibbon{border:1px solid #d4e4f4!important;background:linear-gradient(135deg,#fff,#f0f7ff)!important}
+.researchMetric{border-radius:12px!important;border:1px solid #d9e8f6!important;background:#fff!important}
+.researchMetric:nth-child(1){border-top:3px solid #2563eb!important}.researchMetric:nth-child(2){border-top:3px solid #0891b2!important}.researchMetric:nth-child(3){border-top:3px solid #7c3aed!important}.researchMetric:nth-child(4){border-top:3px solid #059669!important}
+.aiCommand{border:1px solid #d5e3f2!important;overflow:hidden}
+.aiCommandHead{background:linear-gradient(110deg,#102a56,#1d4d83 60%,#087e9b)!important;color:#fff!important}
+.aiCommandHead b,.aiCommandHead small,.aiCommandHead span{color:#fff!important}
+.summarycard{border:1px solid #dce7f2!important;position:relative;overflow:hidden}
+.summarycard:not(.score):before{content:"";position:absolute;left:0;top:0;right:0;height:4px;background:linear-gradient(90deg,#2563eb,#06b6d4,#8b5cf6)}
+.summarycard.score{background:linear-gradient(125deg,#174ea6,#087e9b)!important}
+.factor{border:1px solid #dce7f2!important;background:linear-gradient(135deg,#fff,#f7fbff)!important}
+.factorhead{color:#16385e!important}
+.psi-ai-more-btn,.psi-factor-more-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:42px;margin:10px 0 14px;border:1px solid #c6d9ed;border-radius:11px;background:linear-gradient(100deg,#edf6ff,#eefcff);color:#15539a;font-weight:850;font-size:12px;cursor:pointer}
+.psi-ai-more-btn:hover,.psi-factor-more-btn:hover{background:linear-gradient(100deg,#dcecff,#d9f7fb)}
+.aiCommandBody.psi-ai-compact .aiScenario,.aiCommandBody.psi-ai-compact .aiBars,.aiCommandBody.psi-ai-compact .aiDataStrip,.aiCommandBody.psi-ai-compact .aiInsightGrid,.aiCommandBody.psi-ai-compact .aiCommandFoot{display:none!important}
+.factor.psi-factor-compact .factorgrid{display:none!important}
+.sourcehint{border-radius:10px!important}
+@media(max-width:760px){
+ .stocktop{padding:14px!important;border-radius:14px!important}
+ .stocktop .miniMetrics{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .appNav{top:0!important;border-radius:0 0 12px 12px!important;margin-left:-2px;margin-right:-2px}
+ .researchMetrics{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .aiCommandBody{padding:12px!important}
+ .summarygrid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .summarycard{min-height:unset!important;padding:12px!important}
+ .tvtoolbar-pro{flex-wrap:wrap!important}
+}
+</style>
+<script id="psi-v42-06-compact-controls">
+(function(){
+ function addCompactControls(){
+  const body=document.querySelector('#aiResearchCommandCenter .aiCommandBody');
+  const executive=body&&body.querySelector('.aiExecutive');
+  if(body&&executive&&!document.getElementById('psiAiMoreBtn')){
+   body.classList.add('psi-ai-compact');
+   const b=document.createElement('button');b.type='button';b.id='psiAiMoreBtn';b.className='psi-ai-more-btn';b.textContent='＋ Show detailed AI research';b.setAttribute('aria-expanded','false');
+   b.addEventListener('click',function(){const expanded=body.classList.toggle('psi-ai-compact')===false;b.textContent=expanded?'− Hide detailed AI research':'＋ Show detailed AI research';b.setAttribute('aria-expanded',String(expanded));});
+   executive.insertAdjacentElement('afterend',b);
+  }
+  const factor=document.querySelector('.factor'),grid=factor&&factor.querySelector('.factorgrid'),head=factor&&factor.querySelector('.factorhead');
+  if(factor&&grid&&head&&!document.getElementById('psiFactorMoreBtn')){
+   factor.classList.add('psi-factor-compact');
+   const b=document.createElement('button');b.type='button';b.id='psiFactorMoreBtn';b.className='psi-factor-more-btn';b.textContent='＋ View factor-by-factor scorecard';b.setAttribute('aria-expanded','false');
+   b.addEventListener('click',function(){const expanded=factor.classList.toggle('psi-factor-compact')===false;b.textContent=expanded?'− Hide factor details':'＋ View factor-by-factor scorecard';b.setAttribute('aria-expanded',String(expanded));});
+   head.insertAdjacentElement('afterend',b);
+  }
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',addCompactControls,{once:true});else addCompactControls();
+})();
+</script>
