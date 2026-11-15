@@ -778,5 +778,34 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn('"Official NSE Bhavcopy MCP"', source)
         self.assertIn("marketDataStatus", source)
 
+    def test_quote_paths_share_one_ordered_nse_delayed_then_eod_pipeline(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("private fun marketQuote(raw: String)", source)
+        start = source.index("private fun marketQuote(raw: String)")
+        end = source.index("private fun nseQuote(raw: String)", start)
+        pipeline = source[start:end]
+        self.assertLess(pipeline.index("nseQuote(raw)"), pipeline.index("nseMcpQuote(raw)"))
+        self.assertLess(pipeline.index("nseMcpQuote(raw)"), pipeline.index("eodQuote(raw)"))
+        self.assertIn('put("fallbackLevel", "NSE_MCP_DELAYED")', pipeline)
+        self.assertIn('put("fallbackLevel", "BUNDLED_NSE_EOD")', pipeline)
+        self.assertIn("marketQuote(raw)", source)
+
+    def test_screener_connection_requires_minimum_core_field_coverage(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("companyFields < 4", source)
+        self.assertIn("coreKeys = listOf", source)
+        self.assertIn("coreAvailable >= 4", source)
+        self.assertIn("PAGE_VALIDATED_CORE_COVERAGE_FAILED", source)
+
+    def test_screener_540_audit_never_claims_app_comparison_without_independent_snapshot(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        start = source.index("private fun screenerAudit30()")
+        end = source.index("private fun screenerCookieHeader()", start)
+        audit = source[start:end]
+        self.assertIn("NOT_RECONCILED_NO_INDEPENDENT_APP_SNAPSHOT", audit)
+        self.assertIn('put("appValue", JSONObject.NULL)', audit)
+        self.assertIn('put("verifiedComparisons", 0)', audit)
+        self.assertIn('put("unreconciledMetrics", symbols.size * 18)', audit)
+
 if __name__ == "__main__":
     unittest.main()
