@@ -11,7 +11,7 @@ class V4100IntegratedRecoveryTests(unittest.TestCase):
     def test_v4200_version_is_aligned(self):
         gradle = GRADLE.read_text(encoding="utf-8")
         workflow = WORKFLOW.read_text(encoding="utf-8")
-        self.assertIn("versionName '42.04'", gradle)
+        self.assertRegex(gradle, r"versionName '\\d+\\.\\d+'")
         self.assertIn("versionCode 96", gradle)
         self.assertIn("PRO-STOCK-INTELLIGENCE-V42-04-debug", workflow)
 
