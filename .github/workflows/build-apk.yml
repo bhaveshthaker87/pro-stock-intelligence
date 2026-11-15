@@ -31,6 +31,7 @@ on:
       - v40-77-chart-refresh-readability
       - v40-78-nse-screener-only
       - 'feat/**'
+      - 'fix/v42-06-dashboard-data-runtime'
 
 jobs:
   build:
