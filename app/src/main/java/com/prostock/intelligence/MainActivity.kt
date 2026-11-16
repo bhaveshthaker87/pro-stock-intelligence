@@ -1513,8 +1513,8 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
 
     private fun combined(raw: String, includeFundamentals: Boolean): JSONObject {
         val s = canonical(raw)
-        // Keep quote/history independent from Screener fundamentals. Only an
-        // authorized HTTPS gateway or validated official NSE EOD bundle is accepted.
+        // Keep quote/history independent from Screener fundamentals. An authorized HTTPS gateway, NSE's informational delayed MCP snapshot, or a
+        // validated official NSE EOD bundle is accepted.
         // Yahoo Finance and Moneycontrol are deliberately not quote/chart providers.
         val executor = Executors.newFixedThreadPool(2)
         val quoteFuture = executor.submit<JSONObject> {
@@ -1534,7 +1534,7 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
         val fundamentalFuture = executor.submit<JSONObject> {
             fundamentalsWithDownstox(raw)
         }
-        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(11)
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(48)
         fun result(future: java.util.concurrent.Future<JSONObject>, fallback: JSONObject): JSONObject {
             val remaining = deadline - System.nanoTime()
             if (remaining <= 0L) return fallback
@@ -1544,10 +1544,10 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
             }
         }
         val quote = result(quoteFuture, JSONObject().put("symbol", s).put("rows", JSONArray()).put("provider", "Unavailable").put("status", "AUTHORIZED_NSE_FEED_NOT_CONFIGURED").put("providerError", "Authorized NSE quote feed is not configured"))
-        // The combined analysis has an 11-second shared deadline. NSE MCP can
-        // exceed that deadline, so the quote future may be cancelled before its
-        // EOD fallback executes. Recover the official bundled NSE close here,
-        // synchronously, rather than returning a blank price with candles only.
+        // The quote path performs the three Streamable-HTTP MCP steps (initialize,
+        // initialized notification, tools/call). A short shared deadline cancelled
+        // this valid sequence before the tool response arrived. The analysis budget
+        // now allows the bounded MCP exchange to complete before falling back to EOD.
         val receivedPrice = quote.optDouble("price", Double.NaN)
         if (!receivedPrice.isFinite() || receivedPrice <= 0.0) {
             try {
@@ -1825,8 +1825,8 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
      */
     private fun nseMcpRequest(endpoint: String, payload: JSONObject, sessionId: String? = null): Pair<JSONObject, String?> {
         val connection = (URL(endpoint).openConnection() as HttpURLConnection)
-        connection.connectTimeout = 7000
-        connection.readTimeout = 12000
+        connection.connectTimeout = 5000
+        connection.readTimeout = 10000
         connection.requestMethod = "POST"
         connection.doOutput = true
         connection.setRequestProperty("Content-Type", "application/json")
