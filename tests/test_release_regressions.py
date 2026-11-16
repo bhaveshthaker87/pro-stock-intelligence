@@ -782,11 +782,11 @@ class ReleaseRegressionTests(unittest.TestCase):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("https://mcp.nseindia.in/cmmkt/mcp", source)
         self.assertIn("https://mcp.nseindia.in/bhavcopy/cm/mcp", source)
-        self.assertIn('"cm_get_stock_quote"', source)
+        self.assertIn('"tools/list"', source)
         self.assertIn('"get_stock_history"', source)
         self.assertIn('"notifications/initialized"', source)
         self.assertIn('"tools/call"', source)
-        self.assertIn('"Official NSE CM Market MCP"', source)
+        self.assertIn('"NSE MCP"', source)
         self.assertIn('"Official NSE Bhavcopy MCP"', source)
         self.assertIn("marketDataStatus", source)
 

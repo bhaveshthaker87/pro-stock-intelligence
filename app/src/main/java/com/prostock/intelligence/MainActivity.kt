@@ -1513,8 +1513,8 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
 
     private fun combined(raw: String, includeFundamentals: Boolean): JSONObject {
         val s = canonical(raw)
-        // Keep quote/history independent from Screener fundamentals. Only an
-        // authorized HTTPS gateway or validated official NSE EOD bundle is accepted.
+        // Keep quote/history independent from Screener fundamentals. An authorized HTTPS gateway, NSE's informational delayed MCP snapshot, or a
+        // validated official NSE EOD bundle is accepted.
         // Yahoo Finance and Moneycontrol are deliberately not quote/chart providers.
         val executor = Executors.newFixedThreadPool(2)
         val quoteFuture = executor.submit<JSONObject> {
@@ -1534,7 +1534,7 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
         val fundamentalFuture = executor.submit<JSONObject> {
             fundamentalsWithDownstox(raw)
         }
-        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(11)
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(48)
         fun result(future: java.util.concurrent.Future<JSONObject>, fallback: JSONObject): JSONObject {
             val remaining = deadline - System.nanoTime()
             if (remaining <= 0L) return fallback
@@ -1544,10 +1544,10 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
             }
         }
         val quote = result(quoteFuture, JSONObject().put("symbol", s).put("rows", JSONArray()).put("provider", "Unavailable").put("status", "AUTHORIZED_NSE_FEED_NOT_CONFIGURED").put("providerError", "Authorized NSE quote feed is not configured"))
-        // The combined analysis has an 11-second shared deadline. NSE MCP can
-        // exceed that deadline, so the quote future may be cancelled before its
-        // EOD fallback executes. Recover the official bundled NSE close here,
-        // synchronously, rather than returning a blank price with candles only.
+        // The quote path performs the three Streamable-HTTP MCP steps (initialize,
+        // initialized notification, tools/call). A short shared deadline cancelled
+        // this valid sequence before the tool response arrived. The analysis budget
+        // now allows the bounded MCP exchange to complete before falling back to EOD.
         val receivedPrice = quote.optDouble("price", Double.NaN)
         if (!receivedPrice.isFinite() || receivedPrice <= 0.0) {
             try {
@@ -1825,8 +1825,8 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
      */
     private fun nseMcpRequest(endpoint: String, payload: JSONObject, sessionId: String? = null): Pair<JSONObject, String?> {
         val connection = (URL(endpoint).openConnection() as HttpURLConnection)
-        connection.connectTimeout = 7000
-        connection.readTimeout = 12000
+        connection.connectTimeout = 5000
+        connection.readTimeout = 10000
         connection.requestMethod = "POST"
         connection.doOutput = true
         connection.setRequestProperty("Content-Type", "application/json")
@@ -1852,36 +1852,155 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
         } finally { connection.disconnect() }
     }
 
-    private fun nseMcpTool(endpoint: String, tool: String, args: JSONObject): JSONObject {
-        if (!BuildConfig.ENABLE_NSE_MCP_DATA) {
-            throw IOException("NSE MCP data is disabled pending written confirmation that this app's stock-analysis use is permitted. Official bundled NSE EOD fallback remains available.")
+    private val nseMcpToolCache = mutableMapOf<String, Pair<Long, JSONArray>>()
+    private var nseMcpRequestId = 10
+
+    private fun nseMcpRpc(endpoint: String, session: String?, method: String, params: JSONObject = JSONObject()): Pair<JSONObject, String?> {
+        val id = synchronized(this) { ++nseMcpRequestId }
+        val payload = JSONObject().put("jsonrpc", "2.0").put("id", id).put("method", method).put("params", params)
+        val (envelope, nextSession) = nseMcpRequest(endpoint, payload, session)
+        val responseId = envelope.optInt("id", -1)
+        if (responseId != id) throw IOException("NSE MCP JSON-RPC response id mismatch for $method")
+        val result = envelope.optJSONObject("result") ?: throw IOException("NSE MCP $method returned no result")
+        return Pair(result, nextSession)
+    }
+
+    private fun nseMcpDiscover(endpoint: String, session: String?): Pair<JSONArray, String?> {
+        synchronized(nseMcpToolCache) {
+            val cached = nseMcpToolCache[endpoint]
+            if (cached != null && System.currentTimeMillis() - cached.first < 5 * 60 * 1000L)
+                return Pair(cached.second, session)
         }
-        val init = JSONObject().put("jsonrpc", "2.0").put("id", 1).put("method", "initialize")
-            .put("params", JSONObject().put("protocolVersion", "2025-03-26")
-                .put("capabilities", JSONObject()).put("clientInfo", JSONObject()
-                    .put("name", "ProStockIntelligence").put("version", "42.05")))
-        val (initialized, session) = nseMcpRequest(endpoint, init)
-        if (initialized.optJSONObject("result") == null) throw IOException("NSE MCP initialize did not return a result")
-        val notification = JSONObject().put("jsonrpc", "2.0").put("method", "notifications/initialized")
-        nseMcpRequest(endpoint, notification, session)
-        val call = JSONObject().put("jsonrpc", "2.0").put("id", 2).put("method", "tools/call")
-            .put("params", JSONObject().put("name", tool).put("arguments", args))
-        val (response, _) = nseMcpRequest(endpoint, call, session)
-        val result = response.optJSONObject("result") ?: throw IOException("NSE MCP tool returned no result")
-        if (result.optBoolean("isError", false)) throw IOException("NSE MCP tool $tool reported an error")
-        val content = result.optJSONArray("content") ?: throw IOException("NSE MCP tool $tool returned no content")
-        for (i in 0 until content.length()) {
-            val block = content.optJSONObject(i) ?: continue
-            if (block.optString("type") != "text") continue
-            val raw = block.optString("text")
-            val parsed = try { JSONObject(raw) } catch (_: Exception) { null }
-            if (parsed != null) {
-                if (parsed.has("error") && !parsed.isNull("error")) throw IOException("NSE MCP $tool: " + parsed.optString("error"))
-                return parsed
+        val all = JSONArray()
+        var cursor: String? = null
+        var nextSession = session
+        var pages = 0
+        do {
+            val params = JSONObject()
+            if (!cursor.isNullOrBlank()) params.put("cursor", cursor)
+            val (result, returnedSession) = nseMcpRpc(endpoint, nextSession, "tools/list", params)
+            nextSession = returnedSession
+            val page = result.optJSONArray("tools") ?: throw IOException("NSE MCP tools/list did not return tools[]")
+            for (i in 0 until page.length()) {
+                val tool = page.optJSONObject(i) ?: continue
+                if (tool.optString("name").isBlank()) continue
+                all.put(tool)
             }
-            throw IOException("NSE MCP $tool returned non-JSON text: " + raw.take(180))
+            cursor = result.optString("nextCursor").takeIf { it.isNotBlank() && it != "null" }
+            pages++
+            if (pages > 20) throw IOException("NSE MCP tools/list pagination exceeded safety limit")
+        } while (cursor != null)
+        if (all.length() == 0) throw IOException("NSE MCP tools/list returned no usable tools")
+        synchronized(nseMcpToolCache) { nseMcpToolCache[endpoint] = Pair(System.currentTimeMillis(), all) }
+        Log.i("PSI_NSE_MCP", "DISCOVERY endpoint=$endpoint tools=${all.length()} pages=$pages")
+        return Pair(all, nextSession)
+    }
+
+    private fun nseMcpStart(endpoint: String): Pair<JSONObject, String?> {
+        val init = JSONObject().put("protocolVersion", "2025-03-26")
+            .put("capabilities", JSONObject()).put("clientInfo", JSONObject()
+                .put("name", "ProStockIntelligence").put("version", "42.08"))
+        val (initialized, session) = nseMcpRpc(endpoint, null, "initialize", init)
+        val negotiated = initialized.optString("protocolVersion")
+        if (negotiated.isBlank()) throw IOException("NSE MCP initialize omitted protocolVersion")
+        nseMcpRequest(endpoint, JSONObject().put("jsonrpc", "2.0").put("method", "notifications/initialized"), session)
+        return Pair(initialized, session)
+    }
+
+    private fun chooseNseMcpTool(tools: JSONArray, kind: String): JSONObject {
+        val candidates = mutableListOf<Pair<Int, JSONObject>>()
+        for (i in 0 until tools.length()) {
+            val tool = tools.optJSONObject(i) ?: continue
+            val name = tool.optString("name").lowercase(Locale.ROOT)
+            val desc = tool.optString("description").lowercase(Locale.ROOT)
+            val text = "$name $desc"
+            val score = when (kind) {
+                "stock" -> (if (text.contains("quote")) 5 else 0) + (if (text.contains("stock") || text.contains("equity")) 4 else 0) - (if (text.contains("history")) 5 else 0)
+                "index" -> (if (text.contains("index") || text.contains("indices")) 6 else 0) + (if (text.contains("quote") || text.contains("market")) 2 else 0) - (if (text.contains("history")) 5 else 0)
+                else -> 0
+            }
+            if (score >= 6 && tool.optJSONObject("inputSchema") != null) candidates.add(Pair(score, tool))
         }
-        throw IOException("NSE MCP $tool returned no text payload")
+        return candidates.sortedByDescending { it.first }.firstOrNull()?.second
+            ?: throw IOException("NSE MCP discovery found no schema-advertised $kind quote tool")
+    }
+
+    private fun nseMcpArguments(tool: JSONObject, identifier: String, kind: String): JSONObject {
+        val schema = tool.optJSONObject("inputSchema") ?: throw IOException("Discovered tool has no inputSchema")
+        val properties = schema.optJSONObject("properties") ?: throw IOException("Discovered tool schema has no properties")
+        val required = schema.optJSONArray("required") ?: JSONArray()
+        val args = JSONObject()
+        var assigned = false
+        val keys = properties.keys()
+        while (keys.hasNext()) {
+            val key = keys.next()
+            val property = properties.optJSONObject(key) ?: JSONObject()
+            val semantic = (key + " " + property.optString("description")).lowercase(Locale.ROOT)
+            val isIdentifier = if (kind == "stock") {
+                semantic.contains("symbol") || semantic.contains("ticker") || semantic.contains("security")
+            } else {
+                semantic.contains("index") || semantic.contains("indices")
+            }
+            if (isIdentifier && !assigned) {
+                val enumValues = property.optJSONArray("enum")
+                val chosen = if (enumValues != null) {
+                    (0 until enumValues.length()).map { enumValues.optString(it) }
+                        .firstOrNull { it.equals(identifier, true) || (kind == "index" && it.uppercase(Locale.ROOT).replace(Regex("[^A-Z0-9]"), "") == identifier.uppercase(Locale.ROOT).replace(Regex("[^A-Z0-9]"), "")) }
+                        ?: throw IOException("Discovered schema enum does not contain requested $kind identifier")
+                } else identifier
+                args.put(key, chosen)
+                assigned = true
+            } else if (required.toString().contains("\"$key\"") && !property.has("default") && property.optJSONArray("enum")?.length() == 1) {
+                args.put(key, property.optJSONArray("enum")!!.opt(0))
+            } else if (required.toString().contains("\"$key\"") && !property.has("default") && !isIdentifier) {
+                throw IOException("Discovered $kind tool has unsupported required argument '$key'; refusing to guess")
+            }
+        }
+        if (!assigned) {
+            if (required.length() > 1 || properties.length() > 1) throw IOException("Discovered $kind tool schema has no unambiguous identifier field")
+            val only = properties.keys().let { if (it.hasNext()) it.next() else null } ?: throw IOException("Discovered tool schema has no identifier property")
+            args.put(only, identifier)
+        }
+        return args
+    }
+
+    private fun nseMcpTool(endpoint: String, kind: String, identifier: String): JSONObject {
+        if (!BuildConfig.ENABLE_NSE_MCP_DATA) throw IOException("NSE MCP data is disabled by configuration")
+        var lastError: Exception? = null
+        for (attempt in 0..1) {
+            try {
+                val (_, session) = nseMcpStart(endpoint)
+                val (tools, activeSession) = nseMcpDiscover(endpoint, session)
+                val tool = chooseNseMcpTool(tools, kind)
+                val name = tool.optString("name")
+                val args = nseMcpArguments(tool, identifier, kind)
+                Log.i("PSI_NSE_MCP", "CALL kind=$kind tool=$name identifier=$identifier argsKeys=${args.keys().asSequence().toList()}")
+                val (result, _) = nseMcpRpc(endpoint, activeSession, "tools/call",
+                    JSONObject().put("name", name).put("arguments", args))
+                if (result.optBoolean("isError", false)) throw IOException("NSE MCP tool $name reported isError")
+                val content = result.optJSONArray("content") ?: throw IOException("NSE MCP tool $name returned no content")
+                for (i in 0 until content.length()) {
+                    val block = content.optJSONObject(i) ?: continue
+                    if (block.optString("type") != "text") continue
+                    val raw = block.optString("text")
+                    try {
+                        val parsed = JSONObject(raw)
+                        Log.i("PSI_NSE_MCP", "SUCCESS kind=$kind tool=$name payloadLength=${raw.length()}")
+                        return parsed.put("_mcpTool", name).put("_mcpRetrievedAt", System.currentTimeMillis())
+                    } catch (_: Exception) {
+                        val arr = try { JSONArray(raw) } catch (_: Exception) { null }
+                        if (arr != null) return JSONObject().put("data", arr).put("_mcpTool", name).put("_mcpRetrievedAt", System.currentTimeMillis())
+                        throw IOException("NSE MCP tool $name returned non-JSON text: " + raw.take(180))
+                    }
+                }
+                throw IOException("NSE MCP tool $name returned no text payload")
+            } catch (e: Exception) {
+                lastError = e
+                synchronized(nseMcpToolCache) { nseMcpToolCache.remove(endpoint) }
+                Log.w("PSI_NSE_MCP", "ATTEMPT_FAILED kind=$kind attempt=$attempt error=${e.javaClass.simpleName}: ${e.message}")
+            }
+        }
+        throw IOException("NSE MCP $kind retrieval failed after rediscovery: ${lastError?.message ?: "unknown error"}", lastError)
     }
 
     private fun parseNseMcpTime(value: String): Long {
@@ -1900,26 +2019,26 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
 
     private fun nseMcpQuote(raw: String): JSONObject {
         val symbol = canonical(raw)
-        val data = nseMcpTool("https://mcp.nseindia.in/cmmkt/mcp", "cm_get_stock_quote",
-            JSONObject().put("symbol", symbol))
-        val stock = data.optJSONObject("stock") ?: throw IOException("NSE MCP quote missing stock object")
-        val returnedSymbol = canonical(stock.optString("symbol"))
-        if (returnedSymbol != symbol) throw IOException("NSE MCP returned a different symbol; quote rejected")
-        val price = stock.optDouble("lastTradedPrice", Double.NaN)
-        val stampText = stock.optString("latestTimestamp", data.optString("updatedAt"))
+        val data = nseMcpTool("https://mcp.nseindia.in/cmmkt/mcp", "stock", symbol)
+        val stock = data.optJSONObject("stock") ?: data.optJSONObject("data") ?: data
+        val returnedSymbol = canonical(stock.optString("symbol", stock.optString("tradingSymbol", "")))
+        if (returnedSymbol != symbol) throw IOException("NSE MCP returned missing/mismatched symbol; quote rejected")
+        val price = stock.optDouble("lastTradedPrice", stock.optDouble("lastPrice", Double.NaN))
+        val stampText = stock.optString("latestTimestamp", stock.optString("timestamp", data.optString("updatedAt")))
         if (!price.isFinite() || price <= 0.0 || stampText.isBlank()) throw IOException("NSE MCP quote missing valid price/timestamp")
         val stamp = parseNseMcpTime(stampText)
         val age = System.currentTimeMillis() - stamp
         if (age < -60000L || age > 30L * 60L * 1000L) throw IOException("NSE MCP quote timestamp is future-dated or stale")
         val out = JSONObject().put("symbol", symbol).put("price", price)
-            .put("previousClose", stock.optDouble("preClose", Double.NaN))
-            .put("dayChangePct", stock.optDouble("perChange", Double.NaN))
+            .put("previousClose", stock.optDouble("preClose", stock.optDouble("previousClose", Double.NaN)))
+            .put("dayChangePct", stock.optDouble("perChange", stock.optDouble("changePercent", Double.NaN)))
             .put("high52", stock.optDouble("fiftyTwoWeekHigh", Double.NaN))
             .put("low52", stock.optDouble("fiftyTwoWeekLow", Double.NaN))
-            .put("provider", "Official NSE CM Market MCP")
-            .put("source", "NSE CM Market MCP").put("status", "DELAYED")
+            .put("provider", "Official NSE MCP").put("source", "NSE MCP").put("status", "DELAYED")
             .put("marketDataStatus", "DELAYED").put("quoteTimestamp", stamp / 1000L)
-            .put("marketDataDisclaimer", "Official NSE MCP delayed market snapshot; expected delay approximately 1–3 minutes. Not tick-by-tick.")
+            .put("retrievedAtEpochMs", System.currentTimeMillis()).put("dataAgeSeconds", age / 1000L)
+            .put("discoveredTool", data.optString("_mcpTool"))
+            .put("marketDataDisclaimer", "Official NSE MCP delayed snapshot; expected delay approximately 1–3 minutes. Not tick-by-tick.")
             .put("isExchangeCertifiedRealtime", false)
         listOf("previousClose", "dayChangePct", "high52", "low52").forEach { key ->
             if (out.optDouble(key, Double.NaN).isNaN()) out.put(key, JSONObject.NULL)
@@ -2211,85 +2330,45 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
     }
 
     private fun marketIndices(): JSONObject {
-        val specs = linkedMapOf(
-            "NIFTY 50" to "^NSEI", "SENSEX" to "^BSESN", "NIFTY BANK" to "^NSEBANK",
-            "NIFTY MIDCAP 100" to "^CRSMID", "NIFTY SMALLCAP 100" to "^CRSSML", "NIFTY IT" to "^CNXIT",
-            "NIFTY AUTO" to "^CNXAUTO", "NIFTY FMCG" to "^CNXFMCG", "NIFTY PHARMA" to "^CNXPHARMA",
-            "NIFTY METAL" to "^CNXMETAL", "NIFTY PSU BANK" to "^CNXPSUBANK", "NIFTY PRIVATE BANK" to "^NIFTYPVTBANK",
-            "NIFTY ENERGY" to "^CNXENERGY", "NIFTY INFRA" to "^CNXINFRA", "NIFTY FIN SERVICE" to "^CNXFINANCE",
-            "GOLD FUTURES (GLOBAL)" to "GC=F", "SILVER FUTURES (GLOBAL)" to "SI=F", "BRENT CRUDE (GLOBAL)" to "BZ=F"
-        )
-        fun unavailable(status: String, message: String): JSONObject {
-            val out = JSONObject()
-            specs.forEach { (label, _) ->
+        val labels = listOf("NIFTY 50", "NIFTY BANK")
+        val out = JSONObject()
+        labels.forEach { label ->
+            try {
+                val data = nseMcpTool("https://mcp.nseindia.in/cmmkt/mcp", "index", label)
+                val rows = data.optJSONArray("data") ?: data.optJSONArray("indices") ?: data.optJSONArray("indexData")
+                val row = if (rows != null) {
+                    (0 until rows.length()).mapNotNull { rows.optJSONObject(it) }
+                        .firstOrNull { normalizeIndexName(it.optString("index", it.optString("indexName", it.optString("name")))) == normalizeIndexName(label) }
+                } else data.optJSONObject("index") ?: data.optJSONObject("data") ?: data
+                val returnedName = row?.optString("index", row.optString("indexName", row.optString("name", ""))) ?: ""
+                if (row == null || normalizeIndexName(returnedName) != normalizeIndexName(label))
+                    throw IOException("NSE MCP did not return exact requested index $label")
+                val value = row.optDouble("last", row.optDouble("lastPrice", row.optDouble("indexValue", row.optDouble("value", Double.NaN))))
+                val stampText = row.optString("timestamp", row.optString("lastUpdateTime", data.optString("updatedAt")))
+                if (!value.isFinite() || value <= 0.0 || stampText.isBlank()) throw IOException("NSE MCP index $label missing valid value/timestamp")
+                val stamp = parseNseMcpTime(stampText)
+                val age = System.currentTimeMillis() - stamp
+                if (age < -60000L || age > 30L * 60L * 1000L) throw IOException("NSE MCP index $label is stale or future-dated")
+                out.put(label, JSONObject().put("value", value)
+                    .put("previousClose", row.optDouble("previousClose", Double.NaN).takeIf { it.isFinite() } ?: JSONObject.NULL)
+                    .put("changePct", row.optDouble("percentChange", row.optDouble("changePercent", Double.NaN)).takeIf { it.isFinite() } ?: JSONObject.NULL)
+                    .put("status", "DELAYED").put("sourceType", "DELAYED").put("priceSource", "NSE MCP")
+                    .put("provider", "Official NSE MCP").put("quoteTimestamp", stamp / 1000L)
+                    .put("retrievedAtEpochMs", System.currentTimeMillis()).put("dataAgeSeconds", age / 1000L)
+                    .put("discoveredTool", data.optString("_mcpTool")).put("isExchangeCertifiedRealtime", false))
+            } catch (e: Exception) {
                 out.put(label, JSONObject().put("value", JSONObject.NULL).put("changePct", JSONObject.NULL)
-                    .put("status", status).put("priceSource", "NONE").put("provider", "No verified quote")
-                    .put("sourceType", "NO_DATA").put("quoteTimestamp", JSONObject.NULL)
-                    .put("isExchangeCertifiedRealtime", false).put("marketDataDisclaimer", message))
+                    .put("status", "UNAVAILABLE").put("sourceType", "NO_DATA").put("priceSource", "NONE")
+                    .put("provider", "Official NSE MCP").put("quoteTimestamp", JSONObject.NULL)
+                    .put("error", e.message ?: "NSE MCP index unavailable").put("isExchangeCertifiedRealtime", false))
             }
-            return out
         }
-        if (!gatewayConfigured()) {
-            return unavailable("NSE_INDEX_FEED_NOT_CONFIGURED",
-                "Authorized NSE index feed is not configured. Public website scraping and third-party index substitutions are disabled.")
-        }
-        return try {
-            val data = gatewayGet("/v1/indices")
-            val source = data.optString("source").trim()
-            val status = data.optString("marketDataStatus").uppercase(Locale.ROOT)
-            val asOfText = data.optString("asOf")
-            if (source.isBlank()) throw IOException("Index feed source is missing")
-            if (status !in setOf("REALTIME", "DELAYED", "EOD")) throw IOException("Index feed marketDataStatus must be REALTIME, DELAYED or EOD")
-            val asOf = parseGatewayTime(asOfText)
-            val age = System.currentTimeMillis() - asOf
-            if (age < -60_000L) throw IOException("Index feed timestamp is in the future")
-            val maxAge = when (status) {
-                "REALTIME" -> 5 * 60 * 1000L
-                "DELAYED" -> {
-                    if (data.optInt("delayMinutes", 0) <= 0) throw IOException("Delayed index feed must disclose delayMinutes")
-                    24 * 60 * 60 * 1000L
-                }
-                else -> 72 * 60 * 60 * 1000L
-            }
-            if (age > maxAge) throw IOException("Index feed is stale for declared $status status")
-            val rows = data.optJSONArray("rows") ?: throw IOException("Index feed payload missing rows")
-            if (rows.length() == 0) throw IOException("Index feed returned no index rows; snapshot rejected")
-            val byName = mutableMapOf<String, JSONObject>()
-            for (i in 0 until rows.length()) {
-                val row = rows.optJSONObject(i) ?: throw IOException("Index feed row $i is not a JSON object")
-                val name = row.optString("name").trim().uppercase(Locale.ROOT)
-                if (name.isBlank()) throw IOException("Index feed row $i has no index name")
-                if (byName.containsKey(name)) throw IOException("Index feed contains duplicate index name '$name'; snapshot rejected")
-                val value = row.optDouble("value", Double.NaN)
-                val changePct = row.optDouble("changePct", Double.NaN)
-                if (!value.isFinite() || value <= 0.0 || !changePct.isFinite())
-                    throw IOException("Index feed row '$name' has invalid value/changePct; snapshot rejected")
-                byName[name] = row
-            }
-            val out = JSONObject()
-            specs.forEach { (label, _) ->
-                val row = byName[label.uppercase(Locale.ROOT)]
-                if (row == null) {
-                    out.put(label, JSONObject().put("value", JSONObject.NULL).put("changePct", JSONObject.NULL)
-                        .put("status", "INDEX_NOT_RETURNED_BY_AUTHORIZED_PROVIDER").put("priceSource", "NONE")
-                        .put("provider", source).put("sourceType", "NO_DATA").put("quoteTimestamp", asOf / 1000L)
-                        .put("isExchangeCertifiedRealtime", false)
-                        .put("marketDataDisclaimer", "The authorized provider did not return this index. No value is inferred or substituted."))
-                } else {
-                    out.put(label, JSONObject().put("value", row.optDouble("value"))
-                        .put("changePct", row.optDouble("changePct")).put("status", status)
-                        .put("priceSource", source).put("provider", source).put("sourceType", status)
-                        .put("quoteTimestamp", asOf / 1000L).put("quoteAsOf", asOfText)
-                        .put("isExchangeCertifiedRealtime", false)
-                        .put("marketDataDisclaimer", "Provider-declared $status index quote • $source • as of $asOfText. Exchange licensing/SLA must be independently verified."))
-                }
-            }
-            out
-        } catch (e: Exception) {
-            unavailable("PROVIDER_GATEWAY_VALIDATION_FAILED", "Authorized index gateway validation failed: ${e.message ?: "unknown error"}. No fallback is used.")
-        }
+        return out
     }
 
+    private fun normalizeIndexName(value: String): String =
+        value.uppercase(Locale.ROOT).replace("NIFTY BANK", "NIFTY BANK").replace("BANK NIFTY", "NIFTY BANK")
+            .replace(Regex("[^A-Z0-9]"), "")
     /**
      * Search the newest bundled official NSE CM-UDiFF EQ bhavcopy.
      * This expands discovery beyond the legacy 28 hand-maintained suggestions.
