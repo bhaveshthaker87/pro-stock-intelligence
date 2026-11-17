@@ -1965,7 +1965,7 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
     }
 
     private fun nseMcpTool(endpoint: String, kind: String, identifier: String): JSONObject {
-        if (!BuildConfig.ENABLE_NSE_MCP_DATA) throw IOException("NSE MCP data is disabled by configuration")
+        if (!BuildConfig.ENABLE_NSE_MCP_DATA) throw IOException("NSE MCP data is disabled by configuration. Official bundled NSE EOD fallback remains available.")
         var lastError: Exception? = null
         for (attempt in 0..1) {
             try {
@@ -2330,37 +2330,82 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
     }
 
     private fun marketIndices(): JSONObject {
-        val labels = listOf("NIFTY 50", "NIFTY BANK")
+        // Fail closed by default. Only a configured, approved gateway may supply index values.
+        // Public NSE MCP is not enabled until written permission for this app's use is confirmed.
+        val labels = listOf(
+            "NIFTY 50", "SENSEX", "NIFTY BANK", "NIFTY MIDCAP 100", "NIFTY SMALLCAP 100",
+            "NIFTY IT", "NIFTY AUTO", "NIFTY FMCG", "NIFTY PHARMA", "NIFTY METAL",
+            "NIFTY PSU BANK", "NIFTY PRIVATE BANK", "NIFTY ENERGY", "NIFTY INFRA",
+            "NIFTY FIN SERVICE", "GOLD FUTURES (GLOBAL)", "SILVER FUTURES (GLOBAL)", "BRENT CRUDE (GLOBAL)"
+        )
         val out = JSONObject()
-        labels.forEach { label ->
-            try {
-                val data = nseMcpTool("https://mcp.nseindia.in/cmmkt/mcp", "index", label)
-                val rows = data.optJSONArray("data") ?: data.optJSONArray("indices") ?: data.optJSONArray("indexData")
-                val row = if (rows != null) {
-                    (0 until rows.length()).mapNotNull { rows.optJSONObject(it) }
-                        .firstOrNull { normalizeIndexName(it.optString("index", it.optString("indexName", it.optString("name")))) == normalizeIndexName(label) }
-                } else data.optJSONObject("index") ?: data.optJSONObject("data") ?: data
-                val returnedName = row?.optString("index", row.optString("indexName", row.optString("name", ""))) ?: ""
-                if (row == null || normalizeIndexName(returnedName) != normalizeIndexName(label))
-                    throw IOException("NSE MCP did not return exact requested index $label")
-                val value = row.optDouble("last", row.optDouble("lastPrice", row.optDouble("indexValue", row.optDouble("value", Double.NaN))))
-                val stampText = row.optString("timestamp", row.optString("lastUpdateTime", data.optString("updatedAt")))
-                if (!value.isFinite() || value <= 0.0 || stampText.isBlank()) throw IOException("NSE MCP index $label missing valid value/timestamp")
-                val stamp = parseNseMcpTime(stampText)
-                val age = System.currentTimeMillis() - stamp
-                if (age < -60000L || age > 30L * 60L * 1000L) throw IOException("NSE MCP index $label is stale or future-dated")
-                out.put(label, JSONObject().put("value", value)
-                    .put("previousClose", row.optDouble("previousClose", Double.NaN).takeIf { it.isFinite() } ?: JSONObject.NULL)
-                    .put("changePct", row.optDouble("percentChange", row.optDouble("changePercent", Double.NaN)).takeIf { it.isFinite() } ?: JSONObject.NULL)
-                    .put("status", "DELAYED").put("sourceType", "DELAYED").put("priceSource", "NSE MCP")
-                    .put("provider", "Official NSE MCP").put("quoteTimestamp", stamp / 1000L)
-                    .put("retrievedAtEpochMs", System.currentTimeMillis()).put("dataAgeSeconds", age / 1000L)
-                    .put("discoveredTool", data.optString("_mcpTool")).put("isExchangeCertifiedRealtime", false))
-            } catch (e: Exception) {
+        if (!gatewayConfigured()) {
+            labels.forEach { label ->
                 out.put(label, JSONObject().put("value", JSONObject.NULL).put("changePct", JSONObject.NULL)
                     .put("status", "UNAVAILABLE").put("sourceType", "NO_DATA").put("priceSource", "NONE")
-                    .put("provider", "Official NSE MCP").put("quoteTimestamp", JSONObject.NULL)
-                    .put("error", e.message ?: "NSE MCP index unavailable").put("isExchangeCertifiedRealtime", false))
+                    .put("provider", "Authorized provider gateway not configured")
+                    .put("quoteTimestamp", JSONObject.NULL).put("isExchangeCertifiedRealtime", false)
+                    .put("marketDataDisclaimer", "No approved index feed is configured. No historical or inferred value is shown.")
+                    .put("error", "NSE_INDEX_FEED_NOT_CONFIGURED"))
+            }
+            return out
+        }
+        try {
+            val data = gatewayGet("/v1/indices")
+            val source = data.optString("source").trim()
+            val status = data.optString("marketDataStatus").uppercase(Locale.ROOT)
+            val asOfText = data.optString("asOf").trim()
+            if (source.isBlank() || status !in setOf("REALTIME", "DELAYED", "EOD") || asOfText.isBlank())
+                throw IOException("Index feed timestamp or status is absent; snapshot rejected")
+            val asOf = parseGatewayTime(asOfText)
+            val age = System.currentTimeMillis() - asOf
+            if (age < -60_000L) throw IOException("Index feed timestamp is in the future; snapshot rejected")
+            val maxAge = when (status) {
+                "REALTIME" -> 5 * 60 * 1000L
+                "DELAYED" -> {
+                    if (data.optInt("delayMinutes", 0) <= 0) throw IOException("Delayed index feed must disclose delayMinutes")
+                    24 * 60 * 60 * 1000L
+                }
+                else -> 72 * 60 * 60 * 1000L
+            }
+            if (age > maxAge) throw IOException("Index feed is stale for declared $status status; snapshot rejected")
+            val rows = data.optJSONArray("rows") ?: throw IOException("Index feed returned no index rows; snapshot rejected")
+            if (rows.length() == 0) throw IOException("Index feed returned no index rows; snapshot rejected")
+            val byName = linkedMapOf<String, JSONObject>()
+            for (i in 0 until rows.length()) {
+                val row = rows.optJSONObject(i) ?: throw IOException("Index feed contains an invalid row; snapshot rejected")
+                val name = row.optString("symbol", row.optString("name")).trim()
+                if (name.isBlank()) throw IOException("Index feed contains an unnamed index row; snapshot rejected")
+                val key = normalizeIndexName(name)
+                if (byName.containsKey(key)) throw IOException("Index feed contains duplicate index name: $name")
+                val value = row.optDouble("value", Double.NaN)
+                val change = row.optDouble("changePct", Double.NaN)
+                if (!value.isFinite() || value <= 0.0 || (row.has("changePct") && !row.isNull("changePct") && !change.isFinite()))
+                    throw IOException("Index feed row $name has invalid value/changePct; snapshot rejected")
+                byName[key] = row
+            }
+            labels.forEach { label ->
+                val row = byName[normalizeIndexName(label)]
+                if (row == null) {
+                    out.put(label, JSONObject().put("value", JSONObject.NULL).put("changePct", JSONObject.NULL)
+                        .put("status", "UNAVAILABLE").put("sourceType", "NO_DATA").put("priceSource", "NONE")
+                        .put("provider", source).put("quoteTimestamp", asOf / 1000L)
+                        .put("isExchangeCertifiedRealtime", false).put("error", "Index not returned by approved provider"))
+                } else {
+                    out.put(label, JSONObject().put("value", row.optDouble("value"))
+                        .put("changePct", if (row.has("changePct") && !row.isNull("changePct")) row.optDouble("changePct") else JSONObject.NULL)
+                        .put("previousClose", if (row.has("previousClose") && !row.isNull("previousClose")) row.optDouble("previousClose") else JSONObject.NULL)
+                        .put("status", status).put("sourceType", status).put("priceSource", source)
+                        .put("provider", source).put("quoteTimestamp", asOf / 1000L)
+                        .put("quoteAsOf", asOfText).put("isExchangeCertifiedRealtime", false))
+                }
+            }
+        } catch (e: Exception) {
+            labels.forEach { label ->
+                out.put(label, JSONObject().put("value", JSONObject.NULL).put("changePct", JSONObject.NULL)
+                    .put("status", "UNAVAILABLE").put("sourceType", "NO_DATA").put("priceSource", "NONE")
+                    .put("provider", "Authorized provider gateway").put("quoteTimestamp", JSONObject.NULL)
+                    .put("isExchangeCertifiedRealtime", false).put("error", e.message ?: "Index feed unavailable"))
             }
         }
         return out
