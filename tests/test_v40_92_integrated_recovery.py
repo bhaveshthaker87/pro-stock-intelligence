@@ -68,12 +68,14 @@ class V4100IntegratedRecoveryTests(unittest.TestCase):
 
     def test_market_indices_never_scrape_nse_website_and_require_authorized_gateway(self):
         source = NATIVE.read_text(encoding="utf-8")
-        method = source[source.index("private fun marketIndices(): JSONObject {"):source.index("private fun ", source.index("private fun marketIndices(): JSONObject {") + 20)]
-        self.assertIn('nseMcpTool("https://mcp.nseindia.in/cmmkt/mcp", "index", label)', method)
+        start = source.index("private fun marketIndices(): JSONObject")
+        end = source.index("\n    private fun normalizeIndexName", start)
+        method = source[start:end]
+        self.assertIn('gatewayGet("/v1/indices")', method)
+        self.assertNotIn('nseMcpTool("https://mcp.nseindia.in/cmmkt/mcp", "index", label)', method)
         self.assertNotIn("nseWebsiteGet(", method)
-        self.assertNotIn("NSE_WEBSITE_SNAPSHOT", method)
-        self.assertIn('"NIFTY 50"', method)
-        self.assertIn('"NIFTY BANK"', method)
+        self.assertIn("NSE_INDEX_FEED_NOT_CONFIGURED", method)
+        self.assertIn("UNAVAILABLE", method)
 
 if __name__ == "__main__":
     unittest.main()
