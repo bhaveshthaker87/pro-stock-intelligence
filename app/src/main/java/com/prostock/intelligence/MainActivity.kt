@@ -1722,8 +1722,7 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
         // Official NSE Bhavcopy MCP fallback: maximum 3 months per request.
         // It is EOD only; do not present these bars as intraday/live candles.
         try {
-            val mcp = nseMcpTool("https://mcp.nseindia.in/bhavcopy/cm/mcp", "get_stock_history",
-                JSONObject().put("symbol", symbol).put("months", 3).put("endDate", "today"))
+            val mcp = nseMcpTool("https://mcp.nseindia.in/bhavcopy/cm/mcp", "get_stock_history", symbol)
             val input = mcp.optJSONArray("data") ?: throw IOException("NSE MCP history missing data array")
             val rows = JSONArray()
             for (i in 0 until input.length()) {
@@ -1985,7 +1984,7 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
                     val raw = block.optString("text")
                     try {
                         val parsed = JSONObject(raw)
-                        Log.i("PSI_NSE_MCP", "SUCCESS kind=$kind tool=$name payloadLength=${raw.length()}")
+                        Log.i("PSI_NSE_MCP", "SUCCESS kind=$kind tool=$name payloadLength=${raw.length}")
                         return parsed.put("_mcpTool", name).put("_mcpRetrievedAt", System.currentTimeMillis())
                     } catch (_: Exception) {
                         val arr = try { JSONArray(raw) } catch (_: Exception) { null }
