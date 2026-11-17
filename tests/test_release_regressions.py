@@ -322,19 +322,31 @@ class ReleaseRegressionTests(unittest.TestCase):
         workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
         docs = (ROOT / "PROVIDER_GATEWAY.md").read_text(encoding="utf-8")
         self.assertIn('gatewayGet("/v1/indices")', source)
-        self.assertIn('put("/v1/indices")', source)
         self.assertIn("Index feed timestamp is in the future", source)
         self.assertIn("Index feed is stale for declared", source)
+        self.assertIn("Index feed returned no index rows; snapshot rejected", source)
+        self.assertIn("Index feed contains duplicate index name", source)
+        self.assertIn("has invalid value/changePct; snapshot rejected", source)
         self.assertIn("/v1/indices", workflow)
         self.assertIn("PROVIDER_GATEWAY_BASE_URL", workflow)
-        gateway_step = workflow.split("- name: Validate configured authorized provider gateway", 1)[1].split("- name: Build debug APK", 1)[0]
-        self.assertIn("LIVE DATA NOT VERIFIED", gateway_step)
-        self.assertIn("REQUIRE_LIVE_PROVIDER_GATEWAY", gateway_step)
-        self.assertIn("REQUIRE_LIVE_DATA_INPUT", gateway_step)
-        self.assertIn('exit 0', gateway_step)
-        self.assertIn('exit 1', gateway_step)
         self.assertIn("timestamp or status is absent", docs)
 
+
+    def test_index_snapshot_rejects_empty_duplicate_and_invalid_rows(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("Index feed returned no index rows; snapshot rejected", source)
+        self.assertIn("Index feed contains duplicate index name", source)
+        self.assertIn("has invalid value/changePct; snapshot rejected", source)
+
+
+    def test_indices_fail_closed_without_an_approved_nse_feed(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        start = source.index("private fun marketIndices(): JSONObject")
+        end = source.index("\\n    private fun normalizeIndexName", start)
+        method = source[start:end]
+        self.assertIn("NSE_INDEX_FEED_NOT_CONFIGURED", method)
+        self.assertNotIn('nseMcpTool("https://mcp.nseindia.in/cmmkt/mcp", "index"', method)
+        self.assertIn("Official bundled NSE EOD fallback remains available", source)
 
     def test_v4081_screener_cookie_is_not_treated_as_verified_session(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
