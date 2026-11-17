@@ -340,10 +340,11 @@ class DashboardUISmokeTests(unittest.TestCase):
                     "NIFTY IT", "NIFTY AUTO", "NIFTY FMCG", "NIFTY PHARMA", "NIFTY METAL",
                     "NIFTY PSU BANK", "NIFTY PRIVATE BANK", "NIFTY ENERGY", "NIFTY INFRA",
                     "NIFTY FIN SERVICE", "GOLD FUTURES (GLOBAL)", "SILVER FUTURES (GLOBAL)", "BRENT CRUDE (GLOBAL)"]
-        market_fn = source[source.index("private fun marketIndices()"):source.index("\n    fun handle(path: String)")]
+        market_fn = source[source.index("private fun marketIndices(): JSONObject"):source.index("\n    private fun normalizeIndexName")]
         for label in required:
             self.assertIn(label, market_fn)
             self.assertIn(label, html)
+        self.assertIn("NSE_INDEX_FEED_NOT_CONFIGURED", market_fn)
         self.assertIn("AUTHORIZED_NSE_FEED_NOT_CONFIGURED", source)
         self.assertIn("HISTORICAL BAR • NOT LIVE", html)
         self.assertIn("QUOTE RETURNED • FRESHNESS UNVERIFIED", html)
@@ -550,7 +551,7 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn("versionCode 99", gradle)
         self.assertIn("versionName '42.07'", gradle)
         self.assertIn("ENABLE_NSE_MCP_DATA", gradle)
-        self.assertIn("getOrElse('true')", gradle)
+        self.assertIn("getOrElse('false')", gradle)
         self.assertIn("if (!BuildConfig.ENABLE_NSE_MCP_DATA)", source)
         self.assertIn("personal, non-commercial informational use", (root / "docs/V42.07_ZERO_BUDGET_DATA_POLICY.md").read_text(encoding="utf-8"))
         self.assertIn("Official bundled NSE EOD fallback remains available", source)
