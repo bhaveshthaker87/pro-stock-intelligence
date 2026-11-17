@@ -342,7 +342,7 @@ class ReleaseRegressionTests(unittest.TestCase):
     def test_indices_fail_closed_without_an_approved_nse_feed(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         start = source.index("private fun marketIndices(): JSONObject")
-        end = source.index("\\n    private fun normalizeIndexName", start)
+        end = source.index("\n    private fun normalizeIndexName", start)
         method = source[start:end]
         self.assertIn("NSE_INDEX_FEED_NOT_CONFIGURED", method)
         self.assertNotIn('nseMcpTool("https://mcp.nseindia.in/cmmkt/mcp", "index"', method)
