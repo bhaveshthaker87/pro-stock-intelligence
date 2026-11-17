@@ -82,16 +82,23 @@ def validate(path, require_complete=False):
    raise ValueError(f"Row {i}: source, period and unit are mandatory")
   if r["unit"].strip()!=METRICS[metric]: raise ValueError(f"Row {i}: unit mismatch for {metric}; expected {METRICS[metric]}")
   if status in {"VERIFIED_MATCH","VERIFIED_DIFFERENCE"}:
-   a=number(r.get("app_value")); s=number(r.get("screener_value")); d=number(r.get("difference"))
-   tol=number(r.get("tolerance"))
-   if a is None or s is None or d is None: raise ValueError(f"Row {i}: verified record requires numeric app, Screener and difference values")
-   if tol is None or tol < 0: raise ValueError(f"Row {i}: verified record requires non-negative numeric tolerance")
-   if not math.isclose(d,a-s,rel_tol=1e-7,abs_tol=1e-6): raise ValueError(f"Row {i}: difference does not equal app_value - screener_value")
    if not (r.get("evidence_ref") or "").strip() or not (r.get("source_url") or "").strip():
     raise ValueError(f"Row {i}: verified record requires source_url and evidence_ref")
    parse_timestamp(r.get("source_timestamp"),f"Row {i} source_timestamp")
    parse_timestamp(r.get("app_retrieved_at"),f"Row {i} app_retrieved_at")
-   match=abs(a-s)<=tol
+   if metric == "shareholding":
+    a=str(r.get("app_value") or "").strip(); s=str(r.get("screener_value") or "").strip()
+    d=number(r.get("difference")); tol=number(r.get("tolerance"))
+    if not a or not s or d is None or tol != 0: raise ValueError(f"Row {i}: verified shareholding table requires both captures and zero/one difference with zero tolerance")
+    match=re.sub(r"\\s+"," ",a).casefold()==re.sub(r"\\s+"," ",s).casefold()
+    if not math.isclose(d,0.0 if match else 1.0,abs_tol=1e-9): raise ValueError(f"Row {i}: shareholding table difference marker is invalid")
+   else:
+    a=number(r.get("app_value")); s=number(r.get("screener_value")); d=number(r.get("difference"))
+    tol=number(r.get("tolerance"))
+    if a is None or s is None or d is None: raise ValueError(f"Row {i}: verified record requires numeric app, Screener and difference values")
+    if tol is None or tol < 0: raise ValueError(f"Row {i}: verified record requires non-negative numeric tolerance")
+    if not math.isclose(d,a-s,rel_tol=1e-7,abs_tol=1e-6): raise ValueError(f"Row {i}: difference does not equal app_value - screener_value")
+    match=abs(a-s)<=tol
    if (status=="VERIFIED_MATCH")!=match: raise ValueError(f"Row {i}: verification status conflicts with tolerance")
  if len(seen)!=expected: raise ValueError("One or more stock/metric combinations are missing")
  verified=counts["VERIFIED_MATCH"]+counts["VERIFIED_DIFFERENCE"]
