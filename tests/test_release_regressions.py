@@ -638,9 +638,16 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("Screener Scan History", html)
         self.assertIn("function qAddHistory", html)
         self.assertIn("function qRenderHistory", html)
-        # Technical scan must fail closed until an authorized historical-bar provider is configured.
-        self.assertIn("UNAVAILABLE — authorized OHLCV gateway not configured", source)
-        self.assertIn("No third-party price series is substituted", source)
+        # Technical scans use validated bundled NSE EOD bars and disclose the tracked-only universe.
+        scanner_start = source.index("private fun technicalScan(kind: String)")
+        scanner_end = source.index("\\n    private fun ", scanner_start)
+        scanner = source[scanner_start:scanner_end]
+        self.assertIn("readBundledNseEod(stock.symbol)", scanner)
+        self.assertIn("Wilder RSI(14)", scanner)
+        self.assertIn("averageGain * 13.0", scanner)
+        self.assertIn("dayChange <= -5.0", scanner)
+        self.assertIn("This is not a full-market scan.", scanner)
+        self.assertIn('.put("marketDataStatus", status)', scanner)
 
     def test_30_stock_audit_reports_all_eighteen_requested_fundamental_metrics(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
