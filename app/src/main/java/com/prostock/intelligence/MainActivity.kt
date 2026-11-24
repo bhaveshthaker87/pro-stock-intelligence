@@ -1698,7 +1698,11 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
             if (historyAgeMs < -60_000L || historyAgeMs > 10L * 24 * 60 * 60 * 1000)
                 throw IOException("Historical provider timestamp is in the future or too old to verify")
             val interval = data.optString("interval")
+            val marketStatus = data.optString("marketDataStatus")
+            val returnedRange = data.optString("rangeRequested")
             if (source.isBlank() || interval !in setOf("1m", "5m", "15m", "1d", "1wk", "1mo")) throw IOException("History payload missing source or valid interval")
+            if (marketStatus !in setOf("REALTIME", "DELAYED", "EOD")) throw IOException("History payload missing an explicit market-data status")
+            if (returnedRange != range) throw IOException("History provider range mismatch: requested $range but received ${returnedRange.ifBlank { "unspecified" }}")
             val inputRows = data.optJSONArray("rows") ?: throw IOException("History payload missing OHLCV rows")
             val rows = JSONArray()
             var previousTime = Long.MIN_VALUE
@@ -1713,15 +1717,17 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
                 rows.put(JSONObject().put("time", time).put("date", time).put("open", o).put("high", h).put("low", l).put("close", c).put("volume", v))
                 previousTime = time
             }
-            if (rows.length() < 2) throw IOException("Provider history must contain at least two valid chronological OHLCV candles; partial or malformed history rejected")
+            val minimumBars = if (range == "1d") 1 else 2
+            if (rows.length() < minimumBars) throw IOException("Provider history must contain at least $minimumBars valid chronological OHLCV candle(s) for range $range; partial or malformed history rejected")
             return JSONObject().put("symbol", symbol).put("rows", rows).put("provider", source)
                 .put("historyProvider", source).put("historyStatus", "VALIDATED_GATEWAY_PAYLOAD")
-                .put("chartMode", "OHLCV").put("statusText", "Provider OHLCV • as of " + data.optString("asOf"))
+                .put("chartMode", "OHLCV").put("marketDataStatus", marketStatus).put("sourceDisclaimer", data.optString("sourceDisclaimer")).put("statusText", "Provider OHLCV • " + marketStatus + " • as of " + data.optString("asOf"))
                 .put("rangeRequested", range).put("interval", interval).put("quoteTimestamp", asOf / 1000L)
         }
         // Official NSE Bhavcopy MCP fallback: maximum 3 months per request.
         // It is EOD only; do not present these bars as intraday/live candles.
         try {
+            if (range !in setOf("1d", "1w", "1mo", "3mo")) throw IOException("NSE MCP history is limited to three months; longer ranges require bundled history or an authorized gateway")
             val mcp = nseMcpTool("https://mcp.nseindia.in/bhavcopy/cm/mcp", "get_stock_history", symbol)
             val input = mcp.optJSONArray("data") ?: throw IOException("NSE MCP history missing data array")
             val rows = JSONArray()
@@ -1738,22 +1744,25 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
                 rows.put(JSONObject().put("time", time).put("date", time).put("open", o)
                     .put("high", h).put("low", l).put("close", c).put("volume", v))
             }
-            if (rows.length() >= 2) {
-                return JSONObject().put("symbol", symbol).put("rows", rows)
+            val filteredMcpRows = filterEodRowsForRange(rows, range)
+            val minimumMcpBars = if (range == "1d") 1 else 2
+            if (filteredMcpRows.length() >= minimumMcpBars) {
+                return JSONObject().put("symbol", symbol).put("rows", filteredMcpRows)
                     .put("provider", "Official NSE Bhavcopy MCP")
                     .put("historyProvider", "Official NSE Bhavcopy MCP")
                     .put("historyStatus", "VALIDATED_OFFICIAL_NSE_MCP_EOD")
                     .put("marketDataStatus", "EOD").put("chartMode", "OHLCV")
                     .put("statusText", "Official NSE MCP daily EOD • up to 3 months per request • not intraday")
                     .put("rangeRequested", range).put("interval", "1d")
-                    .put("quoteTimestamp", rows.optJSONObject(rows.length()-1)?.optLong("time")?.div(1000L) ?: JSONObject.NULL)
+                    .put("quoteTimestamp", filteredMcpRows.optJSONObject(filteredMcpRows.length()-1)?.optLong("time")?.div(1000L) ?: JSONObject.NULL)
                     .put("sourceDisclaimer", "NSE MCP Bhavcopy daily EOD history; response limited to 3 months for this request.")
             }
         } catch (_: Exception) {
             // Continue to the locally bundled official NSE history; preserve its availability.
         }
-        val localRows = readBundledNseEod(symbol)
-        if (localRows.length() >= 2) {
+        val localRows = filterEodRowsForRange(readBundledNseEod(symbol), range)
+        val minimumLocalBars = if (range == "1d") 1 else 2
+        if (localRows.length() >= minimumLocalBars) {
             val latest = localRows.optJSONObject(localRows.length() - 1)
             val latestTime = latest?.optLong("time", 0L) ?: 0L
             return JSONObject().put("symbol", symbol).put("rows", localRows)
@@ -1771,6 +1780,36 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
             .put("chartMode", "OHLCV")
             .put("statusText", "No bundled NSE EOD history for this symbol yet. Run the official NSE EOD ingestion workflow; live/intraday data is not included.")
             .put("rangeRequested", range).put("quoteTimestamp", JSONObject.NULL)
+    }
+
+    private fun filterEodRowsForRange(input: JSONArray, range: String): JSONArray {
+        val zone = java.time.ZoneId.of("Asia/Kolkata")
+        val today = java.time.LocalDate.now(zone)
+        val startDate = when (range) {
+            "1d" -> today.minusDays(7)
+            "1w" -> today.minusDays(7)
+            "1mo" -> today.minusMonths(1)
+            "3mo" -> today.minusMonths(3)
+            "6mo" -> today.minusMonths(6)
+            "ytd" -> today.withDayOfYear(1)
+            "1y" -> today.minusYears(1)
+            "3y" -> today.minusYears(3)
+            "5y" -> today.minusYears(5)
+            "all" -> java.time.LocalDate.of(2000, 1, 1)
+            else -> throw IOException("Unsupported chart range: $range")
+        }
+        val selected = (0 until input.length()).mapNotNull { input.optJSONObject(it) }
+            .filter { row ->
+                val tradingDate = row.optString("tradingDate")
+                val date = try {
+                    if (tradingDate.isNotBlank()) java.time.LocalDate.parse(tradingDate.take(10))
+                    else java.time.Instant.ofEpochMilli(row.optLong("time")).atZone(zone).toLocalDate()
+                } catch (_: Exception) { null }
+                date != null && !date.isBefore(startDate)
+            }
+        val output = JSONArray()
+        (if (range == "1d") selected.takeLast(1) else selected).forEach { output.put(it) }
+        return output
     }
 
     /** Read only validated NSE EQ bhavcopy files copied into assets by the release workflow. */
@@ -1801,7 +1840,7 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
                         val c = field("close").replace(",", "").toDoubleOrNull() ?: continue
                         val v = field("volume").replace(",", "").toDoubleOrNull() ?: continue
                         if (listOf(o,h,l,c,v).any { !it.isFinite() } || minOf(o,h,l,c) <= 0.0 || v < 0.0 || h < maxOf(o,c,l) || l > minOf(o,c,h)) continue
-                        val epoch = date.atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+                        val epoch = date.atStartOfDay(java.time.ZoneId.of("Asia/Kolkata")).toInstant().toEpochMilli()
                         byDate[day] = JSONObject().put("time", epoch).put("date", epoch).put("tradingDate", day)
                             .put("open", o).put("high", h).put("low", l).put("close", c).put("volume", v)
                             .put("marketDataStatus", "EOD").put("source", "NSE CM-UDiFF Common Bhavcopy Final")
@@ -1898,7 +1937,7 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
     private fun nseMcpStart(endpoint: String): Pair<JSONObject, String?> {
         val init = JSONObject().put("protocolVersion", "2025-03-26")
             .put("capabilities", JSONObject()).put("clientInfo", JSONObject()
-                .put("name", "ProStockIntelligence").put("version", "42.08"))
+                .put("name", "ProStockIntelligence").put("version", "43.00"))
         val (initialized, session) = nseMcpRpc(endpoint, null, "initialize", init)
         val negotiated = initialized.optString("protocolVersion")
         if (negotiated.isBlank()) throw IOException("NSE MCP initialize omitted protocolVersion")
@@ -2151,42 +2190,164 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
         .replace("&gt;", ">").replace("&quot;", "\"").replace("&#39;", "'").replace(Regex("\\s+"), " ").trim()
 
     private fun runScreenerQuery(query: String): JSONObject {
-        if (!screenerSessionIsValidated()) { val access = screenerConnectionTest(); if (!access.optBoolean("validated")) throw IOException(access.optString("message", "Screener session is not validated. Sign in through the official Screener page and run Check access before starting scans.")) }
-        val url = "https://www.screener.in/screen/raw/?query=" + URLEncoder.encode(query, "UTF-8")
-        val html = get(url)
-        val table = Regex("(?is)<table[^>]*>(.*?)</table>").find(html)?.groupValues?.get(1)
-            ?: throw IOException("Screener returned no results table. Confirm login and try again.")
-        val rowsHtml = Regex("(?is)<tr[^>]*>(.*?)</tr>").findAll(table).map { it.groupValues[1] }.toList()
+        if (!screenerSessionIsValidated()) {
+            val access = screenerConnectionTest()
+            if (!access.optBoolean("validated")) throw IOException(access.optString("message", "Screener session is not validated. Sign in through the official Screener page and run Check access before starting scans."))
+        }
+        val firstUrl = "https://www.screener.in/screen/raw/?query=" + URLEncoder.encode(query, "UTF-8")
+        var pageUrl: String? = firstUrl
+        val visited = mutableSetOf<String>()
         val columns = JSONArray()
         val resultRows = JSONArray()
-        var count = 0
-        rowsHtml.forEachIndexed { index, rowHtml ->
-            val cells = Regex("(?is)<t[hd][^>]*>(.*?)</t[hd]>").findAll(rowHtml).map { htmlEntities(cleanText(it.groupValues[1])) }.toList()
-            if (cells.isEmpty()) return@forEachIndexed
-            if (index == 0 && Regex("(?is)<th").containsMatchIn(rowHtml)) { cells.forEach { columns.put(it) }; return@forEachIndexed }
-            if (columns.length() == 0) return@forEachIndexed
-            val obj = JSONObject()
-            cells.forEachIndexed { i, cell -> if (i < columns.length()) obj.put(columns.getString(i), cell) }
-            if (obj.length() > 0) { count++; if (!obj.has("S.No.")) obj.put("S.No.", count); resultRows.put(obj) }
+        var pagesFetched = 0
+        var expectedTotal: Int? = null
+        var nextPageKnown = false
+        val maxPages = 20
+        while (pageUrl != null && pagesFetched < maxPages) {
+            val currentUrl = pageUrl ?: break
+            if (!visited.add(currentUrl)) {
+                nextPageKnown = true
+                break
+            }
+            val html = get(currentUrl)
+            val table = Regex("(?is)<table[^>]*>(.*?)</table>").find(html)?.groupValues?.get(1)
+                ?: throw IOException("Screener returned no results table on page ${pagesFetched + 1}. Confirm login and try again.")
+            val rowsHtml = Regex("(?is)<tr[^>]*>(.*?)</tr>").findAll(table).map { it.groupValues[1] }.toList()
+            rowsHtml.forEachIndexed { index, rowHtml ->
+                val cells = Regex("(?is)<t[hd][^>]*>(.*?)</t[hd]>").findAll(rowHtml)
+                    .map { htmlEntities(cleanText(it.groupValues[1])) }.toList()
+                if (cells.isEmpty()) return@forEachIndexed
+                if (Regex("(?is)<th").containsMatchIn(rowHtml)) {
+                    if (columns.length() == 0) cells.forEach { columns.put(it) }
+                    return@forEachIndexed
+                }
+                if (columns.length() == 0) return@forEachIndexed
+                val obj = JSONObject()
+                cells.forEachIndexed { i, cell -> if (i < columns.length()) obj.put(columns.getString(i), cell) }
+                if (obj.length() > 0) {
+                    obj.put("S.No.", resultRows.length() + 1)
+                    resultRows.put(obj)
+                }
+            }
+            pagesFetched++
+            val visibleText = htmlEntities(cleanText(html))
+            val totalMatch = Regex("(?i)(?:showing\\s+)?[0-9,]+\\s*(?:to|-|–)\\s*[0-9,]+\\s+of\\s+([0-9,]+)").find(visibleText)
+            totalMatch?.groupValues?.getOrNull(1)?.replace(",", "")?.toIntOrNull()?.let { expectedTotal = it }
+
+            val nextAnchor = Regex("(?is)<a\\b([^>]*)>(.*?)</a>").findAll(html).firstOrNull { match ->
+                val attributes = Regex("(?i)([a-z-]+)\\s*=\\s*[\"']([^\"']*)[\"']")
+                    .findAll(match.groupValues[1]).associate { it.groupValues[1].lowercase(Locale.ROOT) to it.groupValues[2] }
+                val rel = attributes["rel"].orEmpty().lowercase(Locale.ROOT).split(Regex("\\s+"))
+                val css = attributes["class"].orEmpty().lowercase(Locale.ROOT)
+                val aria = attributes["aria-label"].orEmpty().lowercase(Locale.ROOT)
+                rel.contains("next") || css.split(Regex("\\s+")).any { it == "next" } ||
+                    aria.contains("next") || cleanText(match.groupValues[2]).equals("next", true)
+            }
+            val href = nextAnchor?.let { match ->
+                Regex("(?i)href\\s*=\\s*[\"']([^\"']+)[\"']")
+                    .find(match.groupValues[1])?.groupValues?.getOrNull(1)
+            }
+            if (href.isNullOrBlank()) {
+                pageUrl = null
+            } else {
+                val resolved = try { java.net.URL(java.net.URL(currentUrl), href).toString() } catch (_: Exception) { "" }
+                if (!resolved.startsWith("https://www.screener.in/screen/raw/")) {
+                    nextPageKnown = true
+                    pageUrl = null
+                } else {
+                    pageUrl = resolved
+                    nextPageKnown = true
+                }
+            }
         }
-        return JSONObject().put("columns", columns).put("rows", resultRows).put("count", count)
-            .put("provider", "Screener.in authenticated session").put("pagesFetched", 1).put("allResultsLoaded", false)
-            .put("statusText", "Parsed first available Screener results table; pagination may be partial.")
+        val pageLimitReached = pageUrl != null && pagesFetched >= maxPages
+        val complete = expectedTotal != null && resultRows.length() >= (expectedTotal ?: Int.MAX_VALUE) && !pageLimitReached
+        val statusText = when {
+            complete -> "Loaded all ${resultRows.length()} Screener results across $pagesFetched page(s)."
+            pageLimitReached -> "Loaded ${resultRows.length()} rows across the $maxPages-page safety limit; more results may exist."
+            expectedTotal != null -> "Loaded ${resultRows.length()} of $expectedTotal reported Screener results; result set is partial."
+            nextPageKnown -> "Loaded ${resultRows.length()} rows; additional Screener pages may exist and completeness is not verified."
+            else -> "Loaded ${resultRows.length()} rows; Screener did not expose a verifiable total, so completeness is not claimed."
+        }
+        return JSONObject().put("columns", columns).put("rows", resultRows).put("count", resultRows.length())
+            .put("provider", "Screener.in authenticated session").put("pagesFetched", pagesFetched)
+            .put("totalResults", expectedTotal ?: JSONObject.NULL).put("allResultsLoaded", complete)
+            .put("statusText", statusText).put("marketDataStatus", if (complete) "AVAILABLE" else "PARTIAL")
     }
 
     private fun technicalScan(kind: String): JSONObject {
-        val label = if (kind == "oversold") "RSI(14) ≤ 30" else "daily-bar change ≤ -5%"
+        if (kind !in setOf("oversold", "crash")) throw IOException("Unsupported technical scan: $kind")
+        val label = if (kind == "oversold") "Wilder RSI(14) ≤ 30" else "daily EOD close change ≤ -5%"
+        val columns = JSONArray(listOf("S.No.", "Company", "CMP Rs.", "RSI(14)", "Day Change %", "Data Date", "Provider"))
+        val rows = JSONArray()
+        var checked = 0
+        stocks.forEach { stock ->
+            val history = readBundledNseEod(stock.symbol)
+            val bars = (0 until history.length()).mapNotNull { history.optJSONObject(it) }
+                .filter { it.optString("marketDataStatus") == "EOD" }
+                .sortedBy { it.optLong("time", 0L) }
+            val closes = bars.map { it.optDouble("close", Double.NaN) }
+                .filter { it.isFinite() && it > 0.0 }
+            if (kind == "oversold") {
+                if (closes.size < 15) return@forEach
+            } else if (closes.size < 2) {
+                return@forEach
+            }
+            checked++
+            val latest = bars.last()
+            val latestClose = closes.last()
+            val previousClose = closes.getOrNull(closes.size - 2) ?: Double.NaN
+            val dayChange = if (previousClose.isFinite() && previousClose > 0.0)
+                ((latestClose - previousClose) / previousClose) * 100.0 else Double.NaN
+            var rsi = Double.NaN
+            if (kind == "oversold") {
+                val changes = closes.zipWithNext { previous, current -> current - previous }
+                val initial = changes.take(14)
+                var averageGain = initial.map { maxOf(it, 0.0) }.average()
+                var averageLoss = initial.map { maxOf(-it, 0.0) }.average()
+                for (index in 14 until changes.size) {
+                    val change = changes[index]
+                    averageGain = (averageGain * 13.0 + maxOf(change, 0.0)) / 14.0
+                    averageLoss = (averageLoss * 13.0 + maxOf(-change, 0.0)) / 14.0
+                }
+                rsi = when {
+                    averageGain == 0.0 && averageLoss == 0.0 -> 50.0
+                    averageLoss == 0.0 -> 100.0
+                    else -> 100.0 - (100.0 / (1.0 + averageGain / averageLoss))
+                }
+            }
+            val matches = if (kind == "oversold") rsi.isFinite() && rsi <= 30.0
+                else dayChange.isFinite() && dayChange <= -5.0
+            if (matches) {
+                val row = JSONObject()
+                    .put("S.No.", rows.length() + 1)
+                    .put("Company", stock.name)
+                    .put("CMP Rs.", latestClose)
+                    .put("RSI(14)", if (rsi.isFinite()) rsi else JSONObject.NULL)
+                    .put("Day Change %", if (dayChange.isFinite()) dayChange else JSONObject.NULL)
+                    .put("Data Date", latest.optString("tradingDate"))
+                    .put("Provider", "NSE CM-UDiFF Common Bhavcopy Final")
+                rows.put(row)
+            }
+        }
+        val status = when {
+            checked == 0 -> "UNAVAILABLE"
+            checked < stocks.size -> "PARTIAL"
+            else -> "EOD"
+        }
         return JSONObject()
-            .put("columns", JSONArray(listOf("S.No.", "Company", "CMP Rs.", "RSI(14)", "Day Change %", "Data Date", "Provider")))
-            .put("rows", JSONArray())
-            .put("count", 0)
-            .put("provider", "UNAVAILABLE — authorized OHLCV gateway not configured")
-            .put("pagesFetched", 0)
-            .put("allResultsLoaded", false)
+            .put("columns", columns)
+            .put("rows", rows)
+            .put("count", rows.length())
+            .put("provider", "NSE CM-UDiFF Common Bhavcopy Final")
+            .put("pagesFetched", if (checked > 0) 1 else 0)
+            .put("allResultsLoaded", checked == stocks.size)
             .put("scanUniverse", stocks.size)
-            .put("symbolsChecked", 0)
-            .put("statusText", "$label requires validated historical data from an authorized provider. No third-party price series is substituted.")
-            .put("marketDataStatus", "UNAVAILABLE")
+            .put("symbolsChecked", checked)
+            .put("calculationMethod", if (kind == "oversold") "Wilder RSI(14): initial 14-period average gain/loss, then Wilder smoothing" else "Latest validated EOD close versus previous validated EOD close")
+            .put("statusText", if (checked == 0) "$label unavailable: no tracked symbols had enough validated NSE EOD bars."
+                else "$label evaluated against $checked of ${stocks.size} tracked symbols using official NSE EOD data only. This is not a full-market scan.")
+            .put("marketDataStatus", status)
     }
 
 
@@ -2631,7 +2792,7 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
         val s = canonical(raw)
         return try {
             when (p) {
-                "/api/health" -> JSONObject().put("ok", true).put("engine", "V42.07 OFFICIAL NSE/BSE RSS + AUTHORIZED MARKET DATA").put("data", JSONObject().put("ok", true).put("providerGatewayConfigured", gatewayConfigured()).put("quoteStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_FEED_NOT_CONFIGURED").put("historyStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_HISTORY_NOT_CONFIGURED").put("indicesStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_INDEX_FEED_NOT_CONFIGURED").put("eventsStatus", "OFFICIAL_NSE_BSE_RSS_CONFIGURED_RUNTIME_VALIDATION_REQUIRED").put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
+                "/api/health" -> JSONObject().put("ok", true).put("engine", "V43.00 OFFICIAL NSE/BSE RSS + AUTHORIZED MARKET DATA").put("data", JSONObject().put("ok", true).put("providerGatewayConfigured", gatewayConfigured()).put("quoteStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_FEED_NOT_CONFIGURED").put("historyStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_HISTORY_NOT_CONFIGURED").put("indicesStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_INDEX_FEED_NOT_CONFIGURED").put("eventsStatus", "OFFICIAL_NSE_BSE_RSS_CONFIGURED_RUNTIME_VALIDATION_REQUIRED").put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
                 "/api/providers/status" -> JSONObject().put("ok", true).put("data", providerStatus(raw)).toString()
                 "/api/screener/status" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
                 "/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerConnectionTest()).toString()
