@@ -1725,6 +1725,7 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
         // Official NSE Bhavcopy MCP fallback: maximum 3 months per request.
         // It is EOD only; do not present these bars as intraday/live candles.
         try {
+            if (range !in setOf("1d", "1w", "1mo", "3mo")) throw IOException("NSE MCP history is limited to three months; longer ranges require bundled history or an authorized gateway")
             val mcp = nseMcpTool("https://mcp.nseindia.in/bhavcopy/cm/mcp", "get_stock_history", symbol)
             val input = mcp.optJSONArray("data") ?: throw IOException("NSE MCP history missing data array")
             val rows = JSONArray()
@@ -1741,21 +1742,23 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
                 rows.put(JSONObject().put("time", time).put("date", time).put("open", o)
                     .put("high", h).put("low", l).put("close", c).put("volume", v))
             }
-            if (rows.length() >= 2) {
-                return JSONObject().put("symbol", symbol).put("rows", rows)
+            val filteredMcpRows = filterEodRowsForRange(rows, range)
+            val minimumMcpBars = if (range == "1d") 1 else 2
+            if (filteredMcpRows.length() >= minimumMcpBars) {
+                return JSONObject().put("symbol", symbol).put("rows", filteredMcpRows)
                     .put("provider", "Official NSE Bhavcopy MCP")
                     .put("historyProvider", "Official NSE Bhavcopy MCP")
                     .put("historyStatus", "VALIDATED_OFFICIAL_NSE_MCP_EOD")
                     .put("marketDataStatus", "EOD").put("chartMode", "OHLCV")
                     .put("statusText", "Official NSE MCP daily EOD • up to 3 months per request • not intraday")
                     .put("rangeRequested", range).put("interval", "1d")
-                    .put("quoteTimestamp", rows.optJSONObject(rows.length()-1)?.optLong("time")?.div(1000L) ?: JSONObject.NULL)
+                    .put("quoteTimestamp", filteredMcpRows.optJSONObject(filteredMcpRows.length()-1)?.optLong("time")?.div(1000L) ?: JSONObject.NULL)
                     .put("sourceDisclaimer", "NSE MCP Bhavcopy daily EOD history; response limited to 3 months for this request.")
             }
         } catch (_: Exception) {
             // Continue to the locally bundled official NSE history; preserve its availability.
         }
-        val localRows = readBundledNseEod(symbol)
+        val localRows = filterEodRowsForRange(readBundledNseEod(symbol), range)
         val minimumLocalBars = if (range == "1d") 1 else 2
         if (localRows.length() >= minimumLocalBars) {
             val latest = localRows.optJSONObject(localRows.length() - 1)
@@ -1775,6 +1778,36 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
             .put("chartMode", "OHLCV")
             .put("statusText", "No bundled NSE EOD history for this symbol yet. Run the official NSE EOD ingestion workflow; live/intraday data is not included.")
             .put("rangeRequested", range).put("quoteTimestamp", JSONObject.NULL)
+    }
+
+    private fun filterEodRowsForRange(input: JSONArray, range: String): JSONArray {
+        val zone = java.time.ZoneId.of("Asia/Kolkata")
+        val today = java.time.LocalDate.now(zone)
+        val startDate = when (range) {
+            "1d" -> today.minusDays(7)
+            "1w" -> today.minusDays(7)
+            "1mo" -> today.minusMonths(1)
+            "3mo" -> today.minusMonths(3)
+            "6mo" -> today.minusMonths(6)
+            "ytd" -> today.withDayOfYear(1)
+            "1y" -> today.minusYears(1)
+            "3y" -> today.minusYears(3)
+            "5y" -> today.minusYears(5)
+            "all" -> java.time.LocalDate.of(2000, 1, 1)
+            else -> throw IOException("Unsupported chart range: $range")
+        }
+        val selected = (0 until input.length()).mapNotNull { input.optJSONObject(it) }
+            .filter { row ->
+                val tradingDate = row.optString("tradingDate")
+                val date = try {
+                    if (tradingDate.isNotBlank()) java.time.LocalDate.parse(tradingDate.take(10))
+                    else java.time.Instant.ofEpochMilli(row.optLong("time")).atZone(zone).toLocalDate()
+                } catch (_: Exception) { null }
+                date != null && !date.isBefore(startDate)
+            }
+        val output = JSONArray()
+        (if (range == "1d") selected.takeLast(1) else selected).forEach { output.put(it) }
+        return output
     }
 
     /** Read only validated NSE EQ bhavcopy files copied into assets by the release workflow. */
