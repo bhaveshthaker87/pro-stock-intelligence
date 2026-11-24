@@ -1698,7 +1698,9 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
             if (historyAgeMs < -60_000L || historyAgeMs > 10L * 24 * 60 * 60 * 1000)
                 throw IOException("Historical provider timestamp is in the future or too old to verify")
             val interval = data.optString("interval")
+            val returnedRange = data.optString("rangeRequested")
             if (source.isBlank() || interval !in setOf("1m", "5m", "15m", "1d", "1wk", "1mo")) throw IOException("History payload missing source or valid interval")
+            if (returnedRange != range) throw IOException("History provider range mismatch: requested $range but received ${returnedRange.ifBlank { "unspecified" }}")
             val inputRows = data.optJSONArray("rows") ?: throw IOException("History payload missing OHLCV rows")
             val rows = JSONArray()
             var previousTime = Long.MIN_VALUE
@@ -1801,7 +1803,7 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
                         val c = field("close").replace(",", "").toDoubleOrNull() ?: continue
                         val v = field("volume").replace(",", "").toDoubleOrNull() ?: continue
                         if (listOf(o,h,l,c,v).any { !it.isFinite() } || minOf(o,h,l,c) <= 0.0 || v < 0.0 || h < maxOf(o,c,l) || l > minOf(o,c,h)) continue
-                        val epoch = date.atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+                        val epoch = date.atStartOfDay(java.time.ZoneId.of("Asia/Kolkata")).toInstant().toEpochMilli()
                         byDate[day] = JSONObject().put("time", epoch).put("date", epoch).put("tradingDate", day)
                             .put("open", o).put("high", h).put("low", l).put("close", c).put("volume", v)
                             .put("marketDataStatus", "EOD").put("source", "NSE CM-UDiFF Common Bhavcopy Final")
@@ -2175,18 +2177,78 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
     }
 
     private fun technicalScan(kind: String): JSONObject {
-        val label = if (kind == "oversold") "RSI(14) ≤ 30" else "daily-bar change ≤ -5%"
+        if (kind !in setOf("oversold", "crash")) throw IOException("Unsupported technical scan: $kind")
+        val label = if (kind == "oversold") "Wilder RSI(14) ≤ 30" else "daily EOD close change ≤ -5%"
+        val columns = JSONArray(listOf("S.No.", "Company", "CMP Rs.", "RSI(14)", "Day Change %", "Data Date", "Provider"))
+        val rows = JSONArray()
+        var checked = 0
+        stocks.forEach { stock ->
+            val history = readBundledNseEod(stock.symbol)
+            val bars = (0 until history.length()).mapNotNull { history.optJSONObject(it) }
+                .filter { it.optString("marketDataStatus") == "EOD" }
+                .sortedBy { it.optLong("time", 0L) }
+            val closes = bars.map { it.optDouble("close", Double.NaN) }
+                .filter { it.isFinite() && it > 0.0 }
+            if (kind == "oversold") {
+                if (closes.size < 15) return@forEach
+            } else if (closes.size < 2) {
+                return@forEach
+            }
+            checked++
+            val latest = bars.last()
+            val latestClose = closes.last()
+            val previousClose = closes.getOrNull(closes.size - 2) ?: Double.NaN
+            val dayChange = if (previousClose.isFinite() && previousClose > 0.0)
+                ((latestClose - previousClose) / previousClose) * 100.0 else Double.NaN
+            var rsi = Double.NaN
+            if (kind == "oversold") {
+                val changes = closes.zipWithNext { previous, current -> current - previous }
+                val initial = changes.take(14)
+                var averageGain = initial.map { maxOf(it, 0.0) }.average()
+                var averageLoss = initial.map { maxOf(-it, 0.0) }.average()
+                for (index in 14 until changes.size) {
+                    val change = changes[index]
+                    averageGain = (averageGain * 13.0 + maxOf(change, 0.0)) / 14.0
+                    averageLoss = (averageLoss * 13.0 + maxOf(-change, 0.0)) / 14.0
+                }
+                rsi = when {
+                    averageGain == 0.0 && averageLoss == 0.0 -> 50.0
+                    averageLoss == 0.0 -> 100.0
+                    else -> 100.0 - (100.0 / (1.0 + averageGain / averageLoss))
+                }
+            }
+            val matches = if (kind == "oversold") rsi.isFinite() && rsi <= 30.0
+                else dayChange.isFinite() && dayChange <= -5.0
+            if (matches) {
+                val row = JSONObject()
+                    .put("S.No.", rows.length() + 1)
+                    .put("Company", stock.name)
+                    .put("CMP Rs.", latestClose)
+                    .put("RSI(14)", if (rsi.isFinite()) rsi else JSONObject.NULL)
+                    .put("Day Change %", if (dayChange.isFinite()) dayChange else JSONObject.NULL)
+                    .put("Data Date", latest.optString("tradingDate"))
+                    .put("Provider", "NSE CM-UDiFF Common Bhavcopy Final")
+                rows.put(row)
+            }
+        }
+        val status = when {
+            checked == 0 -> "UNAVAILABLE"
+            checked < stocks.size -> "PARTIAL"
+            else -> "EOD"
+        }
         return JSONObject()
-            .put("columns", JSONArray(listOf("S.No.", "Company", "CMP Rs.", "RSI(14)", "Day Change %", "Data Date", "Provider")))
-            .put("rows", JSONArray())
-            .put("count", 0)
-            .put("provider", "UNAVAILABLE — authorized OHLCV gateway not configured")
-            .put("pagesFetched", 0)
-            .put("allResultsLoaded", false)
+            .put("columns", columns)
+            .put("rows", rows)
+            .put("count", rows.length())
+            .put("provider", "NSE CM-UDiFF Common Bhavcopy Final")
+            .put("pagesFetched", if (checked > 0) 1 else 0)
+            .put("allResultsLoaded", checked == stocks.size)
             .put("scanUniverse", stocks.size)
-            .put("symbolsChecked", 0)
-            .put("statusText", "$label requires validated historical data from an authorized provider. No third-party price series is substituted.")
-            .put("marketDataStatus", "UNAVAILABLE")
+            .put("symbolsChecked", checked)
+            .put("calculationMethod", if (kind == "oversold") "Wilder RSI(14): initial 14-period average gain/loss, then Wilder smoothing" else "Latest validated EOD close versus previous validated EOD close")
+            .put("statusText", if (checked == 0) "$label unavailable: no tracked symbols had enough validated NSE EOD bars."
+                else "$label evaluated against $checked of ${stocks.size} tracked symbols using official NSE EOD data only. This is not a full-market scan.")
+            .put("marketDataStatus", status)
     }
 
 
