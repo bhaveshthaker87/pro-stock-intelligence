@@ -1898,7 +1898,7 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
     private fun nseMcpStart(endpoint: String): Pair<JSONObject, String?> {
         val init = JSONObject().put("protocolVersion", "2025-03-26")
             .put("capabilities", JSONObject()).put("clientInfo", JSONObject()
-                .put("name", "ProStockIntelligence").put("version", "42.08"))
+                .put("name", "ProStockIntelligence").put("version", "43.00"))
         val (initialized, session) = nseMcpRpc(endpoint, null, "initialize", init)
         val negotiated = initialized.optString("protocolVersion")
         if (negotiated.isBlank()) throw IOException("NSE MCP initialize omitted protocolVersion")
@@ -2631,7 +2631,7 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
         val s = canonical(raw)
         return try {
             when (p) {
-                "/api/health" -> JSONObject().put("ok", true).put("engine", "V42.07 OFFICIAL NSE/BSE RSS + AUTHORIZED MARKET DATA").put("data", JSONObject().put("ok", true).put("providerGatewayConfigured", gatewayConfigured()).put("quoteStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_FEED_NOT_CONFIGURED").put("historyStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_HISTORY_NOT_CONFIGURED").put("indicesStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_INDEX_FEED_NOT_CONFIGURED").put("eventsStatus", "OFFICIAL_NSE_BSE_RSS_CONFIGURED_RUNTIME_VALIDATION_REQUIRED").put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
+                "/api/health" -> JSONObject().put("ok", true).put("engine", "V43.00 OFFICIAL NSE/BSE RSS + AUTHORIZED MARKET DATA").put("data", JSONObject().put("ok", true).put("providerGatewayConfigured", gatewayConfigured()).put("quoteStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_FEED_NOT_CONFIGURED").put("historyStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_HISTORY_NOT_CONFIGURED").put("indicesStatus", if (gatewayConfigured()) "GATEWAY_CONFIGURED_NOT_YET_PROVEN" else "UNAVAILABLE_AUTHORIZED_INDEX_FEED_NOT_CONFIGURED").put("eventsStatus", "OFFICIAL_NSE_BSE_RSS_CONFIGURED_RUNTIME_VALIDATION_REQUIRED").put("moneycontrolIntegration", "DISABLED_BY_V40_79_PROVIDER_POLICY").put("screenerSessionStatus", if (screenerLoggedIn()) "COOKIE_DETECTED_NOT_YET_VALIDATED" else "LOGIN_REQUIRED").put("providerDiagnostics", true).put("screenerCsvImport", true)).toString()
                 "/api/providers/status" -> JSONObject().put("ok", true).put("data", providerStatus(raw)).toString()
                 "/api/screener/status" -> JSONObject().put("ok", true).put("data", screenerStatus()).toString()
                 "/api/screener/connect" -> JSONObject().put("ok", true).put("data", screenerConnectionTest()).toString()
