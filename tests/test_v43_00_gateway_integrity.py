@@ -30,6 +30,8 @@ class GatewayIntegrityTests(unittest.TestCase):
         self.assertIn("Unsupported history range", body)
         self.assertNotIn('.get(range, 366)', body)
         self.assertIn('"rangeRequested": range', body)
+        self.assertIn('source_as_of = rows[-1]["time"]', body)
+        self.assertIn('"fetchedAt": datetime.now(timezone.utc).isoformat()', body)
 
     def test_historical_daily_bars_use_india_local_date_boundary(self):
         body = function_source("android_history")
