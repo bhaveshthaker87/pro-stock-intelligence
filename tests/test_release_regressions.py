@@ -640,7 +640,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("function qRenderHistory", html)
         # Technical scans use validated bundled NSE EOD bars and disclose the tracked-only universe.
         scanner_start = source.index("private fun technicalScan(kind: String)")
-        scanner_end = source.index("\\n    private fun ", scanner_start)
+        scanner_end = source.index("\n    private fun ", scanner_start)
         scanner = source[scanner_start:scanner_end]
         self.assertIn("readBundledNseEod(stock.symbol)", scanner)
         self.assertIn("Wilder RSI(14)", scanner)
