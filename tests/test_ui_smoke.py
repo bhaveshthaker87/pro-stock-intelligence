@@ -112,6 +112,17 @@ class DashboardUISmokeTests(unittest.TestCase):
             page.locator("#search").fill("INFY")
             page.locator("#analyze").click()
             page.wait_for_function("document.getElementById('company').textContent.includes('Infosys')", timeout=8000)
+            # Long-form AI evidence and factor details must be opt-in, not force a long first screen.
+            page.wait_for_function("document.getElementById('psiAiMoreBtn') && document.getElementById('psiFactorMoreBtn')", timeout=5000)
+            self.assertIn("psi-ai-compact", page.locator("#aiResearchCommandCenter .aiCommandBody").get_attribute("class"))
+            self.assertFalse(page.locator("#aiResearchCommandCenter .aiScenario").is_visible())
+            page.locator("#psiAiMoreBtn").click()
+            self.assertTrue(page.locator("#aiResearchCommandCenter .aiScenario").is_visible())
+            page.locator("#psiAiMoreBtn").click()
+            self.assertIn("psi-factor-compact", page.locator("section.factor:not(#queryHistoryPanel)").get_attribute("class"))
+            self.assertFalse(page.locator("section.factor:not(#queryHistoryPanel) .factorgrid").is_visible())
+            page.locator("#psiFactorMoreBtn").click()
+            self.assertTrue(page.locator("section.factor:not(#queryHistoryPanel) .factorgrid").is_visible())
             self.assertIn("1,310", page.locator("#price").inner_text())
             self.assertEqual(page.locator(".ratioMissing").count(), 1, "Unavailable metrics should be grouped, not rendered as dozens of empty cards.")
             self.assertIn("metrics not present in this source", page.locator(".ratioMissing summary").inner_text())
@@ -329,10 +340,11 @@ class DashboardUISmokeTests(unittest.TestCase):
                     "NIFTY IT", "NIFTY AUTO", "NIFTY FMCG", "NIFTY PHARMA", "NIFTY METAL",
                     "NIFTY PSU BANK", "NIFTY PRIVATE BANK", "NIFTY ENERGY", "NIFTY INFRA",
                     "NIFTY FIN SERVICE", "GOLD FUTURES (GLOBAL)", "SILVER FUTURES (GLOBAL)", "BRENT CRUDE (GLOBAL)"]
-        market_fn = source[source.index("private fun marketIndices()"):source.index("\n    fun handle(path: String)")]
+        market_fn = source[source.index("private fun marketIndices(): JSONObject"):source.index("\n    private fun normalizeIndexName")]
         for label in required:
             self.assertIn(label, market_fn)
             self.assertIn(label, html)
+        self.assertIn("NSE_INDEX_FEED_NOT_CONFIGURED", market_fn)
         self.assertIn("AUTHORIZED_NSE_FEED_NOT_CONFIGURED", source)
         self.assertIn("HISTORICAL BAR • NOT LIVE", html)
         self.assertIn("QUOTE RETURNED • FRESHNESS UNVERIFIED", html)
@@ -424,17 +436,20 @@ class DashboardUISmokeTests(unittest.TestCase):
         source = (Path(__file__).parents[1] / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("Screener.in does not expose a documented chart-data API", source)
 
-    def test_csv_xlsx_upload_and_import_fallback_are_absent(self):
+    def test_only_official_screener_csv_fallback_is_enabled_not_generic_imports(self):
         html = HTML.read_text(encoding="utf-8")
         native = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertNotIn('id="csvFile"', html)
         self.assertNotIn('id="csvSource"', html)
-        self.assertNotIn('id="csvImportStatus"', html)
         self.assertNotIn("PSICsvImport", html)
         self.assertNotIn("PSIXlsxImport", html)
         self.assertNotIn("mergeImportedCsvData", html)
-        self.assertNotIn("onShowFileChooser", native)
-        self.assertNotIn("csvPickerRequestCode", native)
+        self.assertIn('id="screenerCsvFile"', html)
+        self.assertIn('id="screenerCsvAsOf"', html)
+        self.assertIn("applyScreenerCsvFallback", html)
+        self.assertIn("Screener.in official CSV export (user imported)", html)
+        self.assertIn("onShowFileChooser", native)
+        self.assertIn("screenerCsvPickerRequestCode", native)
 
     def test_brand_logo_asset_header_and_android_launcher_icon_exist(self):
         root = Path(__file__).parents[1]
@@ -528,6 +543,35 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn("authenticated Screener source", html)
         self.assertIn("Open official NSE announcements", html)
         self.assertIn("metrics not present in this source", html)
+
+    def test_v4207_nse_mcp_is_disabled_by_default_pending_written_permission(self):
+        root = Path(__file__).parents[1]
+        gradle = (root / "app/build.gradle").read_text(encoding="utf-8")
+        source = (root / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("versionCode 100", gradle)
+        self.assertIn("versionName '43.00'", gradle)
+        self.assertIn("ENABLE_NSE_MCP_DATA", gradle)
+        self.assertIn("getOrElse('false')", gradle)
+        self.assertIn("if (!BuildConfig.ENABLE_NSE_MCP_DATA)", source)
+        self.assertIn("Public access to the NSE website does not, by itself, establish authorization", (root / "docs/V42.07_ZERO_BUDGET_DATA_POLICY.md").read_text(encoding="utf-8"))
+        self.assertIn("Official bundled NSE EOD fallback remains available", source)
+        self.assertIn('put("marketDataStatus", "EOD")', source)
+        self.assertIn("NSE official EOD bhavcopy", source)
+
+
+    def test_v4310_extended_fundamentals_easy_navigation_and_chart_resize(self):
+        root = Path(__file__).parents[1]
+        html = (root / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        for metric in ["Balance Sheet & Liquidity", "Debt to Equity", "Current Ratio",
+                       "Interest Coverage", "Net Profit", "EPS Growth 3Y", "Profit Variance 3Y"]:
+            with self.subTest(metric=metric):
+                self.assertIn(metric, html)
+        self.assertIn('id="v43-10-easy-scroll-chart"', html)
+        self.assertIn('id="v43-10-easy-scroll-runtime"', html)
+        self.assertIn('["Fundamentals","financialsDetail"]', html)
+        self.assertIn('["Chart","chartTechnicalSection"]', html)
+        self.assertIn('window.addEventListener("resize",redrawCharts', html)
+        self.assertEqual((root / "index.html").read_text(encoding="utf-8"), html)
 
 if __name__ == "__main__":
     unittest.main()
