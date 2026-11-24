@@ -155,7 +155,8 @@ def android_history(symbol: str = Query(...), range: str = Query("1y")) -> dict[
     minimum_rows = 1 if range == "1d" else 2
     if len(rows) < minimum_rows:
         raise HTTPException(status_code=503, detail=f"NSE historical endpoint returned fewer than {minimum_rows} valid daily EOD candle(s) for range {range}.")
-    return {"ok": True, "data": {"symbol": symbol, "source": "NSE public website (unofficial endpoint)", "asOf": datetime.now(timezone.utc).isoformat(), "interval": "1d", "rangeRequested": range, "rangeStart": start_dt.isoformat(), "rangeEnd": end_dt.isoformat(), "rows": rows, "live_data_verified": False}}
+    source_as_of = rows[-1]["time"]
+    return {"ok": True, "data": {"symbol": symbol, "source": "NSE public website (unofficial endpoint)", "asOf": source_as_of, "fetchedAt": datetime.now(timezone.utc).isoformat(), "interval": "1d", "rangeRequested": range, "rangeStart": start_dt.isoformat(), "rangeEnd": end_dt.isoformat(), "rows": rows, "live_data_verified": False}}
 
 
 # Android V40.81 corporate-event and index contract routes.
