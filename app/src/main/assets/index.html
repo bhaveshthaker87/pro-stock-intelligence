@@ -1714,7 +1714,14 @@ async function runAnalysis(){const entered=$('search').value.trim();if(!entered)
     // already returned current quote with a possibly stale historical close.
     // Do not use the endpoint's Yahoo-derived historical quote as the app's live/current quote.
     // Screener page fundamentals may enrich missing fundamentals, but the requested quote feed is the separately authorized provider only.
-    const mergedMarket={...screenerFundamentals,...currentMarket};
+    // Preserve Screener fundamentals when the faster quote payload contains null placeholders.
+    // Spreading currentMarket after Screener used to overwrite valid P/E, EPS, ROCE,
+    // ownership and growth fields with null, making the UI report dozens of missing metrics
+    // even though the authenticated Screener parser had returned them.
+    const mergedMarket={...screenerFundamentals};
+    for(const [key,value] of Object.entries(currentMarket)){
+      if(value!==null&&value!==undefined&&value!=='') mergedMarket[key]=value;
+    }
     const validPrice=v=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v))&&Number(v)>0;
     if(validPrice(currentMarket.price)) mergedMarket.price=Number(currentMarket.price);
     else delete mergedMarket.price;
