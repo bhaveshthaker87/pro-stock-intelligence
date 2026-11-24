@@ -38,7 +38,7 @@ class GatewayIntegrityTests(unittest.TestCase):
     def test_android_rejects_gateway_response_for_a_different_requested_range(self):
         self.assertIn('if (returnedRange != range) throw IOException("History provider range mismatch', KOTLIN)
         helper_start = KOTLIN.index("private fun filterEodRowsForRange")
-        helper_end = KOTLIN.index("\\n    /** Read only validated NSE EQ bhavcopy", helper_start)
+        helper_end = KOTLIN.index("\n    /** Read only validated NSE EQ bhavcopy", helper_start)
         helper = KOTLIN[helper_start:helper_end]
         for timeframe in ("1d", "1w", "1mo", "3mo", "6mo", "ytd", "1y", "3y", "5y", "all"):
             with self.subTest(timeframe=timeframe):
