@@ -6,6 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "market-data-gateway/app.py").read_text(encoding="utf-8")
+KOTLIN = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
 TREE = ast.parse(SOURCE)
 
 
@@ -33,6 +34,17 @@ class GatewayIntegrityTests(unittest.TestCase):
     def test_historical_daily_bars_use_india_local_date_boundary(self):
         body = function_source("android_history")
         self.assertIn('replace(tzinfo=ZoneInfo("Asia/Kolkata"))', body)
+
+    def test_android_rejects_gateway_response_for_a_different_requested_range(self):
+        self.assertIn('if (returnedRange != range) throw IOException("History provider range mismatch', KOTLIN)
+        helper_start = KOTLIN.index("private fun filterEodRowsForRange")
+        helper_end = KOTLIN.index("\\n    /** Read only validated NSE EQ bhavcopy", helper_start)
+        helper = KOTLIN[helper_start:helper_end]
+        for timeframe in ("1d", "1w", "1mo", "3mo", "6mo", "ytd", "1y", "3y", "5y", "all"):
+            with self.subTest(timeframe=timeframe):
+                self.assertIn(f'"{timeframe}"', helper)
+        self.assertIn('if (range == "1d") selected.takeLast(1)', helper)
+        self.assertIn('range !in setOf("1d", "1w", "1mo", "3mo")', KOTLIN)
 
     def test_missing_event_announcement_time_is_not_replaced_with_current_time(self):
         body = function_source("_as_iso_time")
