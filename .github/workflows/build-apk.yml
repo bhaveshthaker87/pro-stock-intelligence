@@ -33,6 +33,7 @@ on:
       - 'feat/**'
       - 'fix/v42-06-dashboard-data-runtime'
       - 'feat/v42-07-zero-budget-data-integrity'
+      - 'fix/v42-10-screener-visible-light-chart-ui'
 
 jobs:
   build:
