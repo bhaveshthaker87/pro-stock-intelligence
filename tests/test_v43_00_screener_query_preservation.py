@@ -35,6 +35,17 @@ class ScreenerQueryPreservationTests(unittest.TestCase):
         self.assertRegex(HTML, r"const merged=\(items\|\|\)\.map\(x=>\(\{\.\.\.x,\.\.\.\(overrides\[x\.id\]\|\|\{\}\)\}\)\)")
         self.assertIn("function qWrite(key,value)", HTML)
 
+    def test_root_html_is_kept_in_sync_with_android_asset(self):
+        root_html = (ROOT / "index.html").read_text(encoding="utf-8")
+        self.assertEqual(root_html, HTML)
+
+    def test_nse_mcp_policy_matches_disabled_gradle_default(self):
+        gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
+        policy = (ROOT / "docs/V42.07_ZERO_BUDGET_DATA_POLICY.md").read_text(encoding="utf-8")
+        self.assertIn("getOrElse('false')", gradle)
+        self.assertIn("disabled by default", policy)
+        self.assertIn("written permission", policy)
+
 
 if __name__ == "__main__":
     unittest.main()
