@@ -1,6 +1,6 @@
 from __future__ import annotations
 import os, re, time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any
 import requests
 from fastapi import FastAPI, HTTPException, Query
@@ -8,6 +8,48 @@ from fastapi.middleware.cors import CORSMiddleware
 
 NSE_HOME = "https://www.nseindia.com"
 NSE_API = NSE_HOME + "/api"
+
+BHARATSTOCK_BASE = os.getenv("BHARATSTOCK_BASE_URL", "https://bharatstockapi.com").rstrip("/")
+BHARATSTOCK_API_KEY = os.getenv("BHARATSTOCK_API_KEY", "").strip()
+
+def _bharatstock_enabled() -> bool:
+    return bool(BHARATSTOCK_API_KEY)
+
+def _bharatstock_get(path: str, params: dict[str, Any] | None = None) -> Any:
+    if not BHARATSTOCK_API_KEY:
+        raise HTTPException(status_code=503, detail="BharatStock API key is not configured on the server; no data returned.")
+    try:
+        response = requests.get(
+            BHARATSTOCK_BASE + path,
+            params=params,
+            headers={"X-API-Key": BHARATSTOCK_API_KEY, "Accept": "application/json"},
+            timeout=15,
+        )
+        if response.status_code == 401:
+            raise HTTPException(status_code=503, detail="BharatStock rejected the server API key; check the BHARATSTOCK_API_KEY secret.")
+        if response.status_code == 429:
+            raise HTTPException(status_code=503, detail="BharatStock free-tier request limit reached; retry after the quota resets.")
+        if response.status_code == 404:
+            raise HTTPException(status_code=404, detail="BharatStock has no record for this symbol or endpoint.")
+        response.raise_for_status()
+        return response.json()
+    except HTTPException:
+        raise
+    except (requests.RequestException, ValueError) as exc:
+        raise HTTPException(status_code=502, detail=f"BharatStock provider unavailable: {type(exc).__name__}") from exc
+
+def _bs_rows(raw: Any) -> list[dict[str, Any]]:
+    if isinstance(raw, list):
+        return [row for row in raw if isinstance(row, dict)]
+    if isinstance(raw, dict):
+        for key in ("data", "rows", "items"):
+            value = raw.get(key)
+            if isinstance(value, list):
+                return [row for row in value if isinstance(row, dict)]
+        if any(key in raw for key in ("trade_date", "close", "latest_price", "pe_ratio")):
+            return [raw]
+    return []
+
 SYMBOL_RE = re.compile(r"^[A-Z0-9&._-]{1,30}$")
 DATE_RE = re.compile(r"^\d{2}-\d{2}-\d{4}$")
 app = FastAPI(title="Pro Stock Intelligence NSE Gateway", version="0.1.0")
@@ -55,7 +97,7 @@ def _date(value: str) -> str:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"ok": True, "service": "pro-stock-nse-gateway", "provider": "NSE unofficial public web endpoints", "live_data_verified": False, "checked_at": datetime.now(timezone.utc).isoformat()}
+    return {"ok": True, "service": "pro-stock-nse-gateway", "provider": ("BharatStock EOD API configured" if _bharatstock_enabled() else "NSE unofficial public web endpoints"), "bharatstock_configured": _bharatstock_enabled(), "market_data_mode": "EOD", "live_data_verified": False, "checked_at": datetime.now(timezone.utc).isoformat()}
 
 @app.get("/v1/quote/{symbol}")
 def quote(symbol: str) -> dict[str, Any]:
@@ -105,6 +147,17 @@ def _nse_time(value: str) -> str:
 @app.get("/v1/quote")
 def android_quote(symbol: str = Query(...)) -> dict[str, Any]:
     symbol = _symbol(symbol)
+    if _bharatstock_enabled():
+        ratios = _bharatstock_get(f"/v1/stocks/{symbol}/ratios")
+        value = ratios.get("price")
+        as_of_date = ratios.get("as_of_date")
+        if not isinstance(value, (int, float)) or value <= 0 or not as_of_date:
+            raise HTTPException(status_code=502, detail="BharatStock response missing a valid EOD price or source date.")
+        try:
+            as_of = datetime.strptime(str(as_of_date)[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc).isoformat()
+        except ValueError as exc:
+            raise HTTPException(status_code=502, detail="BharatStock returned an invalid source date.") from exc
+        return {"ok": True, "data": {"symbol": symbol, "price": value, "currency": "INR", "source": "BharatStock EOD API", "marketDataStatus": "EOD", "asOf": as_of, "company": ratios.get("company_name") or ratios.get("company") or symbol, "yearHigh": ratios.get("week_52_high"), "yearLow": ratios.get("week_52_low"), "pe": ratios.get("pe_ratio"), "eps": ratios.get("eps"), "live_data_verified": False}}
     raw = _nse("/quote-equity", {"symbol": symbol})
     price, info = raw.get("priceInfo") or {}, raw.get("info") or {}
     value = price.get("lastPrice")
@@ -116,10 +169,26 @@ def android_quote(symbol: str = Query(...)) -> dict[str, Any]:
 @app.get("/v1/history")
 def android_history(symbol: str = Query(...), range: str = Query("1y")) -> dict[str, Any]:
     symbol = _symbol(symbol)
-    from datetime import timedelta
     days = {"1m": 31, "3m": 93, "6m": 186, "1y": 366, "2y": 732, "5y": 1830}.get(range, 366)
     end_dt = datetime.now(timezone.utc).date()
     start_dt = end_dt - timedelta(days=days)
+    if _bharatstock_enabled():
+        raw_bs = _bharatstock_get(f"/v1/stocks/{symbol}/prices", {"from": start_dt.isoformat(), "to": end_dt.isoformat(), "page_size": 200})
+        source_rows = _bs_rows(raw_bs)
+        rows = []
+        for row in source_rows:
+            try:
+                day = datetime.strptime(str(row.get("trade_date", ""))[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                o, h, l, c = (float(row[k]) for k in ("open", "high", "low", "close"))
+                volume = float(row.get("volume") or 0)
+                if min(o, h, l, c) <= 0 or h < max(o, c, l) or l > min(o, c, h) or volume < 0: continue
+                rows.append({"time": day.isoformat(), "open": o, "high": h, "low": l, "close": c, "volume": volume})
+            except (ValueError, TypeError, KeyError):
+                continue
+        rows.sort(key=lambda item: item["time"])
+        if len(rows) < 2:
+            raise HTTPException(status_code=503, detail="BharatStock returned fewer than two valid daily candles; no synthetic candles were created.")
+        return {"ok": True, "data": {"symbol": symbol, "source": "BharatStock EOD API", "asOf": rows[-1]["time"], "interval": "1d", "rows": rows, "live_data_verified": False}}
     raw = _nse("/historical/cm/equity", {"symbol": symbol, "series": '["EQ"]', "from": start_dt.strftime("%d-%m-%Y"), "to": end_dt.strftime("%d-%m-%Y")})
     source_rows = raw.get("data", []) if isinstance(raw, dict) else []
     rows = []
