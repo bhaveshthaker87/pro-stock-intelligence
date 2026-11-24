@@ -1698,8 +1698,10 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
             if (historyAgeMs < -60_000L || historyAgeMs > 10L * 24 * 60 * 60 * 1000)
                 throw IOException("Historical provider timestamp is in the future or too old to verify")
             val interval = data.optString("interval")
+            val marketStatus = data.optString("marketDataStatus")
             val returnedRange = data.optString("rangeRequested")
             if (source.isBlank() || interval !in setOf("1m", "5m", "15m", "1d", "1wk", "1mo")) throw IOException("History payload missing source or valid interval")
+            if (marketStatus !in setOf("REALTIME", "DELAYED", "EOD")) throw IOException("History payload missing an explicit market-data status")
             if (returnedRange != range) throw IOException("History provider range mismatch: requested $range but received ${returnedRange.ifBlank { "unspecified" }}")
             val inputRows = data.optJSONArray("rows") ?: throw IOException("History payload missing OHLCV rows")
             val rows = JSONArray()
@@ -1719,7 +1721,7 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
             if (rows.length() < minimumBars) throw IOException("Provider history must contain at least $minimumBars valid chronological OHLCV candle(s) for range $range; partial or malformed history rejected")
             return JSONObject().put("symbol", symbol).put("rows", rows).put("provider", source)
                 .put("historyProvider", source).put("historyStatus", "VALIDATED_GATEWAY_PAYLOAD")
-                .put("chartMode", "OHLCV").put("statusText", "Provider OHLCV • as of " + data.optString("asOf"))
+                .put("chartMode", "OHLCV").put("marketDataStatus", marketStatus).put("sourceDisclaimer", data.optString("sourceDisclaimer")).put("statusText", "Provider OHLCV • " + marketStatus + " • as of " + data.optString("asOf"))
                 .put("rangeRequested", range).put("interval", interval).put("quoteTimestamp", asOf / 1000L)
         }
         // Official NSE Bhavcopy MCP fallback: maximum 3 months per request.
