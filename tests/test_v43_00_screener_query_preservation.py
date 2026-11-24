@@ -32,7 +32,7 @@ class ScreenerQueryPreservationTests(unittest.TestCase):
         self.assertIn(INVENTORY["localStorageKeys"]["scanHistory"], HTML)
 
     def test_query_overrides_are_applied_without_mutating_defaults(self):
-        self.assertRegex(HTML, r"const merged=\(items\|\|\)\.map\(x=>\(\{\.\.\.x,\.\.\.\(overrides\[x\.id\]\|\|\{\}\)\}\)\)")
+        self.assertIn("const merged=(items||[]).map(x=>({...x,...(overrides[x.id]||{})}))", HTML)
         self.assertIn("function qWrite(key,value)", HTML)
 
     def test_root_html_is_kept_in_sync_with_android_asset(self):
