@@ -1715,7 +1715,8 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
                 rows.put(JSONObject().put("time", time).put("date", time).put("open", o).put("high", h).put("low", l).put("close", c).put("volume", v))
                 previousTime = time
             }
-            if (rows.length() < 2) throw IOException("Provider history must contain at least two valid chronological OHLCV candles; partial or malformed history rejected")
+            val minimumBars = if (range == "1d") 1 else 2
+            if (rows.length() < minimumBars) throw IOException("Provider history must contain at least $minimumBars valid chronological OHLCV candle(s) for range $range; partial or malformed history rejected")
             return JSONObject().put("symbol", symbol).put("rows", rows).put("provider", source)
                 .put("historyProvider", source).put("historyStatus", "VALIDATED_GATEWAY_PAYLOAD")
                 .put("chartMode", "OHLCV").put("statusText", "Provider OHLCV • as of " + data.optString("asOf"))
@@ -1755,7 +1756,8 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
             // Continue to the locally bundled official NSE history; preserve its availability.
         }
         val localRows = readBundledNseEod(symbol)
-        if (localRows.length() >= 2) {
+        val minimumLocalBars = if (range == "1d") 1 else 2
+        if (localRows.length() >= minimumLocalBars) {
             val latest = localRows.optJSONObject(localRows.length() - 1)
             val latestTime = latest?.optLong("time", 0L) ?: 0L
             return JSONObject().put("symbol", symbol).put("rows", localRows)
@@ -2235,7 +2237,7 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
         return JSONObject().put("columns", columns).put("rows", resultRows).put("count", resultRows.length())
             .put("provider", "Screener.in authenticated session").put("pagesFetched", pagesFetched)
             .put("totalResults", expectedTotal ?: JSONObject.NULL).put("allResultsLoaded", complete)
-            .put("statusText", statusText).put("marketDataStatus", if (complete) "VERIFIED" else "PARTIAL")
+            .put("statusText", statusText).put("marketDataStatus", if (complete) "AVAILABLE" else "PARTIAL")
     }
 
     private fun technicalScan(kind: String): JSONObject {
