@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PRO STOCK INTELLIGENCE — Options Lab</title>
+<style>
+:root{font-family:Inter,Segoe UI,Arial,sans-serif;color:#102b46;background:#eef4f9;--navy:#08284f;--blue:#087cf0;--green:#07865d;--red:#c62838;--line:#d7e3ed;--muted:#62778b}
+*{box-sizing:border-box}body{margin:0;padding:16px;background:#eef4f9;font-size:13px}.wrap{max-width:1400px;margin:auto}.hero{background:linear-gradient(110deg,#08284f,#075c9f);color:#fff;border-radius:14px;padding:18px 20px;margin-bottom:12px}.hero h1{margin:0 0 6px;font-size:23px}.hero p{margin:0;color:#d8eaff;line-height:1.5}.notice{border:1px solid #e8c56a;background:#fff8e5;color:#73510a;padding:12px 14px;border-radius:10px;margin:12px 0;line-height:1.5}.grid{display:grid;grid-template-columns:1.1fr .9fr;gap:12px}.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:15px;box-shadow:0 4px 14px #153a5b0c}.card h2{font-size:15px;margin:0 0 12px}.fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.field label{display:block;font-size:11px;color:var(--muted);font-weight:800;margin-bottom:5px}.field input,.field select{width:100%;min-width:0;border:1px solid #c8d7e4;border-radius:8px;padding:10px;font-size:14px;color:#102b46;background:#fff}.field input:focus,.field select:focus{outline:2px solid #a7d2ff;border-color:#087cf0}.hint{font-size:10px;color:var(--muted);margin-top:4px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.btn{border:0;border-radius:8px;padding:10px 14px;background:var(--blue);color:#fff;font-weight:800;cursor:pointer}.btn.secondary{background:#e8f1f8;color:#163c5e}.results{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.metric{border:1px solid var(--line);border-radius:9px;padding:10px;background:#fbfdff;min-width:0}.metric span{display:block;color:var(--muted);font-size:10px;font-weight:800}.metric strong{display:block;font-size:19px;margin-top:4px;overflow-wrap:anywhere}.metric small{font-size:10px;color:var(--muted)}.status{margin-top:12px;border-radius:10px;padding:13px;border:1px solid #e4a4a9;background:#fff0f1;color:#8f1d2b}.status strong{display:block;font-size:17px;margin-bottom:4px}.tablewrap{overflow-x:auto;margin-top:10px}.table{width:100%;border-collapse:collapse;min-width:500px}.table th,.table td{padding:9px;border-bottom:1px solid #e8eef3;text-align:right;white-space:nowrap}.table th:first-child,.table td:first-child{text-align:left}.table th{font-size:10px;color:var(--muted);background:#f5f9fc}.good{color:var(--green)}.bad{color:var(--red)}.foot{font-size:11px;color:var(--muted);line-height:1.55;margin-top:12px}.pill{display:inline-block;border-radius:999px;background:#fce7e8;color:#9d1c2a;padding:4px 8px;font-size:10px;font-weight:900}.subhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:16px 0 8px}.subhead h3{margin:0;font-size:13px}@media(max-width:900px){.grid{grid-template-columns:1fr}}@media(max-width:580px){body{padding:9px}.fields{grid-template-columns:repeat(2,minmax(0,1fr))}.results{grid-template-columns:repeat(2,minmax(0,1fr))}.hero h1{font-size:19px}.card{padding:12px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="hero"><h1>Options Intelligence Lab</h1><p>Greeks calculator, premium sensitivity and risk sizing for NSE options. This is an analysis workspace, not an execution terminal.</p></header>
+<div class="notice"><b>DATA INTEGRITY GATE — NOT A LIVE OPTION CHAIN.</b> All inputs below are user-entered assumptions. No broker/NSE option-chain feed, historical option dataset, or authenticated market snapshot is connected in this foundation release. Calculations are theoretical estimates only. The trade approval gate remains blocked and no BUY/SELL recommendation can be generated.</div>
+<div class="grid">
+<section class="card">
+<h2>1. Contract & market assumptions</h2>
+<div class="fields">
+<div class="field"><label for="symbol">Underlying symbol</label><input id="symbol" value="HDFCBANK" maxlength="24"></div>
+<div class="field"><label for="type">Option type</label><select id="type"><option value="CE">Call (CE)</option><option value="PE">Put (PE)</option></select></div>
+<div class="field"><label for="expiry">Calendar days to expiry</label><input id="expiry" type="number" min="1" max="730" step="1" placeholder="Required"></div>
+<div class="field"><label for="spot">Underlying price (₹)</label><input id="spot" type="number" min="0.01" step="0.05" placeholder="Enter verified snapshot"></div>
+<div class="field"><label for="strike">Strike price (₹)</label><input id="strike" type="number" min="0.01" step="0.05" placeholder="Enter contract strike"></div>
+<div class="field"><label for="premium">Observed option premium (₹)</label><input id="premium" type="number" min="0.01" step="0.01" placeholder="Enter bid/ask-aware price"></div>
+<div class="field"><label for="iv">Implied volatility (%)</label><input id="iv" type="number" min="0.01" max="500" step="0.1" placeholder="Enter IV"></div>
+<div class="field"><label for="rate">Risk-free rate (%)</label><input id="rate" type="number" min="-5" max="30" step="0.05" value="6.5"></div>
+<div class="field"><label for="dividend">Dividend yield (%)</label><input id="dividend" type="number" min="0" max="30" step="0.05" value="0"></div>
+</div>
+<div class="subhead"><h3>2. Position sizing assumptions</h3><span class="pill">USER INPUT ONLY</span></div>
+<div class="fields">
+<div class="field"><label for="lot">Verified lot size</label><input id="lot" type="number" min="1" step="1" placeholder="Check current contract master"></div>
+<div class="field"><label for="lots">Number of lots</label><input id="lots" type="number" min="1" step="1" value="1"></div>
+<div class="field"><label for="costs">Estimated total costs (₹)</label><input id="costs" type="number" min="0" step="0.01" value="0"></div>
+</div>
+<div class="actions"><button class="btn" id="calculate" type="button">Calculate Greeks & scenarios</button><button class="btn secondary" id="reset" type="button">Clear market inputs</button></div>
+<p class="hint">Enter prices, IV, expiry and lot size from a separately verified source. Do not use stale screenshots as current market data.</p>
+</section>
+<section class="card">
+<h2>3. Calculated option analytics</h2>
+<div class="results">
+<div class="metric"><span>Theoretical premium</span><strong id="theo">—</strong><small>Black–Scholes estimate</small></div>
+<div class="metric"><span>Delta</span><strong id="delta">—</strong><small>₹ premium change per ₹1 spot move, locally</small></div>
+<div class="metric"><span>Gamma</span><strong id="gamma">—</strong><small>Delta change per ₹1 spot move</small></div>
+<div class="metric"><span>Theta / calendar day</span><strong id="theta">—</strong><small>Time decay estimate</small></div>
+<div class="metric"><span>Vega / 1 IV point</span><strong id="vega">—</strong><small>Premium change for 1 percentage-point IV move</small></div>
+<div class="metric"><span>Rho / 1 rate point</span><strong id="rho">—</strong><small>Premium change for 1 percentage-point rate move</small></div>
+<div class="metric"><span>Intrinsic value</span><strong id="intrinsic">—</strong><small>At entered spot</small></div>
+<div class="metric"><span>Time value</span><strong id="timevalue">—</strong><small>Observed premium less intrinsic</small></div>
+<div class="metric"><span>Breakeven at expiry</span><strong id="breakeven">—</strong><small>Before costs</small></div>
+</div>
+<div class="status" id="approval"><strong>NO TRADE — NOT VALIDATED</strong><span>Market data provenance, option-chain liquidity, independent historical backtest and paper-trading evidence are not connected. This gate cannot approve a trade.</span></div>
+<div class="foot" id="calcNote">No calculation yet. Missing inputs are not replaced with estimates.</div>
+</section>
+</div>
+<section class="card" style="margin-top:12px">
+<div class="subhead"><h3>4. Underlying price sensitivity (hypothetical)</h3><span class="pill">NOT A FORECAST</span></div>
+<div class="tablewrap"><table class="table"><thead><tr><th>Spot scenario</th><th>Spot price</th><th>Theoretical option value</th><th>Change vs current theoretical</th></tr></thead><tbody id="scenarios"><tr><td colspan="4" style="text-align:left">Enter complete assumptions and calculate.</td></tr></tbody></table></div>
+<div class="foot">Scenario values hold IV and rates constant and reduce time-to-expiry by one calendar day. Actual option premiums can differ due to volatility, spreads, liquidity, discrete market moves, exercise/settlement rules and execution costs.</div>
+</section>
+<section class="card" style="margin-top:12px">
+<div class="subhead"><h3>5. Mandatory trade-quality gate</h3><span class="pill">BLOCKED BY DESIGN</span></div>
+<div class="tablewrap"><table class="table"><thead><tr><th>Validation layer</th><th>Current status</th><th>Reason</th></tr></thead><tbody>
+<tr><td>Authorized live option-chain source</td><td class="bad">NOT CONNECTED</td><td>No licensed provider response available to this module</td></tr>
+<tr><td>Timestamp & data freshness</td><td class="bad">UNVERIFIED</td><td>Inputs are manually entered</td></tr>
+<tr><td>Bid/ask liquidity & market depth</td><td class="bad">UNAVAILABLE</td><td>No order-book snapshot</td></tr>
+<tr><td>Contract master / lot size / expiry</td><td class="bad">USER MUST VERIFY</td><td>Not fetched from current exchange contract master</td></tr>
+<tr><td>Historical option-price backtest</td><td class="bad">NOT RUN</td><td>No point-in-time historical option dataset</td></tr>
+<tr><td>Out-of-sample validation</td><td class="bad">NOT RUN</td><td>No strategy evidence</td></tr>
+<tr><td>Paper-trading qualification</td><td class="bad">NOT RUN</td><td>No recorded paper trades</td></tr>
+<tr><td>Risk limit & final approval</td><td class="bad">BLOCKED</td><td>Mandatory upstream gates have not passed</td></tr>
+</tbody></table></div>
+<p class="foot"><b>Release boundary:</b> this first foundation provides a transparent calculator only. It does not connect to NSE or broker feeds, does not backtest historical option contracts, does not issue trade signals, and cannot place orders. A production approval engine must consume authenticated, timestamped provider data and reproducible test evidence—not user-selected status labels.</p>
+</section>
+</div>
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const ids=["spot","strike","premium","iv","expiry","rate","dividend","lot","lots","costs"];
+function n(id){const v=$(id).value.trim();return v===""?null:Number(v)}
+function erf(x){const sign=x<0?-1:1;x=Math.abs(x);const t=1/(1+0.3275911*x);const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x);return sign*y}
+function cdf(x){return 0.5*(1+erf(x/Math.SQRT2))}
+function pdf(x){return Math.exp(-0.5*x*x)/Math.sqrt(2*Math.PI)}
+function priceGreeks(S,K,T,r,q,sigma,type){
+ if(!(S>0&&K>0&&T>0&&sigma>0))throw new Error("Spot, strike, time and IV must be positive.");
+ const root=Math.sqrt(T),d1=(Math.log(S/K)+(r-q+0.5*sigma*sigma)*T)/(sigma*root),d2=d1-sigma*root,discQ=Math.exp(-q*T),discR=Math.exp(-r*T);
+ let price,delta,theta,rho;
+ if(type==="CE"){price=S*discQ*cdf(d1)-K*discR*cdf(d2);delta=discQ*cdf(d1);theta=-(S*discQ*pdf(d1)*sigma)/(2*root)-r*K*discR*cdf(d2)+q*S*discQ*cdf(d1);rho=K*T*discR*cdf(d2)}
+ else{price=K*discR*cdf(-d2)-S*discQ*cdf(-d1);delta=discQ*(cdf(d1)-1);theta=-(S*discQ*pdf(d1)*sigma)/(2*root)+r*K*discR*cdf(-d2)-q*S*discQ*cdf(-d1);rho=-K*T*discR*cdf(-d2)}
+ const gamma=discQ*pdf(d1)/(S*sigma*root),vega=S*discQ*pdf(d1)*root;
+ return {price:price,delta:delta,gamma:gamma,theta:theta/365,vega:vega/100,rho:rho/100,d1:d1,d2:d2};
+}
+function money(v){return Number.isFinite(v)?"₹"+v.toFixed(2):"—"}
+function show(id,v){$(id).textContent=v}
+function calculate(){
+ const S=n("spot"),K=n("strike"),premium=n("premium"),iv=n("iv"),days=n("expiry"),r=n("rate"),q=n("dividend"),lot=n("lot"),lots=n("lots"),costs=n("costs"),type=$("type").value;
+ const required=[S,K,premium,iv,days,r,q];
+ if(required.some(x=>x===null)||!(S>0&&K>0&&premium>0&&iv>0&&days>0)||iv>500){show("calcNote","Calculation blocked: enter valid positive spot, strike, premium, IV and expiry; rates must be supplied.");return}
+ let g;try{g=priceGreeks(S,K,days/365,r/100,q/100,iv/100,type)}catch(e){show("calcNote",e.message);return}
+ const intrinsic=type==="CE"?Math.max(0,S-K):Math.max(0,K-S),timevalue=premium-intrinsic,breakeven=type==="CE"?K+premium:K-premium;
+ show("theo",money(g.price));show("delta",g.delta.toFixed(4));show("gamma",g.gamma.toFixed(6));show("theta",money(g.theta));show("vega",money(g.vega));show("rho",money(g.rho));show("intrinsic",money(intrinsic));show("timevalue",money(timevalue));show("breakeven",money(breakeven));
+ const maxLoss=lot&&lots?premium*lot*lots+(costs||0):null;
+ const note=["Theoretical value is model-based, not an executable quote.","Observed premium minus intrinsic = "+money(timevalue)+".","Maximum premium loss including entered costs: "+(maxLoss===null?"unavailable — verify lot size":money(maxLoss))+".","Greeks assume European exercise, continuous dividend yield and the supplied annualized IV/rate."].join(" ");
+ show("calcNote",note);
+ const rows=[-2,-1,0,1,2].map(pct=>{const spot=S*(1+pct/100);const gg=priceGreeks(spot,K,Math.max(1,days-1)/365,r/100,q/100,iv/100,type);return "<tr><td>"+(pct>0?"+":"")+pct+"%</td><td>"+money(spot)+"</td><td>"+money(gg.price)+"</td><td class='"+(gg.price>=g.price?"good":"bad")+"'>"+(gg.price>=g.price?"+":"")+money(gg.price-g.price)+"</td></tr>"}).join("");
+ $("scenarios").innerHTML=rows;
+}
+$("calculate").addEventListener("click",calculate);
+$("reset").addEventListener("click",()=>{ids.forEach(id=>{if(id==="rate")return;if(id==="dividend"){$(id).value="0";return}if(id==="lots"){$(id).value="1";return}if(id==="costs"){$(id).value="0";return}$(id).value=""});["theo","delta","gamma","theta","vega","rho","intrinsic","timevalue","breakeven"].forEach(id=>show(id,"—"));$("scenarios").innerHTML='<tr><td colspan="4" style="text-align:left">Enter complete assumptions and calculate.</td></tr>';show("calcNote","Inputs cleared. No calculation or approval is retained.")});
+})();
+</script>
+</body></html>
