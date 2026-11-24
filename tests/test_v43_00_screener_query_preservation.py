@@ -31,6 +31,13 @@ class ScreenerQueryPreservationTests(unittest.TestCase):
         self.assertIn(INVENTORY["localStorageKeys"]["userQueryOverrides"], HTML)
         self.assertIn(INVENTORY["localStorageKeys"]["scanHistory"], HTML)
 
+    def test_screener_pagination_is_bounded_and_completeness_is_evidence_based(self):
+        self.assertIn("val maxPages = 20", KOTLIN)
+        self.assertIn('resolved.startsWith("https://www.screener.in/screen/raw/")', KOTLIN)
+        self.assertIn('.put("allResultsLoaded", complete)', KOTLIN)
+        self.assertIn("expectedTotal != null", KOTLIN)
+        self.assertIn("result set is partial", KOTLIN)
+
     def test_query_overrides_are_applied_without_mutating_defaults(self):
         self.assertIn("const merged=(items||[]).map(x=>({...x,...(overrides[x.id]||{})}))", HTML)
         self.assertIn("function qWrite(key,value)", HTML)
