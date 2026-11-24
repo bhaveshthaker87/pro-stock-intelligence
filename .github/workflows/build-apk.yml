@@ -31,6 +31,9 @@ on:
       - v40-77-chart-refresh-readability
       - v40-78-nse-screener-only
       - 'feat/**'
+      - 'fix/v42-06-dashboard-data-runtime'
+      - 'feat/v42-07-zero-budget-data-integrity'
+      - 'fix/v42-10-screener-visible-light-chart-ui'
 
 jobs:
   build:
@@ -139,7 +142,7 @@ jobs:
         if: always() && hashFiles('app/build/reports/screener-30-stock-reconciliation.csv') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V42-05-screener-reconciliation
+          name: PRO-STOCK-INTELLIGENCE-V43-00-screener-reconciliation
           path: app/build/reports/screener-30-stock-reconciliation.csv
           if-no-files-found: warn
 
@@ -315,7 +318,7 @@ jobs:
         if: always() && hashFiles('app/build/reports/nse-chart-parity-report.json') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V42-05-nse-chart-parity
+          name: PRO-STOCK-INTELLIGENCE-V43-00-nse-chart-parity
           path: app/build/reports/nse-chart-parity-report.json
           if-no-files-found: warn
 
@@ -424,8 +427,8 @@ jobs:
           test -s "$APK"
           apksigner verify --verbose --print-certs "$APK"
           BADGING="$(aapt dump badging "$APK")"
-          echo "$BADGING" | grep -Fq "package: name='com.prostock.intelligence' versionCode='97' versionName='42.05'" || {
-            echo "::error::Release APK package/version metadata does not match V42.05 (versionCode 97)."
+          echo "$BADGING" | grep -Fq "package: name='com.prostock.intelligence' versionCode='100' versionName='43.00'" || {
+            echo "::error::Release APK package/version metadata does not match V43.00 (versionCode 100)."
             exit 1
           }
           sha256sum "$APK" | tee "$APK.sha256"
@@ -433,7 +436,7 @@ jobs:
             echo "## Signed production APK"
             echo "**Status: SIGNATURE AND PACKAGE METADATA VERIFIED**"
             echo "- Application ID: com.prostock.intelligence"
-            echo "- Version: 42.05 (97)"
+            echo "- Version: 43.00 (99)"
             echo "- SHA-256 checksum generated."
             echo "- Runtime installation/launch verification is performed by the emulator smoke step."
           } >> "$GITHUB_STEP_SUMMARY"
@@ -442,7 +445,7 @@ jobs:
         if: inputs.build_signed_release == true && hashFiles('app/build/outputs/apk/release/app-release.apk') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V42-05-signed-release
+          name: PRO-STOCK-INTELLIGENCE-V43-00-signed-release
           path: |
             app/build/outputs/apk/release/app-release.apk
             app/build/outputs/apk/release/app-release.apk.sha256
@@ -460,7 +463,7 @@ jobs:
         if: always() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V42-05-debug
+          name: PRO-STOCK-INTELLIGENCE-V43-00-debug
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/app-debug.apk.sha256
@@ -476,7 +479,7 @@ jobs:
         if: always() && hashFiles('app/build/reports/lint-results-debug.html') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V42-05-lint-report
+          name: PRO-STOCK-INTELLIGENCE-V43-00-lint-report
           path: app/build/reports/lint-results-debug.html
           if-no-files-found: warn
 
@@ -536,7 +539,7 @@ jobs:
         if: always() && hashFiles('app/build/outputs/psi-emulator-logcat.txt') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: PRO-STOCK-INTELLIGENCE-V42-05-emulator-diagnostics
+          name: PRO-STOCK-INTELLIGENCE-V43-00-emulator-diagnostics
           path: |
             app/build/outputs/psi-emulator.png
             app/build/outputs/psi-emulator-logcat.txt

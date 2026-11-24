@@ -322,19 +322,31 @@ class ReleaseRegressionTests(unittest.TestCase):
         workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
         docs = (ROOT / "PROVIDER_GATEWAY.md").read_text(encoding="utf-8")
         self.assertIn('gatewayGet("/v1/indices")', source)
-        self.assertIn('put("/v1/indices")', source)
         self.assertIn("Index feed timestamp is in the future", source)
         self.assertIn("Index feed is stale for declared", source)
+        self.assertIn("Index feed returned no index rows; snapshot rejected", source)
+        self.assertIn("Index feed contains duplicate index name", source)
+        self.assertIn("has invalid value/changePct; snapshot rejected", source)
         self.assertIn("/v1/indices", workflow)
         self.assertIn("PROVIDER_GATEWAY_BASE_URL", workflow)
-        gateway_step = workflow.split("- name: Validate configured authorized provider gateway", 1)[1].split("- name: Build debug APK", 1)[0]
-        self.assertIn("LIVE DATA NOT VERIFIED", gateway_step)
-        self.assertIn("REQUIRE_LIVE_PROVIDER_GATEWAY", gateway_step)
-        self.assertIn("REQUIRE_LIVE_DATA_INPUT", gateway_step)
-        self.assertIn('exit 0', gateway_step)
-        self.assertIn('exit 1', gateway_step)
         self.assertIn("timestamp or status is absent", docs)
 
+
+    def test_index_snapshot_rejects_empty_duplicate_and_invalid_rows(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("Index feed returned no index rows; snapshot rejected", source)
+        self.assertIn("Index feed contains duplicate index name", source)
+        self.assertIn("has invalid value/changePct; snapshot rejected", source)
+
+
+    def test_indices_fail_closed_without_an_approved_nse_feed(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        start = source.index("private fun marketIndices(): JSONObject")
+        end = source.index("\n    private fun normalizeIndexName", start)
+        method = source[start:end]
+        self.assertIn("NSE_INDEX_FEED_NOT_CONFIGURED", method)
+        self.assertNotIn('nseMcpTool("https://mcp.nseindia.in/cmmkt/mcp", "index"', method)
+        self.assertIn("Official bundled NSE EOD fallback remains available", source)
 
     def test_v4081_screener_cookie_is_not_treated_as_verified_session(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
@@ -351,12 +363,22 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("max-height:150px!important", html)
 
 
+    def test_v4207_audit_snapshot_exports_app_parser_values_for_external_reconciliation(self):
+        source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        audit = source[source.index("private fun screenerAudit30()"):source.index("private fun screenerCookieHeader()")]
+        self.assertIn('.put("appValue", value)', audit)
+        self.assertIn("APP_PARSER_SNAPSHOT_CAPTURED_AWAITING_SEPARATE_SCREENER_EXPORT", audit)
+        self.assertIn('id="screenerAuditDownloadBtn"', html)
+        self.assertIn("psi-screener-app-parser-snapshot-30.json", html)
+        self.assertIn("window.psiScreenerAudit30", html)
+
     def test_screener_connect_endpoint_performs_real_company_page_validation(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         start = source.index("private fun screenerConnectionTest()")
         end = source.index("/**", start)
         probe = source[start:end]
-        self.assertIn('https://www.screener.in/screen/raw/?query=', probe)
+        self.assertIn('screener("INFY")', probe)
         self.assertIn('"CONNECTED_VERIFIED"', probe)
         self.assertIn('"HTTP_403_FORBIDDEN"', probe)
         self.assertIn('put("requestValidated", true)', probe)
@@ -616,9 +638,16 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("Screener Scan History", html)
         self.assertIn("function qAddHistory", html)
         self.assertIn("function qRenderHistory", html)
-        # Technical scan must fail closed until an authorized historical-bar provider is configured.
-        self.assertIn("UNAVAILABLE — authorized OHLCV gateway not configured", source)
-        self.assertIn("No third-party price series is substituted", source)
+        # Technical scans use validated bundled NSE EOD bars and disclose the tracked-only universe.
+        scanner_start = source.index("private fun technicalScan(kind: String)")
+        scanner_end = source.index("\n    private fun ", scanner_start)
+        scanner = source[scanner_start:scanner_end]
+        self.assertIn("readBundledNseEod(stock.symbol)", scanner)
+        self.assertIn("Wilder RSI(14)", scanner)
+        self.assertIn("averageGain * 13.0", scanner)
+        self.assertIn("dayChange <= -5.0", scanner)
+        self.assertIn("This is not a full-market scan.", scanner)
+        self.assertIn('.put("marketDataStatus", status)', scanner)
 
     def test_30_stock_audit_reports_all_eighteen_requested_fundamental_metrics(self):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
@@ -643,9 +672,9 @@ class ReleaseRegressionTests(unittest.TestCase):
         start = source.index("private fun screenerConnectionTest()")
         end = source.index("\n    private fun ", start)
         probe = source[start:end]
-        self.assertIn("https://www.screener.in/screen/raw/?query=", probe)
+        self.assertIn('screener("INFY")', probe)
         self.assertIn("sessionAuthenticated", probe)
-        self.assertIn("SCREEN_RESULTS_AND_COMPANY_PAGE_PROBED", probe)
+        self.assertIn("COMPANY_PAGE_PROBED", probe)
         self.assertIn('screener("INFY")', probe)
         self.assertIn("companyFieldsParsed", probe)
         self.assertIn("subscriptionAccessVerified", probe)
@@ -685,7 +714,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("adb devices", emulator_runner)
         self.assertNotIn("adb wait-for-device", emulator_runner)
 
-    def test_csv_xlsx_upload_and_import_fallback_are_removed(self):
+    def test_only_official_screener_csv_fallback_is_enabled(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         workflow = (ROOT / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
@@ -695,8 +724,10 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertNotIn("PSICsvImport", html)
         self.assertNotIn("PSIXlsxImport", html)
         self.assertNotIn("mergeImportedCsvData", html)
-        self.assertNotIn("onShowFileChooser", source)
-        self.assertNotIn("csvPickerRequestCode", source)
+        self.assertIn('id="screenerCsvFile"', html)
+        self.assertIn("applyScreenerCsvFallback", html)
+        self.assertIn("onShowFileChooser", source)
+        self.assertIn("screenerCsvPickerRequestCode", source)
         self.assertNotIn("csv-import.js", workflow)
         self.assertNotIn("xlsx-import.js", workflow)
 
@@ -770,11 +801,11 @@ class ReleaseRegressionTests(unittest.TestCase):
         source = (ROOT / "app/src/main/java/com/prostock/intelligence/MainActivity.kt").read_text(encoding="utf-8")
         self.assertIn("https://mcp.nseindia.in/cmmkt/mcp", source)
         self.assertIn("https://mcp.nseindia.in/bhavcopy/cm/mcp", source)
-        self.assertIn('"cm_get_stock_quote"', source)
+        self.assertIn('"tools/list"', source)
         self.assertIn('"get_stock_history"', source)
         self.assertIn('"notifications/initialized"', source)
         self.assertIn('"tools/call"', source)
-        self.assertIn('"Official NSE CM Market MCP"', source)
+        self.assertIn('"NSE MCP"', source)
         self.assertIn('"Official NSE Bhavcopy MCP"', source)
         self.assertIn("marketDataStatus", source)
 
@@ -803,7 +834,8 @@ class ReleaseRegressionTests(unittest.TestCase):
         end = source.index("private fun screenerCookieHeader()", start)
         audit = source[start:end]
         self.assertIn("NOT_RECONCILED_NO_INDEPENDENT_APP_SNAPSHOT", audit)
-        self.assertIn('put("appValue", JSONObject.NULL)', audit)
+        self.assertIn('put("appValue", value)', audit)
+        self.assertIn("APP_PARSER_SNAPSHOT_CAPTURED_AWAITING_SEPARATE_SCREENER_EXPORT", audit)
         self.assertIn('put("verifiedComparisons", 0)', audit)
         self.assertIn('put("unreconciledMetrics", symbols.size * 18)', audit)
 

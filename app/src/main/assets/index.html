@@ -83,7 +83,7 @@ body{background:linear-gradient(180deg,#eef5fa,#f8fbfd);color:var(--text)}
  .tvtoolbar-pro .tvmaincontrols,.tvtoolbar-pro .tvrightcontrols{flex-wrap:wrap!important}
 }
 
-/* V42.05 mobile density + truthful provider states */
+/* V43.00 mobile density + truthful provider states */
 #session.red{background:#b42318!important;border-color:#b42318!important;color:#fff!important}
 @media(max-width:760px){
  .indices{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important;padding:8px 10px!important;white-space:normal!important;overflow:visible!important}
@@ -114,9 +114,9 @@ body{background:linear-gradient(180deg,#eef5fa,#f8fbfd);color:var(--text)}
  .researchMetric{min-width:0!important;overflow-wrap:anywhere!important;padding:10px!important}
  .researchMetric b{font-size:16px!important;line-height:1.35!important;overflow-wrap:anywhere!important}
 }
-/* V42.05 compact no-data chart state */
+/* V43.00 compact no-data chart state */
 @media(max-width:760px){.tvpane{height:auto!important;min-height:0!important}.pricepane .canvas{height:150px!important;max-height:150px!important}.rsipane .rsi{height:65px!important;max-height:65px!important}.tvfooter{font-size:10px!important;line-height:1.35!important;flex-wrap:wrap!important}.tvtimebar{flex-wrap:wrap!important}.tvtimeleft{flex-wrap:wrap!important}.tvindicator{font-size:10px!important;line-height:1.35!important}}
-/* V42.05: force compact index tiles in the actual mobile market-pulse markup */
+/* V43.00: force compact index tiles in the actual mobile market-pulse markup */
 @media(max-width:760px){
  .indices{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important;padding:8px 10px!important;overflow:visible!important;white-space:normal!important}
  .indices .icard{box-sizing:border-box!important;display:grid!important;grid-template-columns:minmax(0,1fr)!important;align-content:start!important;gap:2px!important;min-width:0!important;width:100%!important;min-height:94px!important;height:auto!important;flex:none!important;padding:8px 9px!important;border-radius:12px!important;box-shadow:none!important}
@@ -132,7 +132,7 @@ body{background:linear-gradient(180deg,#eef5fa,#f8fbfd);color:var(--text)}
 /* V40.80.1 mobile market-pulse compactness: horizontal ticker cards prevent the index section dominating the screen. */
 @media(max-width:760px){#indices{display:flex!important;flex-wrap:nowrap!important;align-items:stretch!important;gap:8px!important;padding:8px 10px!important;overflow-x:auto!important;overflow-y:hidden!important;scroll-snap-type:x proximity!important;-webkit-overflow-scrolling:touch!important}#indices .market-head{flex:0 0 100%!important;width:100%!important}#indices .icard{flex:0 0 148px!important;width:148px!important;min-width:148px!important;max-width:148px!important;min-height:112px!important;padding:9px!important;scroll-snap-align:start!important}#indices .ivalue{font-size:18px!important;line-height:1.15!important}#indices .idata{font-size:9px!important;line-height:1.2!important;margin-top:4px!important;max-width:none!important}#indices .itime{font-size:9px!important;line-height:1.15!important;margin-top:3px!important}#indices .isource{display:none!important}#indices .market-subtitle{max-width:100%!important;white-space:normal!important}#indices .market-refresh{min-height:34px!important;padding:7px 10px!important}}
 
-/* V42.05 professional layout + heading visibility fixes */
+/* V43.00 professional layout + heading visibility fixes */
 :root{--navy:#102a43;--blue:#1769d2;--cyan:#0e9fba;--line:#d9e4ee;--muted:#60758a;--text:#172f46;--shadow:0 5px 20px rgba(20,52,82,.06)}
 html{scroll-padding-top:132px;scroll-behavior:smooth}
 body{background:#f3f6fa!important;color:#172f46!important;font-size:14px!important;line-height:1.45}
@@ -235,7 +235,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition:none!important;animation:none!important}}
 
-/* V42.05 regression fix: keep desktop stock actions visible and avoid sticky-header click interception */
+/* V43.00 regression fix: keep desktop stock actions visible and avoid sticky-header click interception */
 .top{position:relative!important;top:auto!important;z-index:20!important}
 .actions{display:flex!important;flex-direction:column;align-items:flex-end;gap:7px;min-width:104px}
 .actions .btn{display:inline-flex!important;align-items:center;justify-content:center;min-height:34px;height:auto!important;white-space:normal;line-height:1.25;padding:8px 11px!important}
@@ -244,7 +244,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 @media(max-width:760px){.actions{display:flex!important;flex-direction:row;flex-wrap:wrap;grid-column:1/-1}.actions .btn{flex:1 1 auto;min-width:0}}
 .querySectionHead,.intelHead{position:static!important;top:auto!important}
 
-/* V42.05 compact, consistent section headings and dashboard spacing */
+/* V43.00 compact, consistent section headings and dashboard spacing */
 :root{--section-gap:10px}
 .container{padding:6px 16px 20px}
 .researchTitle,.summarySectionLabel,.querySectionHead,.intelHead{margin:8px 0 6px!important;gap:8px!important}
@@ -271,7 +271,7 @@ h1,h2,h3,h4{line-height:1.28;margin-block:7px}
  h1,h2,h3,h4{margin-block:6px}
 }
 
-/* V42.05 usability refresh: visible identity, calmer navigation and explicit Screener sign-in steps */
+/* V43.00 usability refresh: visible identity, calmer navigation and explicit Screener sign-in steps */
 .top{height:auto!important;min-height:76px!important;display:grid!important;grid-template-columns:minmax(220px,310px) auto minmax(320px,1fr) auto!important;align-items:center!important;gap:10px!important;padding:10px 16px!important}
 .brand{width:auto!important;min-width:0!important;display:flex!important;align-items:center!important;gap:10px!important}
 .brandLogo{width:48px!important;height:48px!important;flex:0 0 48px!important}
@@ -428,7 +428,7 @@ body{background:radial-gradient(circle at 15% 0%,#f5fbff 0,#eef6fc 36%,#f7fbff 1
 .aiCommandBody{padding:13px 15px}.aiDecision{display:grid;grid-template-columns:1.05fr 1fr 1fr 1fr;gap:9px}.aiCard{min-width:0;border:1px solid rgba(255,255,255,.13);background:rgba(255,255,255,.065);border-radius:11px;padding:11px}.aiCard .k{font-size:8px;text-transform:uppercase;letter-spacing:.6px;color:#a9c5d9;font-weight:950}.aiCard .v{margin-top:4px;font-size:16px;font-weight:950;line-height:1.25}.aiCard .sub{margin-top:4px;font-size:9px;line-height:1.45;color:#c4d8e8}.aiVerdict{display:flex;align-items:center;gap:10px}.aiScore{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.11);border:1px solid rgba(255,255,255,.22);font-size:16px;font-weight:950;flex:0 0 auto}.aiGood{color:#63e6b3}.aiWarn{color:#ffd36b}.aiBad{color:#ff8f99}.aiNeutral{color:#c7d9e7}
 .aiBars{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:10px}.aiBar{height:7px;border-radius:99px;background:rgba(255,255,255,.12);overflow:hidden}.aiBar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#19b9ff,#54e5ad);border-radius:99px;transition:width .35s ease}.aiBarLabel{display:flex;justify-content:space-between;margin-top:3px;font-size:7px;color:#a9c5d9;font-weight:800}
 .aiInsightGrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}.aiInsight{border:1px solid rgba(255,255,255,.13);background:rgba(255,255,255,.055);border-radius:11px;padding:10px}.aiInsight h4{margin:0 0 7px;font-size:10px;color:#eaf6ff}.aiInsight ul{margin:0;padding-left:17px}.aiInsight li{font-size:9px;color:#c9dcea;line-height:1.55;margin:3px 0}.aiCommandFoot{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;margin-top:9px}.aiCommandFoot small{font-size:8px;color:#9fbed3}.aiCmdBtn{border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;border-radius:7px;padding:7px 10px;font-size:9px;font-weight:950;cursor:pointer}.aiCmdBtn:hover{background:rgba(255,255,255,.14)}
-.researchRibbon{position:relative}.researchRibbon:after{content:'V42.05';position:absolute;right:10px;top:8px;font-size:7px;color:#9bb4c8;font-weight:900;letter-spacing:.5px}
+.researchRibbon{position:relative}.researchRibbon:after{content:'V43.00';position:absolute;right:10px;top:8px;font-size:7px;color:#9bb4c8;font-weight:900;letter-spacing:.5px}
 .sectionTools{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.sectionRefresh{border:1px solid #bfd4e5;background:#fff;border-radius:7px;padding:6px 9px;color:#24516f;font-size:9px;font-weight:900;cursor:pointer}.sectionRefresh:hover{background:#eef7ff}
 .querySection,.intelHub{scroll-margin-top:92px}.querySectionHead,.intelHead{position:sticky;top:92px;z-index:10;background:rgba(255,255,255,.96);backdrop-filter:blur(8px)}
 .querySection .qcard{transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}.querySection .qcard:hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(20,60,95,.09);border-color:#b8d3e7}.querySection .qcard:has(.qresult.open){box-shadow:0 14px 34px rgba(20,60,95,.11)}
@@ -1025,7 +1025,7 @@ body[data-nav-page="overview"] .researchRibbon,body[data-nav-page="overview"] .s
 body[data-nav-page="chart"] #chartTechnicalSection,body[data-nav-page="scans"] #savedQueriesSection,body[data-nav-page="events"] #marketIntelligenceHub,body[data-nav-page="financials"] #detailsSection,body[data-nav-page="ownership"] #detailsSection,body[data-nav-page="peers"] #detailsSection,body[data-nav-page="news"] #detailsSection{display:block!important}
 @media(max-width:760px){.appNav{border-radius:0;margin:0 -8px 12px;padding:8px}.appNav .tab{padding:9px 11px;font-size:12px}}
 </style></head><body><div class="app">
-<header class="top"><div class="brand"><img class="brandLogo" src="brand-logo.svg" alt="Pro Stock Intelligence logo"><div class="brandText"><div>PRO STOCK <span>INTELLIGENCE</span></div><small>SEARCH · ANALYZE · VERIFIED DATA</small></div></div><span class="taglive">V42.05 · SOURCE-AWARE MARKET RESEARCH</span><div class="searchbox"><div class="searchwrap"><span class="searchicon">⌕</span><input id="search" value="INFOSYS" placeholder="Search NSE/BSE stock or symbol"><span class="clearx" id="clearx">×</span><div id="suggestions" class="suggestions"></div></div><button class="btn primary" id="analyze">Analyze</button><button class="btn" id="clear">Clear</button><button class="btn" id="refresh">↻ Refresh</button><button class="btn" id="watchlistViewBtn">📌 Watchlist</button><button class="btn" id="dataSourcesBtn">Sources & Screener</button><button class="btn" id="session">Screener Login</button></div><div class="clock"><span class="live">● NATIVE ENGINE</span><br><span id="clock"></span></div></header><div id="watchModal" class="watchmodal" role="dialog" aria-modal="true" aria-labelledby="watchModalTitle" tabindex="-1"><div class="watchbox"><div class="watchhead"><h3 id="watchModalTitle">My Persistent Watchlist</h3><button id="watchClose" class="watchclose" type="button" aria-label="Close dialog">×</button></div><div id="watchModalBody" class="watchbody"></div></div></div><div id="dataSourcesModal" class="watchmodal" role="dialog" aria-modal="true" aria-labelledby="dataSourcesTitle" tabindex="-1"><div class="watchbox"><div class="watchhead"><h3 id="dataSourcesTitle">Data Sources &amp; Screener</h3><button id="dataSourcesClose" class="watchclose" type="button" aria-label="Close data source dialog">×</button></div><div id="providerDiagnosticsPanel" class="sourceEmpty">Checking source connectivity…</div><div class="screenerConnectCard" id="screenerConnectCard"><div class="screenerConnectTitle">Connect your Screener account</div><p>Sign in on Screener’s official page. Return to this app and check access. The app does not ask for or store your password.</p><div class="screenerConnectActions"><button id="screenerSignInBtn" class="btn primary" type="button">Sign in to Screener</button><button id="screenerCheckBtn" class="btn" type="button">Check access</button><button id="screenerAudit30Btn" class="btn" type="button">Audit 30 stocks</button></div><div id="screenerConnectStatus" role="status">Not checked yet. Sign in first.</div></div><div class="csvImportActions"><button id="refreshProviderDiagnostics" class="btn" type="button">Refresh provider status</button><button id="openScreenerStock" class="btn" type="button">Open Screener company page</button></div></div></div>
+<header class="top"><div class="brand"><img class="brandLogo" src="brand-logo.svg" alt="Pro Stock Intelligence logo"><div class="brandText"><div>PRO STOCK <span>INTELLIGENCE</span></div><small>SEARCH · ANALYZE · VERIFIED DATA</small></div></div><span class="taglive">V43.00 · SOURCE-AWARE MARKET RESEARCH</span><div class="searchbox"><div class="searchwrap"><span class="searchicon">⌕</span><input id="search" value="INFOSYS" placeholder="Search NSE/BSE stock or symbol"><span class="clearx" id="clearx">×</span><div id="suggestions" class="suggestions"></div></div><button class="btn primary" id="analyze">Analyze</button><button class="btn" id="clear">Clear</button><button class="btn" id="refresh">↻ Refresh</button><button class="btn" id="watchlistViewBtn">📌 Watchlist</button><button class="btn" id="dataSourcesBtn">Sources & Screener</button><button class="btn" id="session">Screener Login</button></div><div class="clock"><span class="live">● NATIVE ENGINE</span><br><span id="clock"></span></div></header><div id="watchModal" class="watchmodal" role="dialog" aria-modal="true" aria-labelledby="watchModalTitle" tabindex="-1"><div class="watchbox"><div class="watchhead"><h3 id="watchModalTitle">My Persistent Watchlist</h3><button id="watchClose" class="watchclose" type="button" aria-label="Close dialog">×</button></div><div id="watchModalBody" class="watchbody"></div></div></div><div id="dataSourcesModal" class="watchmodal" role="dialog" aria-modal="true" aria-labelledby="dataSourcesTitle" tabindex="-1"><div class="watchbox"><div class="watchhead"><h3 id="dataSourcesTitle">Data Sources &amp; Screener</h3><button id="dataSourcesClose" class="watchclose" type="button" aria-label="Close data source dialog">×</button></div><div id="providerDiagnosticsPanel" class="sourceEmpty">Checking source connectivity…</div><div class="screenerConnectCard" id="screenerConnectCard"><div class="screenerConnectTitle">Connect your Screener account</div><p>Sign in on Screener’s official page. Return to this app and check access. The app does not ask for or store your password.</p><div class="screenerConnectActions"><button id="screenerSignInBtn" class="btn primary" type="button">Sign in to Screener</button><button id="screenerCheckBtn" class="btn" type="button">Check access</button><button id="screenerAudit30Btn" class="btn" type="button">Audit 30 stocks</button><button id="screenerAuditDownloadBtn" class="btn" type="button" disabled>Download app snapshot</button></div><div class="screenerCsvFallback" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;margin:10px 0;padding:10px;border:1px solid #d7e5f2;border-radius:10px;background:#f7fbff"><label style="font-size:11px;font-weight:800">Screener export timestamp (required)<input id="screenerCsvAsOf" type="datetime-local" style="display:block;width:100%;padding:8px;border:1px solid #cbd8e4;border-radius:7px;margin-top:4px"></label><label style="font-size:11px;font-weight:800">Official Screener CSV export<input id="screenerCsvFile" type="file" accept=".csv,text/csv" style="display:block;width:100%;padding:6px;border:1px solid #cbd8e4;border-radius:7px;margin-top:4px"></label><button id="screenerCsvImportBtn" class="btn" type="button">Import CSV fallback</button><small id="screenerCsvImportStatus" style="grid-column:1/-1;color:#526a82">If Screener returns 403, import its official export. Values are marked as an export snapshot, never live.</small></div><div id="screenerConnectStatus" role="status">Not checked yet. Sign in first.</div></div><div class="csvImportActions"><button id="refreshProviderDiagnostics" class="btn" type="button">Refresh provider status</button><button id="openScreenerStock" class="btn" type="button">Open Screener company page</button></div></div></div>
 <section class="indices" id="indices"></section>
 <div class="container"><section class="stock"><div class="stocktop"><div class="company"><div class="clogo" id="clogo">—</div><div><div class="cname" id="company">Stock Analysis Dashboard</div><div class="chips" id="chips"><span class="chip">—</span></div><div class="links" id="sourceLinks"><span class="liveDot">●</span> Quote source status shown per stock · verify timestamp</div></div></div><div><div class="pricebig" id="price">—</div><div class="change" id="change">—</div><div class="quoteMeta" id="date">Quote timestamp / source status</div></div><div class="miniMetrics"><div class="mm"><b>52 Week High</b><strong id="high52">—</strong></div><div class="mm"><b>52 Week Low</b><strong id="low52">—</strong></div><div class="mm"><b>From 52W High</b><strong class="ineg" id="fromhigh">—</strong></div><div class="mm"><b>From 52W Low</b><strong class="ipos" id="fromlow">—</strong></div><div class="mm"><b>Market Cap</b><strong id="mcap">—</strong></div></div><div class="actions"><button class="btn" style="height:34px;background:#fff;color:#123">☆ Watchlist</button> <button class="btn" style="height:34px;background:#fff;color:#123">♧ Alerts</button></div></div><nav class="tabs appNav" aria-label="Main sections"><button class="tab active" data-page="overview">⌂ Overview</button><button class="tab" data-page="chart">📈 Charts</button><button class="tab" data-page="financials">📊 Financials</button><button class="tab" data-page="ownership">◉ Ownership</button><button class="tab" data-page="peers">⇄ Peers</button><button class="tab" data-page="news">📰 News</button><button class="tab" data-page="scans">⚡ Scans</button><button class="tab" data-page="events">📅 Events</button><button class="tab" data-page="sources">🔌 Data Sources</button></nav></section>
 <div id="providerStatus" class="sourcehint" style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #dbe7ef;border-radius:8px">Provider status: loading…</div><div class="researchRibbon" id="researchRibbon">
@@ -1099,7 +1099,7 @@ body[data-nav-page="chart"] #chartTechnicalSection,body[data-nav-page="scans"] #
 <div class="summarySectionLabel"><b>Decision Snapshot</b><span>WHAT • Fast decision read</span></div><section class="summarygrid"><div class="summarycard score"><div class="head" style="color:#fff">OVERALL SCORE</div><div class="scoreline"><div class="trophy">🏆</div><div><div class="scoreval" id="overall">—</div><div class="stars" aria-label="Score is data-dependent">DATA-DEPENDENT SCORE</div></div><div class="badge" id="strength">CALCULATING</div></div><div style="margin-top:7px;font-size:11px">Based on up to 29 fundamental, technical & valuation checks; data coverage varies</div></div><div class="summarycard"><div class="head">💡 KEY TAKEAWAY</div><div class="summarytitle" id="takeaway">Loading available provider data and technicals…</div><div class="pillrow"><span class="pill" id="qualityPill">Quality —</span><span class="pill" id="growthPill">Growth —</span><span class="pill" id="valuationPill">Valuation —</span><span class="pill warn" id="technicalPill">Technicals —</span></div></div><div class="summarycard"><div class="head">🎯 INVESTMENT VIEW</div><div class="gauge"><i class="needle"></i></div><div id="investmentLabel" style="text-align:center;color:#07965f;font-size:19px;font-weight:900">—</div><div id="investmentSub" style="text-align:center;font-size:11px">Based on available provider metrics; source quality and timing vary.</div></div><div class="summarycard"><div class="head">🛡 RISK LEVEL</div><div class="pill" id="riskPill" style="float:right">—</div><div style="clear:both;padding-top:12px;font-weight:900">◷ Time Horizon <span id="horizon" style="float:right;color:#07965f">—</span></div><hr style="border:0;border-top:1px solid #edf2f5"><div style="font-weight:900">⌁ Technical Position <span id="positioning" style="float:right;color:#07965f">—</span></div></div></section>
 <section class="factor"><div class="factorhead">Factor Scorecard <span id="factorCount" style="font-size:11px;color:#66809a;font-weight:700">(scoring criteria; coverage varies)</span><span id="coverage" style="float:right;font-size:11px;color:#087cf0;font-weight:800">Coverage: —</span></div><div class="factorgrid" id="factorgrid"></div></section>
 <!-- Duplicate ratio snapshot removed; the Complete Stock Metrics Matrix is the canonical metric detail view. -->
-<section class="querySection" id="savedQueriesSection"><div class="querySectionHead"><div><h3>Saved Screener Queries</h3><small>Live rule-based scans • no fabricated stocks • click Run Live after Screener session is active</small></div><div class="sectionTools"><span>5 expert scans</span><button class="sectionRefresh" id="queriesRefresh">↻ Refresh</button></div></div><div id="queryGrid" class="queryGrid"><div class="qempty">Loading saved queries…</div></div></section>
+<section class="querySection" id="savedQueriesSection"><div class="querySectionHead"><div><h3>Saved Screener Queries</h3><small>Live rule-based scans • no fabricated stocks • click Run Live after Screener session is active</small></div><div class="sectionTools"><span>7 saved scans</span><button class="sectionRefresh" id="queriesRefresh">↻ Refresh</button></div></div><div id="queryGrid" class="queryGrid"><div class="qempty">Loading saved queries…</div></div></section>
 <section class="intelHub" id="marketIntelligenceHub"><div class="intelHead"><div><h3>Market Intelligence Hub</h3><small>Dividend intelligence • corporate actions • earnings calendar • company event research</small></div><div class="sectionTools"><span id="intelGlobalStatus">Checking available data sources…</span><button class="sectionRefresh" id="intelRefresh">↻ Refresh Data</button></div></div><div class="intelGrid"><article class="intelCard dividend"><div class="intelTitle">Latest Dividend Announcements <span class="intelBadge">OFFICIAL FILINGS</span></div><div class="intelSub">Latest official dividend / corporate-action announcements from NSE and BSE</div><div id="topDividendList" class="intelEmpty">Loading dividend announcements…</div><div id="topDividendStatus" class="intelStatus"></div></article><article class="intelCard events"><div class="intelTitle">💰 Upcoming Dividends & Corporate Actions <span class="intelBadge">CALENDAR</span></div><div class="intelSub">Official exchange corporate actions, dividends, bonus and split announcements shown directly in the app.</div><div style="display:flex;gap:5px;margin:0 0 7px;flex-wrap:wrap"><button class="qbtn run" data-eventfilter="all">All</button><button class="qbtn" data-eventfilter="dividend">Dividend</button><button class="qbtn" data-eventfilter="bonus">Bonus</button><button class="qbtn" data-eventfilter="split">Split</button></div><div id="upcomingEventsList" class="intelEmpty">Loading upcoming corporate actions…</div><div id="upcomingEventsStatus" class="intelStatus"></div></article><article class="intelCard results"><div class="intelTitle">📅 Upcoming Results <span class="intelBadge">EARNINGS</span></div><div class="intelSub">Upcoming quarterly result announcements and board-meeting dates</div><div id="upcomingResultsList" class="intelEmpty">Loading result calendar…</div><div id="upcomingResultsStatus" class="intelStatus"></div></article><article class="intelCard lookup"><div class="intelTitle">🔎 Particular Share — Dividend / Result / Split / Bonus / Rights <span class="intelBadge">AI LOOKUP</span></div><div class="intelSub">Search official NSE/BSE RSS records by company symbol; filing links open the original exchange disclosure.</div><div class="lookupForm"><div class="lookupField"><label>NSE Symbol</label><div class="eventSuggestWrap"><input id="eventSymbolInput" placeholder="Search company or NSE symbol e.g. TCS, INFY, RELIANCE" autocomplete="off"><div id="eventSuggestions" class="eventSuggestions"></div></div></div><button class="intelBtn" id="eventLookupBtn">Check Company Events</button><button class="intelBtn secondary" id="eventUseCurrentBtn">Use Current Stock</button></div><div id="companyEventResult" class="lookupResult"></div><div class="intelNote">Only returned provider records are shown; source completeness is not guaranteed. No event is fabricated.</div></article></div></section>
 <section class="lower" id="chartTechnicalSection"><div class="tvwork">
 <div class="tvtoolbar tvtoolbar-pro"><div class="tvsymbol"><span class="tvbrandmark">B</span><b id="tvSymbol">—</b><span class="tvsep">·</span><span id="tvTfLabel">1Y</span><span class="tvdrop">▾</span><span>· NSE</span></div><div class="tvmaincontrols"><button class="tvmini" id="tvIntervalBtn" title="Cycle chart range">1Y</button><button class="tvmini" id="tvIndicatorsBtn" title="Toggle technical overlays">⌁ Indicators</button><button class="tvmini tvctl active" id="tvCrosshairBtn" title="Crosshair">⌖</button><button class="tvmini tvctl active" id="tvVolBtn" title="Volume">VOL</button><button class="tvmini tvctl active" id="tvSmaBtn" title="50/200 DMA">MA</button><button class="tvmini tvctl active" id="tvNwBtn" title="Nadaraya-Watson">NW</button><button class="tvmini tvctl active" id="tvRsiBtn" title="RSI 14">RSI</button><button class="tvmini" id="tvResetBtn" title="Reset chart">↺ Reset</button></div><div class="tvrightcontrols"><button class="tvmini" id="tvRefreshBtn" title="Refresh available quote and chart history">↻ Update</button><button class="tvmini" id="tvScreenerLinkBtn" title="Open this company on Screener.in">Screener</button><button class="tvmini" id="tvMoneycontrolLinkBtn" title="Open Moneycontrol search for this company">Moneycontrol</button><button class="tvmini" id="tvExpandBtn" title="Expand / restore chart" aria-pressed="false">⛶ Fullscreen</button><span>INR</span></div></div>
@@ -1170,7 +1170,7 @@ body[data-nav-page="chart"] #chartTechnicalSection,body[data-nav-page="scans"] #
 }
 </style>
 <script>
-const DASHBOARD_VERSION='V42.05';
+const DASHBOARD_VERSION='V43.00';
 /* V40.3 BOOT GUARD: search suggestions are independent of the large analytics runtime. */
 (function(){
   const quick=[['TCS','Tata Consultancy Services Ltd','IT Services'],['INFY','Infosys Ltd','IT Services'],['HCLTECH','HCL Technologies Ltd','IT Services'],['WIPRO','Wipro Ltd','IT Services'],['RELIANCE','Reliance Industries Ltd','Oil & Gas'],['ONGC','Oil & Natural Gas Corporation Ltd','Oil & Gas'],['HDFCBANK','HDFC Bank Ltd','Banking'],['ICICIBANK','ICICI Bank Ltd','Banking'],['SBIN','State Bank of India','Banking'],['AXISBANK','Axis Bank Ltd','Banking'],['BAJFINANCE','Bajaj Finance Ltd','Financial Services'],['M&M','Mahindra & Mahindra Ltd','Automobiles'],['MARUTI','Maruti Suzuki India Ltd','Automobiles'],['TATAMOTORS','Tata Motors Ltd','Automobiles'],['TATASTEEL','Tata Steel Ltd','Metals'],['ITC','ITC Ltd','FMCG'],['TITAN','Titan Company Ltd','Consumer'],['SUNPHARMA','Sun Pharmaceutical Industries Ltd','Pharma'],['TATAELXSI','Tata Elxsi Ltd','IT Services'],['WAAREEENER','Waaree Energies Ltd','Renewables']];
@@ -1181,11 +1181,11 @@ const DASHBOARD_VERSION='V42.05';
 </script>
 <script>
 const $=id=>document.getElementById(id);
-const CLIENT_ENGINE_VERSION='V42.05 OFFICIAL NSE/BSE RSS + AUTHORIZED MARKET DATA';
+const CLIENT_ENGINE_VERSION='V43.00 OFFICIAL NSE/BSE RSS + AUTHORIZED MARKET DATA';
 async function verifyEngineVersion(){try{const r=await fetch('/api/health?ts='+Date.now(),{cache:'no-store'});const j=await r.json();const live=String(j.engine||'');const data=j.data||{};const tag=document.querySelector('.taglive');if(!live.startsWith(CLIENT_ENGINE_VERSION)){if(tag)tag.textContent='SERVER '+(live.split(' PRO')[0]||'VERSION MISMATCH');toast('App UI/API version mismatch. Rebuild APK from the matching project version.');return;}if(tag){tag.textContent=data.providerGatewayConfigured?'GATEWAY CONFIGURED · HEALTH CHECK PENDING':'OFFICIAL RSS · MARKET FEED NOT CONFIGURED';tag.title=data.providerGatewayConfigured?'Gateway URL exists; this does not prove quote/history/index/events work. Check Sources & Screener for provider diagnostics.':'Official NSE/BSE RSS announcements are retrieved separately from market prices. RSS availability does not mean live quotes, complete calendars or full financial statements. Quotes and intraday candles require an authorized market-data gateway; missing data remains unavailable.';tag.style.borderColor=data.providerGatewayConfigured?'#d97706':'#ef4444';tag.style.color=data.providerGatewayConfigured?'#fde68a':'#fecaca';}}catch(e){const tag=document.querySelector('.taglive');if(tag){tag.textContent='DATA STATUS UNKNOWN';tag.title='Could not confirm provider configuration. Do not assume live data is available.';}}}
-const api=async (u,timeoutMs)=>{const ctl=new AbortController();const path=String(u).split('?')[0];const budget=timeoutMs||({ '/api/fast':5000,'/api/history':11000,'/api/analyze':19000,'/api/peers':20000,'/api/news':7000,'/api/quote':4500,'/api/indices':25000,'/api/search-suggestions':5000,'/api/bootstrap':13000,'/api/company-events':7500}[path]||9000);const timer=setTimeout(()=>ctl.abort(),budget);try{const r=await fetch(u,{cache:'no-store',signal:ctl.signal});const j=await r.json();if(!j.ok)throw Error(j.error||'Request failed');return j.data}finally{clearTimeout(timer)}};
+const api=async (u,timeoutMs)=>{const ctl=new AbortController();const path=String(u).split('?')[0];const budget=timeoutMs||({ '/api/fast':5000,'/api/history':11000,'/api/analyze':53000,'/api/peers':20000,'/api/news':7000,'/api/quote':4500,'/api/indices':25000,'/api/search-suggestions':5000,'/api/bootstrap':13000,'/api/company-events':7500}[path]||9000);const timer=setTimeout(()=>ctl.abort(),budget);try{const r=await fetch(u,{cache:'no-store',signal:ctl.signal});const j=await r.json();if(!j.ok)throw Error(j.error||'Request failed');return j.data}finally{clearTimeout(timer)}};
 verifyEngineVersion();
-window.__PSI_BOOT_VERSION='V42.05';
+window.__PSI_BOOT_VERSION='V43.00';
 function toast(msg){const t=$('toast');if(!t)return;t.textContent=msg;t.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.classList.remove('show'),2200)}
 function clock(){$('clock').textContent=new Date().toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'})}setInterval(clock,1000);clock();
 const localStocks=[
@@ -1583,16 +1583,16 @@ function chartCoverageMessage(rows,range){const n=Array.isArray(rows)?rows.lengt
 
 function resetChartView(){const rows=cleanRows(window.chartRows||[]);window.chartView={start:0,end:Math.max(0,rows.length-1),crosshair:null,showVolume:true,showSma:true,showNw:true,showRsi:true};drawPriceChart(rows);drawRSI(rows)}
 function drawPriceChart(rows){
-  rows=cleanRows(rows);const {c,w,h}=prepareCanvas($('priceCanvas'));c.fillStyle='#131722';c.fillRect(0,0,w,h);
-  if(!rows.length){c.fillStyle='#9aa8bb';c.font='12px Segoe UI';c.fillText('Verified price history unavailable',24,40);return}
+  rows=cleanRows(rows);const {c,w,h}=prepareCanvas($('priceCanvas'));c.fillStyle='#fbfdff';c.fillRect(0,0,w,h);
+  if(!rows.length){c.fillStyle='#64748b';c.font='12px Segoe UI';c.fillText('Verified price history unavailable',24,40);return}
   const vr=visibleChartRows(rows);
   const vals=[];vr.forEach(r=>['low','high','close','dma50','dma200','nwLower','nwUpper'].forEach(k=>{if(finite(r[k]))vals.push(r[k])}));if(!vals.length)return;
   let lo=Math.min(...vals),hi=Math.max(...vals),pad=(hi-lo)*.06||1;lo-=pad;hi+=pad;
   const L=Math.max(46,Math.min(72,w*.13)),R=Math.max(58,Math.min(82,w*.15)),T=30,B=28,plotW=Math.max(80,w-L-R),plotH=h-T-B,volH=window.chartView?.showVolume?Math.max(36,plotH*.18):0,priceH=Math.max(40,plotH-volH-8);
   const x=i=>L+(vr.length===1?plotW/2:(i/(vr.length-1))*plotW),y=v=>T+(hi-v)/(hi-lo)*priceH;
-  c.font='10px Segoe UI';for(let k=0;k<=5;k++){const yy=T+k*priceH/5;c.strokeStyle='#2a2f3a';c.lineWidth=1;c.beginPath();c.moveTo(L,yy);c.lineTo(w-R,yy);c.stroke();c.fillStyle='#9aa8bb';c.fillText(money(hi-(hi-lo)*k/5),w-R+8,yy+3)}
-  const ticks=Math.max(2,Math.min(5,Math.floor(plotW/170)));for(let k=0;k<=ticks;k++){const i=Math.round((vr.length-1)*k/ticks),xx=x(i);c.strokeStyle='#202631';c.beginPath();c.moveTo(xx,T);c.lineTo(xx,T+priceH+volH+5);c.stroke();const dt=vr[i]?.time?new Date(vr[i].time):null;if(dt){const label=dt.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:vr.length>300?'2-digit':undefined});c.fillStyle='#7f8b9e';c.textAlign=k===0?'left':k===ticks?'right':'center';c.fillText(label,xx,h-8)}}c.textAlign='left';
-  if(window.chartView?.showVolume){const maxVol=Math.max(...vr.map(r=>finite(r.volume)?r.volume:0),1),volTop=T+priceH+8,volBottom=volTop+volH;vr.forEach((r,i)=>{if(!finite(r.volume))return;const xx=x(i),bw=Math.max(1.2,Math.min(9,plotW/vr.length*.72)),barH=(r.volume/maxVol)*volH*.9;c.fillStyle=r.close>=(r.open??r.close)?'rgba(38,166,154,.72)':'rgba(239,83,80,.72)';c.fillRect(xx-bw/2,volBottom-barH,bw,barH)});c.fillStyle='#8d99aa';c.font='9px Segoe UI';c.fillText('VOL',L+3,volTop+10)}
+  c.font='10px Segoe UI';for(let k=0;k<=5;k++){const yy=T+k*priceH/5;c.strokeStyle='#e5edf5';c.lineWidth=1;c.beginPath();c.moveTo(L,yy);c.lineTo(w-R,yy);c.stroke();c.fillStyle='#64748b';c.fillText(money(hi-(hi-lo)*k/5),w-R+8,yy+3)}
+  const ticks=Math.max(2,Math.min(5,Math.floor(plotW/170)));for(let k=0;k<=ticks;k++){const i=Math.round((vr.length-1)*k/ticks),xx=x(i);c.strokeStyle='#edf2f7';c.beginPath();c.moveTo(xx,T);c.lineTo(xx,T+priceH+volH+5);c.stroke();const dt=vr[i]?.time?new Date(vr[i].time):null;if(dt){const label=dt.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:vr.length>300?'2-digit':undefined});c.fillStyle='#718096';c.textAlign=k===0?'left':k===ticks?'right':'center';c.fillText(label,xx,h-8)}}c.textAlign='left';
+  if(window.chartView?.showVolume){const maxVol=Math.max(...vr.map(r=>finite(r.volume)?r.volume:0),1),volTop=T+priceH+8,volBottom=volTop+volH;vr.forEach((r,i)=>{if(!finite(r.volume))return;const xx=x(i),bw=Math.max(1.2,Math.min(9,plotW/vr.length*.72)),barH=(r.volume/maxVol)*volH*.9;c.fillStyle=r.close>=(r.open??r.close)?'rgba(38,166,154,.72)':'rgba(239,83,80,.72)';c.fillRect(xx-bw/2,volBottom-barH,bw,barH)});c.fillStyle='#718096';c.font='9px Segoe UI';c.fillText('VOL',L+3,volTop+10)}
   const genuineOhlc=vr.filter(r=>finite(r.open)&&finite(r.high)&&finite(r.low)&&finite(r.close)).length>=Math.max(5,Math.floor(vr.length*.8));if(!genuineOhlc){c.strokeStyle='#3aa0ff';c.lineWidth=2;c.beginPath();segmentPath(c,vr,'close',x,y);c.stroke();c.fillStyle='#8ea0b5';c.font='10px Segoe UI';c.fillText('CLOSE-PRICE SERIES · OHLC candles unavailable',L+4,T+16);$('chartStatus').textContent='Close-price series rendered • genuine OHLC candles unavailable • indicators derived from available closes'}else{const candleW=Math.max(1.2,Math.min(9,plotW/vr.length*.62));vr.forEach((r,i)=>{if(!finite(r.close)||!finite(r.open)||!finite(r.high)||!finite(r.low))return;const xx=x(i),o=r.open,hh=r.high,ll=r.low,up=r.close>=o;c.strokeStyle=up?'#26a69a':'#ef5350';c.fillStyle=up?'#26a69a':'#ef5350';c.lineWidth=1;c.beginPath();c.moveTo(xx,y(ll));c.lineTo(xx,y(hh));c.stroke();const top=y(Math.max(o,r.close)),bot=y(Math.min(o,r.close));c.fillRect(xx-candleW/2,top,candleW,Math.max(1,bot-top))});$('chartStatus').textContent='OHLCV candles rendered • 50/200 DMA • NW Envelope • RSI 14 • Volume'}
   function line(key,color,width,dash=[]){c.strokeStyle=color;c.lineWidth=width;c.setLineDash(dash);c.beginPath();segmentPath(c,vr,key,x,y);c.stroke();c.setLineDash([])}
   if(window.chartView?.showSma){line('dma50','#f5a623',1.7);line('dma200','#9b6cff',1.7)}
@@ -1620,14 +1620,14 @@ function drawPriceChart(rows){
   $('volumeText').textContent=fmt(last.volume);$('tvInstrumentLabel').textContent=window.sym||$('search').value.trim().toUpperCase();$('tvOhlcLabel').textContent=`O ${money(last.open)} H ${money(last.high)} L ${money(last.low)} C ${money(last.close)}`;$('nwHeaderValues').textContent=(finite(last.nwBasis)?` Basis ${money(last.nwBasis)} · U ${money(last.nwUpper)} · L ${money(last.nwLower)}`:'');$('rsival').textContent=finite(last.rsi14)?` ${fmt(last.rsi14)}`:' —';
   if(finite(last.dma50))$('sma50Val').textContent=money(last.dma50);if(finite(last.dma200))$('sma200Val').textContent=money(last.dma200);
   if(lastSignal){const sigDate=lastSignal.row.time?new Date(lastSignal.row.time).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):'';$('nwSignalBadge').textContent=`NW ${lastSignal.type} · ${sigDate}`;$('nwSignalBadge').style.color=lastSignal.type==='BUY'?'#10b981':'#ef4444'}else{$('nwSignalBadge').textContent='NW: NO SIGNAL';$('nwSignalBadge').style.color='#9aa8bb'}
-  const ci=window.chartView?.crosshair;if(ci!=null&&ci>=0&&ci<vr.length){const xx=x(ci),rr=vr[ci];c.strokeStyle='rgba(190,205,220,.72)';c.lineWidth=1;c.setLineDash([4,4]);c.beginPath();c.moveTo(xx,T);c.lineTo(xx,T+priceH+volH);c.stroke();c.setLineDash([]);const cy=finite(rr.close)?y(rr.close):T+priceH/2;c.strokeStyle='rgba(190,205,220,.55)';c.setLineDash([4,4]);c.beginPath();c.moveTo(L,cy);c.lineTo(w-R,cy);c.stroke();c.setLineDash([])}
+  const ci=window.chartView?.crosshair;if(ci!=null&&ci>=0&&ci<vr.length){const xx=x(ci),rr=vr[ci];c.strokeStyle='rgba(100,116,139,.55)';c.lineWidth=1;c.setLineDash([4,4]);c.beginPath();c.moveTo(xx,T);c.lineTo(xx,T+priceH+volH);c.stroke();c.setLineDash([]);const cy=finite(rr.close)?y(rr.close):T+priceH/2;c.strokeStyle='rgba(100,116,139,.38)';c.setLineDash([4,4]);c.beginPath();c.moveTo(L,cy);c.lineTo(w-R,cy);c.stroke();c.setLineDash([])}
 }
 function drawRSI(rows){
   rows=cleanRows(rows);const canvas=$('rsiCanvas'),pane=canvas?.parentElement;if(pane)pane.style.display=(window.chartView?.showRsi===false)?'none':'';if(window.chartView?.showRsi===false)return;
-  const {c,w,h}=prepareCanvas(canvas);c.fillStyle='#131722';c.fillRect(0,0,w,h);if(!rows.length)return;const vr=visibleChartRows(rows),L=38,R=52,T=20,B=20,plotW=w-L-R,plotH=h-T-B,x=i=>L+(vr.length===1?plotW/2:(i/(vr.length-1))*plotW),y=v=>T+(100-v)/100*plotH;
-  [30,50,70].forEach(v=>{const yy=y(v);c.strokeStyle=v===50?'#303643':'#2a2f3a';c.setLineDash(v===50?[4,4]:[]);c.beginPath();c.moveTo(L,yy);c.lineTo(w-R,yy);c.stroke();c.setLineDash([]);c.fillStyle='#7f8b9e';c.font='9px Segoe UI';c.fillText(v,w-R+9,yy+3)});
+  const {c,w,h}=prepareCanvas(canvas);c.fillStyle='#fbfdff';c.fillRect(0,0,w,h);if(!rows.length)return;const vr=visibleChartRows(rows),L=38,R=52,T=20,B=20,plotW=w-L-R,plotH=h-T-B,x=i=>L+(vr.length===1?plotW/2:(i/(vr.length-1))*plotW),y=v=>T+(100-v)/100*plotH;
+  [30,50,70].forEach(v=>{const yy=y(v);c.strokeStyle=v===50?'#303643':'#2a2f3a';c.setLineDash(v===50?[4,4]:[]);c.beginPath();c.moveTo(L,yy);c.lineTo(w-R,yy);c.stroke();c.setLineDash([]);c.fillStyle='#718096';c.font='9px Segoe UI';c.fillText(v,w-R+9,yy+3)});
   c.strokeStyle='#a970ff';c.lineWidth=1.6;c.beginPath();segmentPath(c,vr,'rsi14',x,y);c.stroke();const last=vr[vr.length-1];if(finite(last.rsi14)){const yy=y(last.rsi14);c.fillStyle='#a970ff';c.fillRect(w-R+2,yy-9,R-4,18);c.fillStyle='#fff';c.font='bold 10px Segoe UI';c.fillText(fmt(last.rsi14),w-R+7,yy+3)}
-  const ci=window.chartView?.crosshair;if(ci!=null&&ci>=0&&ci<vr.length){const xx=x(ci);c.strokeStyle='rgba(190,205,220,.72)';c.setLineDash([4,4]);c.beginPath();c.moveTo(xx,T);c.lineTo(xx,h-B);c.stroke();c.setLineDash([])}
+  const ci=window.chartView?.crosshair;if(ci!=null&&ci>=0&&ci<vr.length){const xx=x(ci);c.strokeStyle='rgba(100,116,139,.55)';c.setLineDash([4,4]);c.beginPath();c.moveTo(xx,T);c.lineTo(xx,h-B);c.stroke();c.setLineDash([])}
 }
 function syncRangeButtons(range){document.querySelectorAll('.tvtimeleft button[data-r],#ranges button[data-r]').forEach(b=>{const br=b.dataset.r; b.classList.toggle('active',br===range);});}
 async function loadChart(range, options={}){
@@ -1770,7 +1770,7 @@ async function runAnalysis(){const entered=$('search').value.trim();if(!entered)
     }catch(be){setProviderStatus('Provider recovery unavailable — continuing with full analysis/cache…',false)}
   }
   // Stage 2: full normalized snapshot. It is intentionally awaited only after recovery/paint.
-  try{let d=await api('/api/analyze?symbol='+encodeURIComponent(symbol)+'&mode=consolidated',19000);if(token!==analysisToken)return;if(window.recoveryData){d={...d,market:{...(window.recoveryData.fundamentals||{}),...(window.recoveryData.quote||{}),...(d.market||{})},fundamentals:{...(window.recoveryData.fundamentals||{}),...(d.fundamentals||{})},technicalSeries:(d.technicalSeries&&d.technicalSeries.length)?d.technicalSeries:((window.recoveryData.history||{}).rows||[]) };}applyFullData(d);const mf=d.market||{};const ok=Number.isFinite(Number(mf.price))||Number.isFinite(Number(mf.marketCap))||['pe','roe','roce','debtEquity','eps','bookValue'].filter(k=>Number.isFinite(Number(mf[k]))).length>=2;if(!ok)setProviderStatus('DATA UNAVAILABLE — no usable provider dataset returned.',false);}
+  try{let d=await api('/api/analyze?symbol='+encodeURIComponent(symbol)+'&mode=consolidated',53000);d=window.applyScreenerCsvFallback?window.applyScreenerCsvFallback(d,symbol):d;if(token!==analysisToken)return;if(window.recoveryData){d={...d,market:{...(window.recoveryData.fundamentals||{}),...(window.recoveryData.quote||{}),...(d.market||{})},fundamentals:{...(window.recoveryData.fundamentals||{}),...(d.fundamentals||{})},technicalSeries:(d.technicalSeries&&d.technicalSeries.length)?d.technicalSeries:((window.recoveryData.history||{}).rows||[]) };}applyFullData(d);const mf=d.market||{};const ok=Number.isFinite(Number(mf.price))||Number.isFinite(Number(mf.marketCap))||['pe','roe','roce','debtEquity','eps','bookValue'].filter(k=>Number.isFinite(Number(mf[k]))).length>=2;if(!ok)setProviderStatus('DATA UNAVAILABLE — no usable provider dataset returned.',false);}
   catch(e){if(token===analysisToken){setProviderStatus('Verified analysis could not complete: '+(e.message||'Request failed'),false);toast(e.message||'Analysis failed')}}finally{if(token===analysisToken)setLoading(false)}
 }
 $('analyze').onclick=runAnalysis;$('refresh').onclick=async()=>{loadIndices();const s=currentSymbol();if(s){try{await fetch('/api/cache-clear?symbol='+encodeURIComponent(s),{cache:'no-store'});}catch(e){}return runAnalysis();}toast('Market indices refreshed');};
@@ -1780,7 +1780,99 @@ setTimeframeUI(activeRange);$('tvIntervalBtn').onclick=async()=>{timeframeIndex=
 $('tvIndicatorsBtn').onclick=()=>{const any=window.chartView.showSma||window.chartView.showNw||window.chartView.showRsi;const on=!any;window.chartView.showSma=on;window.chartView.showNw=on;window.chartView.showRsi=on;['tvSmaBtn','tvNwBtn','tvRsiBtn'].forEach(id=>$(id)?.classList.toggle('active',on));drawPriceChart(window.chartRows||[]);drawRSI(window.chartRows||[]);};$('clear').onclick=()=>{$('search').value='';$('suggestions').style.display='none';toast('Search cleared')};async function refreshScreenerStatus(){try{let d=await api('/api/screener/status',3500);if(d.cookieDetected&&!d.validated&&!d.blockedBy403){if(!window.__psiScreenerValidation)window.__psiScreenerValidation=api('/api/screener/connect',12000).finally(()=>{window.__psiScreenerValidation=null});d=await window.__psiScreenerValidation;}const b=$('session');if(!b)return;const active=!!(d.connected&&d.loggedIn&&d.validated&&d.requestValidated&&d.sessionAuthenticated&&Number(d.httpStatus)===200);const forbidden=Number(d.httpStatus)===403||d.status==='HTTP_403_FORBIDDEN';b.textContent=active?'Screener: Connected ✓':forbidden?'Screener: Access Blocked (403)':d.cookieDetected?'Screener: Verify Login':'Screener: Login Required';b.classList.toggle('green',active);b.classList.toggle('red',forbidden);b.title=active?'Authenticated Screener screen-results access verified.':forbidden?'Screener denied the request (403). Reconnect through the official login; no access-control bypass is attempted.':d.cookieDetected?'Session cookie detected, but authenticated screen access has not been verified yet.':'Not connected. Open Screener Login and sign in.';const status=$('screenerConnectStatus');if(status){status.textContent=active?'CONNECTED — authenticated Screener screen access verified. Last check: '+new Date().toLocaleString('en-IN'):forbidden?'ACCESS DENIED (403) — Screener rejected this app request.':d.cookieDetected?'Session detected; verifying account access…':'NOT CONNECTED — select Sign in to Screener.';status.className=active?'screenerConnected':forbidden?'screenerBlocked':'';}return d}catch(e){const b=$('session');if(b){b.textContent='Screener: Status Error';b.classList.remove('green');b.classList.add('red');b.title=e.message||'Could not verify Screener status';}return null}}
 $('session').onclick=async()=>{$('dataSourcesModal')?.classList.add('open');refreshScreenerStatus();$('screenerConnectStatus').textContent='Use Sign in to Screener. The dashboard will remain open while the official sign-in page appears.'};
 $('screenerSignInBtn')?.addEventListener('click',()=>{if(window.PSIAndroid&&typeof window.PSIAndroid.openScreenerLogin==='function'){window.PSIAndroid.openScreenerLogin();$('screenerConnectStatus').textContent='Secure Screener sign-in opened above the dashboard. Sign in on the official page, tap DONE, then Check access.';}else{window.location.href='https://www.screener.in/login/';}});
-$('screenerAudit30Btn')?.addEventListener('click',async()=>{const b=$('screenerAudit30Btn'),status=$('screenerConnectStatus');b.disabled=true;b.textContent='Auditing…';status.textContent='Requesting up to 30 Screener company pages sequentially. A 403 stops the batch.';try{const d=await api('/api/screener/audit30',360000);const rows=d.rows||[];const fields=['industryPE','peg','piotroski','fii','dii','pledged'];const counts=Object.fromEntries(fields.map(k=>[k,rows.filter(r=>r.metrics?.[k]?.status==='PAGE_VALUE_PARSED').length]));status.textContent='Audit '+(d.complete?'complete':'partial')+': '+(d.successfulPages||0)+' pages; values parsed — '+fields.map(k=>k+': '+counts[k]+'/30').join(' · ')+(d.accessBlocked?' · STOPPED: Screener access denied (403)':'')+'.';const report={...d,metricCoverage:counts};panel=$('providerDiagnosticsPanel');if(panel)panel.textContent=JSON.stringify(report,null,2);window.psiScreenerAudit30=report;}catch(e){status.textContent='30-stock audit failed: '+(e.message||String(e));}finally{b.disabled=false;b.textContent='3 · Audit 30 stocks';}});
+
+// V43.00 official Screener CSV fallback. This is a user-authorized export, not scraping or a 403 bypass.
+(function(){
+ const metrics={
+  marketCap:{aliases:['market capitalization','market cap'],unit:'INR_CRORE'},
+  pe:{aliases:['stock p/e','price to earning','p/e'],unit:'ratio'},
+  industryPE:{aliases:['industry pe','industry p/e'],unit:'ratio'},
+  eps:{aliases:['eps','earning per share'],unit:'INR_PER_SHARE'},
+  bookValue:{aliases:['book value'],unit:'INR_PER_SHARE'},
+  pb:{aliases:['price to book value','p/b'],unit:'ratio'},
+  roe:{aliases:['roe','return on equity'],unit:'percent'},
+  roce:{aliases:['roce','return on capital employed'],unit:'percent'},
+  debtEquity:{aliases:['debt to equity','debt/equity'],unit:'ratio'},
+  sales3y:{aliases:['sales growth 3years','sales growth 3 years','sales growth 3y'],unit:'percent_3Y_GROWTH'},
+  profit3y:{aliases:['profit growth 3years','profit growth 3 years','profit growth 3y'],unit:'percent_3Y_GROWTH'},
+  shareholding:{aliases:['shareholding','shareholding pattern'],unit:'provider_reported_table'},
+  peg:{aliases:['peg ratio','peg'],unit:'ratio'},
+  piotroski:{aliases:['piotroski score','piotroski'],unit:'score_0_9'},
+  fii:{aliases:['fii holding','fii'],unit:'percent'},
+  dii:{aliases:['dii holding','dii'],unit:'percent'},
+  pledged:{aliases:['pledged percentage','pledged'],unit:'provider_reported_percent'},
+  promoter:{aliases:['promoter holding','promoter'],unit:'percent'}
+ };
+ function parseCsv(text){
+  const rows=[];let row=[],cell='',quoted=false;
+  for(let i=0;i<text.length;i++){const c=text[i];if(quoted){if(c==='"'&&text[i+1]==='"'){cell+='"';i++;}else if(c==='"')quoted=false;else cell+=c;}
+   else if(c==='"')quoted=true;else if(c===','){row.push(cell);cell='';}else if(c==='\n'){row.push(cell.replace(/\r$/,''));if(row.some(v=>v.trim()))rows.push(row);row=[];cell='';}else cell+=c;}
+  row.push(cell.replace(/\r$/,''));if(row.some(v=>v.trim()))rows.push(row);return rows;
+ }
+ const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+ function num(v){const x=String(v??'').trim().replace(/[₹,%\s,]/g,'').replace(/(cr|crore|x)$/i,'');if(!x||x==='-'||x==='—'||x==='NA')return null;const n=Number(x);return Number.isFinite(n)?n:null;}
+ function importFile(file){
+  const status=$('screenerCsvImportStatus'),stamp=$('screenerCsvAsOf')?.value;
+  if(!stamp){status.textContent='Enter the export date and time shown when you downloaded the Screener CSV.';return;}
+  const asOf=new Date(stamp);if(!Number.isFinite(asOf.getTime())){status.textContent='Export timestamp is invalid.';return;}
+  const reader=new FileReader();
+  reader.onload=async()=>{
+   try{
+    let fileHash='';try{if(window.crypto?.subtle){const digest=await crypto.subtle.digest('SHA-256',await file.arrayBuffer());fileHash=Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');}}catch(_){}
+    const rows=parseCsv(String(reader.result||''));if(rows.length<2)throw new Error('CSV has no data rows');
+    const headers=rows[0].map(norm),findCol=aliases=>{for(const a of aliases){const i=headers.indexOf(norm(a));if(i>=0)return i;}return -1;};
+    const symCol=findCol(['NSE Code','NSE Symbol','Symbol']);if(symCol<0)throw new Error('CSV must include the NSE Code or Symbol column.');
+    const nameCol=findCol(['Name','Company Name','Company']);const colMap={};
+    for(const [key,meta] of Object.entries(metrics))colMap[key]=findCol(meta.aliases);
+    const imported={};let count=0;
+    rows.slice(1).forEach(row=>{
+     const symbol=String(row[symCol]||'').trim().toUpperCase().replace(/\.(NS|BO)$/,'');
+     if(!symbol)return;
+     const data={symbol,name:String(row[nameCol]||symbol),provider:'Screener.in official CSV export (user imported)',
+      fundamentalSourcePolicy:'SCREENER_ONLY',fundamentalStatus:'IMPORTED_AUTHORIZED_SCREENER_EXPORT',
+      fetchedAtEpochMs:asOf.getTime(),sourceUrl:'https://www.screener.in/company/'+encodeURIComponent(symbol)+'/',
+      exportTimestamp:asOf.toISOString(),sourceExportSha256:fileHash,sourceExportFileName:file.name,period:'EXPORT_SNAPSHOT_NOT_FINANCIAL_PERIOD',
+      qualityFlags:['USER_SUPPLIED_OFFICIAL_SCREENER_EXPORT','EXPORT_TIMESTAMP_USER_SUPPLIED']};
+     const meta={};
+     Object.entries(metrics).forEach(([key,m])=>{const idx=colMap[key];if(idx<0)return;const raw=String(row[idx]??'').trim();if(!raw||raw==='-'||raw==='—')return;
+      const value=key==='shareholding'?raw:num(raw);if(value===null||value==='')return;data[key]=value;
+      meta[key]={source:'Screener.in official CSV export',sourceUrl:data.sourceUrl,fetchedAtEpochMs:asOf.getTime(),
+       period:'EXPORT_SNAPSHOT_NOT_FINANCIAL_PERIOD',unit:m.unit,status:'IMPORTED_EXPORT_VALUE'};
+     });
+     data.metricMeta=meta;imported[symbol]=data;count++;
+    });
+    if(!count)throw new Error('No rows with NSE symbols were found.');
+    localStorage.setItem('psiScreenerCsvFallbackV1',JSON.stringify(imported));
+    status.textContent='Imported '+count+' Screener rows at '+asOf.toLocaleString()+
+      '. Run stock analysis again. Values are export snapshots, not live data.';
+    if(typeof runAnalysis==='function')runAnalysis();
+   }catch(e){status.textContent='Import failed: '+(e.message||String(e));}
+  };
+  reader.onerror=()=>{status.textContent='Could not read the selected CSV file.';};
+  reader.readAsText(file);
+ }
+ $('screenerCsvImportBtn')?.addEventListener('click',()=>{const file=$('screenerCsvFile')?.files?.[0];if(!file){$('screenerCsvImportStatus').textContent='Choose a Screener CSV file first.';return;}importFile(file);});
+ window.applyScreenerCsvFallback=function(d,symbol){
+  try{
+   const store=JSON.parse(localStorage.getItem('psiScreenerCsvFallbackV1')||'{}');
+   const imported=store[String(symbol||'').toUpperCase()];if(!imported)return d;
+   const current=d.fundamentals||{},merged={...imported,...current};
+   Object.keys(metrics).forEach(key=>{if(current[key]===null||current[key]===undefined||current[key]==='')merged[key]=imported[key];});
+   merged.provider='Screener.in official CSV export (user imported)';
+   merged.fundamentalSourcePolicy='SCREENER_ONLY';merged.fundamentalStatus='IMPORTED_AUTHORIZED_SCREENER_EXPORT';
+   merged.importedExportTimestamp=imported.exportTimestamp;
+   delete merged.providerError;delete merged.screenerProviderError;
+   d.fundamentals=merged;
+   d.dataSources={...(d.dataSources||{}),'Screener.in':'Official Screener CSV export · '+new Date(imported.fetchedAtEpochMs).toLocaleString()};
+   d.dataConfidence='PARTIAL · SCREENER CSV EXPORT SNAPSHOT';
+   return d;
+  }catch(_){return d;}
+ };
+})();
+
+function downloadScreenerAuditSnapshot(){const report=window.psiScreenerAudit30;if(!report){$('screenerConnectStatus').textContent='Run Audit 30 stocks first.';return;}const blob=new Blob([JSON.stringify(report,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='psi-screener-app-parser-snapshot-30.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+$('screenerAuditDownloadBtn')?.addEventListener('click',downloadScreenerAuditSnapshot);
+$('screenerAudit30Btn')?.addEventListener('click',async()=>{const b=$('screenerAudit30Btn'),status=$('screenerConnectStatus');b.disabled=true;b.textContent='Auditing…';status.textContent='Requesting up to 30 Screener company pages sequentially. A 403 stops the batch.';try{const d=await api('/api/screener/audit30',360000);const rows=d.rows||[];const fields=['industryPE','peg','piotroski','fii','dii','pledged'];const counts=Object.fromEntries(fields.map(k=>[k,rows.filter(r=>r.metrics?.[k]?.status==='PAGE_VALUE_PARSED').length]));status.textContent='Company-page audit '+(d.complete?'complete':'partial')+': '+(d.successfulPages||0)+' pages; values parsed — '+fields.map(k=>k+': '+counts[k]+'/30').join(' · ')+(d.accessBlocked?' · STOPPED: Screener access denied (403)':'')+'.';const report={...d,metricCoverage:counts,snapshotOrigin:'SCREENER_COMPANY_PAGE_PARSER'};panel=$('providerDiagnosticsPanel');if(panel)panel.textContent=JSON.stringify(report,null,2);window.psiScreenerAudit30=report;const download=$('screenerAuditDownloadBtn');if(download)download.disabled=false;}catch(e){try{const imported=JSON.parse(localStorage.getItem('psiScreenerCsvFallbackV1')||'{}');const entries=Object.entries(imported);if(!entries.length)throw e;const keys=['marketCap','pe','industryPE','eps','bookValue','pb','roe','roce','debtEquity','sales3y','profit3y','shareholding','peg','piotroski','fii','dii','pledged','promoter'];const rows=entries.map(([symbol,data])=>({symbol,name:data.name||symbol,status:'IMPORTED_EXPORT_SNAPSHOT',source:'Screener.in official CSV export (user imported)',sourceUrl:data.sourceUrl||'',fetchedAtEpochMs:data.fetchedAtEpochMs,metrics:Object.fromEntries(keys.map(key=>[key,{value:data[key]??null,appValue:data[key]??null,comparisonStatus:'AWAITING_SECOND_INDEPENDENT_SCREENER_EXPORT',status:data[key]===undefined?'UNAVAILABLE_NOT_REPORTED':'APP_PARSER_VALUE_CAPTURED_FROM_IMPORTED_EXPORT',source:'Screener.in official CSV export parser',sourceUrl:data.sourceUrl||'',period:data.period||'EXPORT_SNAPSHOT_NOT_FINANCIAL_PERIOD',unit:data.metricMeta?.[key]?.unit||'NOT_VERIFIED'}]))}));const report={source:'App parser snapshot from imported official Screener CSV',snapshotOrigin:'SCREENER_CSV_IMPORT_PARSER',sourceExportSha256:imported[entries[0][0]]?.sourceExportSha256||'',sourceExportFileName:imported[entries[0][0]]?.sourceExportFileName||'',requestedStocks:30,attemptedStocks:rows.length,successfulPages:rows.length,complete:false,comparisonStatus:'AWAITING_SECOND_INDEPENDENT_SCREENER_EXPORT',verifiedComparisons:0,unreconciledMetrics:30*18,rows,metricCoverage:Object.fromEntries(keys.map(k=>[k,rows.filter(r=>r.metrics[k].appValue!==null).length]))};window.psiScreenerAudit30=report;const download=$('screenerAuditDownloadBtn');if(download)download.disabled=false;status.textContent='Live company-page audit was blocked. Created an app-side parser snapshot from '+rows.length+' imported Screener rows. Export a second Screener CSV for independent comparison, then download this snapshot.';panel=$('providerDiagnosticsPanel');if(panel)panel.textContent=JSON.stringify(report,null,2);}catch(fallbackError){status.textContent='30-stock audit failed: '+(fallbackError.message||e.message||String(e));}}finally{b.disabled=false;b.textContent='3 · Audit 30 stocks';}});
 $('screenerCheckBtn')?.addEventListener('click',async()=>{const b=$('screenerCheckBtn'),status=$('screenerConnectStatus');b.disabled=true;b.textContent='Checking…';status.textContent='Validating your Screener session against a company page…';try{const d=await api('/api/screener/connect',9000);if(d.connected&&d.loggedIn&&d.validated&&d.requestValidated&&d.sessionAuthenticated&&Number(d.httpStatus)===200){status.textContent='Connected: authenticated Screener screen access verified. Individual company fields remain subject to source coverage.';status.className='screenerConnected';$('session').textContent='Screener: Connected ✓';$('session').classList.add('green');$('session').classList.remove('red');}else if(Number(d.httpStatus)===403||d.status==='HTTP_403_FORBIDDEN'){status.textContent='Screener Access Denied (403). Sign in on the official Screener page and check access again. The app will not bypass provider access controls.';status.className='screenerBlocked';$('session').textContent='Screener: Access Blocked';$('session').classList.remove('green');$('session').classList.add('red');}else{status.textContent=d.message||'Session not verified. Sign in again on the official Screener page, then check once more.';status.className='';}}catch(e){status.textContent=e.message||'Connection check failed. Use Screener export as fallback.';status.className='';}finally{b.disabled=false;b.textContent='2 · Check access';}});
 window.refreshScreenerStatus=refreshScreenerStatus;window.addEventListener('pageshow',()=>{setTimeout(refreshScreenerStatus,350)});window.addEventListener('error',e=>{console.error(e.error||e.message);if($('providerStatus'))$('providerStatus').textContent='Dashboard error: '+(e.message||'JavaScript error')});window.addEventListener('unhandledrejection',e=>{console.error(e.reason);if($('providerStatus'))$('providerStatus').textContent='Dashboard request error: '+(e.reason?.message||e.reason||'Unknown error')});document.querySelectorAll('#ranges button').forEach(b=>b.onclick=async()=>{document.querySelectorAll('#ranges button').forEach(x=>x.classList.remove('active'));b.classList.add('active');timeframeIndex=timeframeCycle.indexOf(b.dataset.r);setTimeframeUI(b.dataset.r);await loadChart(b.dataset.r)});document.querySelectorAll('.tvtimeleft button[data-r]').forEach(b=>b.onclick=async()=>{document.querySelectorAll('.tvtimeleft button').forEach(x=>x.classList.remove('active'));b.classList.add('active');const r=b.dataset.r;timeframeIndex=timeframeCycle.indexOf(r);setTimeframeUI(r);await loadChart(r)});refreshScreenerStatus();
 setInterval(()=>{const e=new Date();const el=$('tvtimeclock');if(el)el.textContent=e.toLocaleTimeString('en-IN',{hour12:false})+' UTC+5:30'},1000);
@@ -1793,7 +1885,7 @@ function setNavPage(page){
   const detailMap={financials:'financialsSection',ownership:'ownershipSection',peers:'peersSection',news:'newsSection'};
   const wanted=detailMap[page];
   const visibleTopLevel={
-    overview:new Set(['researchRibbon','aiResearchCommandCenter','providerStatus']),
+    overview:new Set(['researchRibbon','aiResearchCommandCenter','providerStatus','savedQueriesSection','chartTechnicalSection']),
     chart:new Set(['chartTechnicalSection']),
     financials:new Set(['detailsSection']),ownership:new Set(['detailsSection']),
     peers:new Set(['detailsSection']),news:new Set(['detailsSection']),
@@ -2010,7 +2102,7 @@ const _applyFullDataOriginal=applyFullData;
 applyFullData=function(d){_applyFullDataOriginal(d);try{updateAIResearchCopilot(d)}catch(e){}};
 $('aiRefreshBtn')?.addEventListener('click',()=>runAnalysis());$('aiJumpQueries')?.addEventListener('click',()=>document.querySelector('#savedQueriesSection')?.scrollIntoView({behavior:'smooth',block:'start'}));$('aiJumpEvents')?.addEventListener('click',()=>document.querySelector('#marketIntelligenceHub')?.scrollIntoView({behavior:'smooth',block:'start'}));
 
-async function loadSavedQueries(){const grid=$('queryGrid');if(!grid)return;grid.innerHTML='<div class="qempty">Loading 5 saved scans…</div>';try{const d=await api('/api/queries',8000);const items=Array.isArray(d)?d:(Array.isArray(d?.data)?d.data:[]);if(!items.length)throw Error('No saved query definitions returned');renderSavedQueries(items);const qc=document.getElementById('cockpitQueries');if(qc)qc.textContent=String(items.length);const qcs=document.getElementById('cockpitQueriesSub');if(qcs)qcs.textContent=`${items.length} live rule-based scans`;}catch(e){grid.innerHTML='<div class="qempty">⚠ Saved queries could not load. '+intelEsc(e.message||e)+' <button class="qbtn" id="queryRetryInline">↻ Retry</button></div>';$('queryRetryInline')?.addEventListener('click',loadSavedQueries)}}
+async function loadSavedQueries(){const grid=$('queryGrid');if(!grid)return;grid.innerHTML='<div class="qempty">Loading saved queries…</div>';try{const d=await api('/api/queries',8000);const items=Array.isArray(d)?d:(Array.isArray(d?.data)?d.data:[]);if(!items.length)throw Error('No saved query definitions returned');renderSavedQueries(items);const qc=document.getElementById('cockpitQueries');if(qc)qc.textContent=String(items.length);const qcs=document.getElementById('cockpitQueriesSub');if(qcs)qcs.textContent=`${items.length} live rule-based scans`;}catch(e){grid.innerHTML='<div class="qempty">⚠ Saved queries could not load. '+intelEsc(e.message||e)+' <button class="qbtn" id="queryRetryInline">↻ Retry</button></div>';$('queryRetryInline')?.addEventListener('click',loadSavedQueries)}}
 
 function intelEsc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 function intelRowsTable(rows,cols,limit){
@@ -2106,7 +2198,6 @@ $('openMoneycontrolStock')?.addEventListener('click',()=>{const s=String(window.
 $('openScreenerStock')?.addEventListener('click',()=>{const s=String(window.sym||$('search')?.value||'INFY').trim().toUpperCase().replace(/\.(NS|BO)$/,'');window.location.href='https://www.screener.in/company/'+encodeURIComponent(s)+'/';});
 $('openChartinkScanner')?.addEventListener('click',()=>{window.location.href='https://chartink.com/screener/';});
 $('dataSourcesBtn')?.addEventListener('click',()=>{refreshCsvModalStatus();refreshProviderDiagnostics();$('dataSourcesModal')?.classList.add('open');});$('dataSourcesClose')?.addEventListener('click',()=>$('dataSourcesModal')?.classList.remove('open'));$('dataSourcesModal')?.addEventListener('click',e=>{if(e.target.id==='dataSourcesModal')e.currentTarget.classList.remove('open')});
-$('dataSourcesBtn')?.addEventListener('click',()=>{refreshProviderDiagnostics();$('dataSourcesModal')?.classList.add('open');});$('dataSourcesClose')?.addEventListener('click',()=>$('dataSourcesModal')?.classList.remove('open'));$('dataSourcesModal')?.addEventListener('click',e=>{if(e.target.id==='dataSourcesModal')e.currentTarget.classList.remove('open')});
 </script>
 
 <style id="v4081-header-hit-target-fix">
@@ -2121,18 +2212,10 @@ $('dataSourcesBtn')?.addEventListener('click',()=>{refreshProviderDiagnostics();
 }
 </style>
 
-<style id="v4081-header-hit-target-fix">
-/* Keep the sticky header from covering the market panel's interactive controls. */
-.top{z-index:20;isolation:isolate}
-#indices{position:relative;z-index:1;scroll-margin-top:calc(84px + env(safe-area-inset-top))}
-#indices .market-head{position:relative;z-index:1}
-#indices .market-refresh{position:relative;z-index:1}
-@media(min-width:761px){.top{min-height:72px}}
-</style>
 
 
 <style id="psi-easy-first-screen">
-/* V42.05: simple first-run experience; advanced modules remain available on demand. */
+/* V43.00: simple first-run experience; advanced modules remain available on demand. */
 body.psi-easy-mode .indices{display:none!important}
 body.psi-easy-mode .top{height:auto!important;min-height:68px!important;flex-wrap:wrap!important;gap:8px!important;padding:10px 14px!important}
 body.psi-easy-mode .brand{width:auto!important;flex:1 1 100%!important;font-size:19px!important}
@@ -2150,7 +2233,10 @@ body.psi-easy-mode .cname{font-size:18px!important;overflow-wrap:anywhere}
 body.psi-easy-mode .miniMetrics,body.psi-easy-mode .actions,body.psi-easy-mode .tabs{display:none!important}
 body.psi-easy-mode .pricebig{font-size:27px!important}
 body.psi-easy-mode #providerStatus{font-size:12px!important;line-height:1.45}
-body.psi-easy-mode .researchRibbon,body.psi-easy-mode .aiCommand,body.psi-easy-mode .querySection,body.psi-easy-mode .intelHub,body.psi-easy-mode .lower{display:none!important}\n/* Keep the requested fundamentals matrix visible in the default/simple view. */\nbody.psi-easy-mode .factor{display:block!important}\nbody.psi-easy-mode .detailsgrid{display:grid!important}
+body.psi-easy-mode .researchRibbon,body.psi-easy-mode .aiCommand,body.psi-easy-mode .querySection,body.psi-easy-mode .intelHub,body.psi-easy-mode .lower{display:none!important}
+/* Keep the requested fundamentals matrix visible in the default/simple view. */
+body.psi-easy-mode .factor{display:block!important}
+body.psi-easy-mode .detailsgrid{display:grid!important}
 body.psi-easy-mode .summarySectionLabel{margin-top:12px}
 body.psi-easy-mode .summarygrid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important;margin-top:8px!important}
 body.psi-easy-mode .summarycard{min-height:110px!important;padding:11px!important}
@@ -2203,4 +2289,137 @@ body.psi-easy-mode .psiEasyTools small{color:#60788e;line-height:1.4}
 .metricTile.missingValue{background:#fbfcfd;border-style:dashed}.metricTile.missingValue strong{font-size:13px;color:#8a98a6}
 @media(max-width:900px){.metricGrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:600px){.metricMatrix{padding:10px}.metricMatrixHead{display:block}.metricMatrixHead>span{display:inline-block;margin-top:7px}.metricGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.metricTile{padding:8px}.metricTile strong{font-size:15px}}
+</style>
+
+<script id="psi-v42-06-runtime-recovery">
+(function(){
+  function reportRuntimeFailure(message){
+    const status=document.getElementById('providerStatus');
+    if(status) status.textContent='Dashboard error: '+String(message||'Unknown JavaScript failure').slice(0,240);
+  }
+  window.addEventListener('unhandledrejection',function(event){
+    const reason=event&&event.reason;
+    reportRuntimeFailure(reason&&reason.message?reason.message:reason||'Unhandled asynchronous error');
+  });
+  function startDefaultAnalysis(){
+    const search=document.getElementById('search');
+    const analyze=document.getElementById('analyze');
+    if(!search||!analyze){setTimeout(startDefaultAnalysis,250);return;}
+    if(window.__PSI_AUTO_ANALYSIS_STARTED)return;
+    window.__PSI_AUTO_ANALYSIS_STARTED=true;
+    if(!search.value.trim())search.value='INFY';
+    setTimeout(function(){analyze.click();},350);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',startDefaultAnalysis,{once:true});
+  else startDefaultAnalysis();
+})();
+</script>
+
+<style id="psi-v42-06-professional-compact-ui">
+:root{--psi-navy:#102a56;--psi-blue:#2563eb;--psi-cyan:#0891b2;--psi-violet:#7c3aed;--psi-green:#059669;--psi-amber:#d97706;--psi-red:#dc2626}
+body{background:radial-gradient(ellipse at 8% 0%,rgba(37,99,235,.10),transparent 34%),radial-gradient(ellipse at 95% 8%,rgba(8,145,178,.09),transparent 30%),#f3f7fc!important;color:#142b45}
+.stocktop{background:linear-gradient(120deg,#102a56 0%,#164e8b 55%,#087e9b 100%)!important;color:#fff!important;border:1px solid #244d7b!important;box-shadow:0 14px 32px rgba(16,42,86,.22)!important}
+.stocktop .cname,.stocktop .pricebig,.stocktop .change,.stocktop .quoteMeta,.stocktop .links{color:#fff!important}
+.stocktop .miniMetrics .mm{background:rgba(255,255,255,.12)!important;border:1px solid rgba(255,255,255,.18)!important;color:#eaf5ff!important}
+.stocktop .miniMetrics .mm strong{color:#fff!important}
+.appNav{background:linear-gradient(100deg,#102a56,#173e70 55%,#164e63)!important;border:1px solid #294e78!important;box-shadow:0 8px 22px rgba(16,42,86,.18)!important}
+.appNav .tab{background:rgba(255,255,255,.08)!important;border-color:rgba(255,255,255,.16)!important;color:#e6f3ff!important}
+.appNav .tab.active{background:linear-gradient(120deg,#2563eb,#0891b2)!important;border-color:transparent!important;color:#fff!important;box-shadow:0 4px 14px rgba(8,145,178,.28)!important}
+.researchRibbon,.aiCommand,.summarycard,.factor,.querySection,.intelHub,.detailsgrid .detailcard{border-radius:16px!important;box-shadow:0 8px 24px rgba(26,57,91,.08)!important}
+.researchRibbon{border:1px solid #d4e4f4!important;background:linear-gradient(135deg,#fff,#f0f7ff)!important}
+.researchMetric{border-radius:12px!important;border:1px solid #d9e8f6!important;background:#fff!important}
+.researchMetric:nth-child(1){border-top:3px solid #2563eb!important}.researchMetric:nth-child(2){border-top:3px solid #0891b2!important}.researchMetric:nth-child(3){border-top:3px solid #7c3aed!important}.researchMetric:nth-child(4){border-top:3px solid #059669!important}
+.aiCommand{border:1px solid #d5e3f2!important;overflow:hidden}
+.aiCommandHead{background:linear-gradient(110deg,#102a56,#1d4d83 60%,#087e9b)!important;color:#fff!important}
+.aiCommandHead b,.aiCommandHead small,.aiCommandHead span{color:#fff!important}
+.summarycard{border:1px solid #dce7f2!important;position:relative;overflow:hidden}
+.summarycard:not(.score):before{content:"";position:absolute;left:0;top:0;right:0;height:4px;background:linear-gradient(90deg,#2563eb,#06b6d4,#8b5cf6)}
+.summarycard.score{background:linear-gradient(125deg,#174ea6,#087e9b)!important}
+.factor{border:1px solid #dce7f2!important;background:linear-gradient(135deg,#fff,#f7fbff)!important}
+.factorhead{color:#16385e!important}
+.psi-ai-more-btn,.psi-factor-more-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:42px;margin:10px 0 14px;border:1px solid #c6d9ed;border-radius:11px;background:linear-gradient(100deg,#edf6ff,#eefcff);color:#15539a;font-weight:850;font-size:12px;cursor:pointer}
+.psi-ai-more-btn:hover,.psi-factor-more-btn:hover{background:linear-gradient(100deg,#dcecff,#d9f7fb)}
+.aiCommandBody.psi-ai-compact .aiScenario,.aiCommandBody.psi-ai-compact .aiBars,.aiCommandBody.psi-ai-compact .aiDataStrip,.aiCommandBody.psi-ai-compact .aiInsightGrid,.aiCommandBody.psi-ai-compact .aiCommandFoot{display:none!important}
+.factor.psi-factor-compact .factorgrid{display:none!important}
+.sourcehint{border-radius:10px!important}
+@media(max-width:760px){
+ .stocktop{padding:14px!important;border-radius:14px!important}
+ .stocktop .miniMetrics{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .appNav{top:0!important;border-radius:0 0 12px 12px!important;margin-left:-2px;margin-right:-2px}
+ .researchMetrics{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .aiCommandBody{padding:12px!important}
+ .summarygrid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .summarycard{min-height:unset!important;padding:12px!important}
+ .tvtoolbar-pro{flex-wrap:wrap!important}
+}
+</style>
+<script id="psi-v42-06-compact-controls">
+(function(){
+ function addCompactControls(){
+  const body=document.querySelector('#aiResearchCommandCenter .aiCommandBody');
+  const executive=body&&body.querySelector('.aiExecutive');
+  if(body&&executive&&!document.getElementById('psiAiMoreBtn')){
+   body.classList.add('psi-ai-compact');
+   const b=document.createElement('button');b.type='button';b.id='psiAiMoreBtn';b.className='psi-ai-more-btn';b.textContent='＋ Show detailed AI research';b.setAttribute('aria-expanded','false');
+   b.addEventListener('click',function(){const expanded=body.classList.toggle('psi-ai-compact')===false;b.textContent=expanded?'− Hide detailed AI research':'＋ Show detailed AI research';b.setAttribute('aria-expanded',String(expanded));});
+   executive.insertAdjacentElement('afterend',b);
+  }
+  const factor=document.querySelector('.factor'),grid=factor&&factor.querySelector('.factorgrid'),head=factor&&factor.querySelector('.factorhead');
+  if(factor&&grid&&head&&!document.getElementById('psiFactorMoreBtn')){
+   factor.classList.add('psi-factor-compact');
+   const b=document.createElement('button');b.type='button';b.id='psiFactorMoreBtn';b.className='psi-factor-more-btn';b.textContent='＋ View factor-by-factor scorecard';b.setAttribute('aria-expanded','false');
+   b.addEventListener('click',function(){const expanded=factor.classList.toggle('psi-factor-compact')===false;b.textContent=expanded?'− Hide factor details':'＋ View factor-by-factor scorecard';b.setAttribute('aria-expanded',String(expanded));});
+   head.insertAdjacentElement('afterend',b);
+  }
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',addCompactControls,{once:true});else addCompactControls();
+})();
+</script>
+
+
+<style id="psi-v42-10-light-smooth-ui">
+:root{--bg:#f7faff;--card:#fff;--line:#e1eaf2;--text:#18324b;--muted:#718398;--shadow:0 5px 18px rgba(24,55,84,.055)}
+body{background:#f6f9fc!important;color:#18324b!important}
+.top{background:#fff!important;color:#18324b!important;border-bottom:1px solid #e5edf4!important;box-shadow:0 3px 14px rgba(26,55,82,.06)!important}
+.brand,.brandText div{color:#18324b!important}.brand span{color:#1677e8!important}
+.top .taglive{background:#eef6ff!important;color:#24639b!important;border-color:#d5e7f7!important}
+.top .clock,.top .live{color:#4d6b86!important}
+.searchwrap input{background:#fff!important;border:1px solid #cbd9e6!important;border-radius:11px!important;box-shadow:0 1px 2px rgba(20,50,80,.03)}
+.top .btn{background:#f3f7fb!important;color:#31516d!important;border:1px solid #d9e4ed!important}
+.top .btn.primary{background:#1677e8!important;color:#fff!important;border-color:#1677e8!important}
+.indices{background:#f6f9fc!important}
+.icard,.stock,.summarycard,.factor,.querySection,.intelHub,.chartcard,.sidecard,.table,.researchRibbon,.aiCommand,.detailsgrid .detailcard{border:1px solid #e1eaf2!important;box-shadow:0 5px 18px rgba(24,55,84,.055)!important}
+.stocktop{background:#fff!important;color:#18324b!important;border:1px solid #e1eaf2!important;box-shadow:0 5px 18px rgba(24,55,84,.055)!important}
+.stocktop .cname,.stocktop .pricebig,.stocktop .change,.stocktop .quoteMeta,.stocktop .links{color:#18324b!important}
+.stocktop .miniMetrics .mm{background:#f7faff!important;border:1px solid #e5edf4!important;color:#36536d!important}
+.stocktop .miniMetrics .mm strong{color:#18324b!important}
+.appNav{background:#fff!important;border:1px solid #e1eaf2!important;box-shadow:0 3px 12px rgba(24,55,84,.05)!important}
+.appNav .tab{background:#f5f8fc!important;color:#45627c!important;border:1px solid #e1eaf2!important}
+.appNav .tab.active{background:#eaf3ff!important;color:#1264b4!important;border-color:#b9d7f4!important;box-shadow:none!important}
+.querySection{background:#fff!important;border-radius:14px!important;padding:16px!important}
+.querySectionHead{border-bottom:1px solid #edf2f6;padding-bottom:10px}
+.querySectionHead h3{color:#183b5a!important;font-size:18px!important}
+.querySection .queryGrid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important}
+.querySection .qcard{background:#fff!important;border:1px solid #e2eaf2!important;border-left:4px solid #2c84df!important;border-radius:12px!important;box-shadow:0 2px 8px rgba(24,55,84,.035)!important;padding:14px!important;transition:box-shadow .18s ease,transform .18s ease}
+.querySection .qcard:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(24,55,84,.08)!important}
+.querySection .qname{color:#183b5a!important;font-size:14px!important}
+.querySection .qdesc,.querySection .qfocus{font-size:11px!important;line-height:1.45}
+.querySection .qfocus{background:#f4f8fc!important;color:#49647d!important}
+.querySection .qbtn{border-radius:8px!important;padding:7px 10px!important}
+.querySection .qbtn.run{background:#1677e8!important;border-color:#1677e8!important}
+#chartTechnicalSection{grid-template-columns:minmax(0,1.8fr) minmax(270px,.8fr)!important;gap:14px!important}
+.tvwork{background:#fff!important;border:1px solid #e1eaf2!important;border-radius:14px!important;box-shadow:0 5px 18px rgba(24,55,84,.055)!important;overflow:hidden}
+.tvwork .tvtoolbar{background:#f7faff!important;border-bottom:1px solid #e5edf4!important;color:#34536d!important}
+.tvwork .tvmini{background:#fff!important;color:#45627c!important;border:1px solid #dce6ef!important;border-radius:8px!important}
+.tvwork .tvmini.active{background:#eaf3ff!important;color:#1264b4!important;border-color:#b9d7f4!important}
+.tvwork .tvhead{background:#fff!important;color:#183b5a!important;border-bottom:1px solid #edf2f6!important}
+.tvwork .tvtitle,.tvwork .tvsubtitle,.tvwork .tvlegend{color:#49647d!important}
+.tvwork .tvpane{background:#fbfdff!important}
+.tvwork .tvfooter{background:#f7faff!important;color:#6b8195!important;border-top:1px solid #edf2f6!important}
+.tvwork .tvlegend .dot.price{background:#1677e8!important}
+.charttip{background:#183b5a!important}
+.techlevels{background:#fff!important;border:1px solid #e1eaf2!important;border-radius:14px!important}
+.range button{background:#fff!important;color:#45627c!important;border-color:#dce6ef!important;border-radius:8px!important}
+.range button.active{background:#eaf3ff!important;color:#1264b4!important;border-color:#b9d7f4!important}
+@media(max-width:900px){.querySection .queryGrid{grid-template-columns:1fr!important}#chartTechnicalSection{grid-template-columns:1fr!important}.tvwork .tvpane.pricepane{height:390px!important}}
 </style>

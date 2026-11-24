@@ -35,6 +35,18 @@ class LiveDataReleaseGateTests(unittest.TestCase):
         self.assertIn("DELAYED", self.provider_contract)
         self.assertIn("EOD", self.provider_contract)
 
+    def test_nse_mcp_quote_has_enough_time_to_complete_streamable_http_handshake(self):
+        # MCP quote uses initialize + initialized notification + tools/call.
+        # The old 11-second shared deadline cancelled this sequence and returned blank prices.
+        self.assertIn("TimeUnit.SECONDS.toNanos(48)", self.main_activity)
+        self.assertIn("connection.connectTimeout = 5000", self.main_activity)
+        self.assertIn("connection.readTimeout = 10000", self.main_activity)
+
+    def test_dashboard_analysis_timeout_exceeds_native_mcp_budget(self):
+        html = (ROOT / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        self.assertIn("'/api/analyze':53000", html)
+        self.assertIn("&mode=consolidated',53000)", html)
+
     def test_empty_events_are_not_proof_of_no_events(self):
         self.assertIn("Empty events means", self.provider_contract)
         self.assertIn("never treated as proof of no events", self.provider_contract)
