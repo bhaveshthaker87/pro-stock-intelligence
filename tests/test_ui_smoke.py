@@ -558,5 +558,20 @@ class DashboardUISmokeTests(unittest.TestCase):
         self.assertIn('put("marketDataStatus", "EOD")', source)
         self.assertIn("NSE official EOD bhavcopy", source)
 
+
+    def test_v4310_extended_fundamentals_easy_navigation_and_chart_resize(self):
+        root = Path(__file__).parents[1]
+        html = (root / "app/src/main/assets/index.html").read_text(encoding="utf-8")
+        for metric in ["Balance Sheet & Liquidity", "Debt to Equity", "Current Ratio",
+                       "Interest Coverage", "Net Profit", "EPS Growth 3Y", "Profit Variance 3Y"]:
+            with self.subTest(metric=metric):
+                self.assertIn(metric, html)
+        self.assertIn('id="v43-10-easy-scroll-chart"', html)
+        self.assertIn('id="v43-10-easy-scroll-runtime"', html)
+        self.assertIn('["Fundamentals","financialsDetail"]', html)
+        self.assertIn('["Chart","chartTechnicalSection"]', html)
+        self.assertIn('window.addEventListener("resize",redrawCharts', html)
+        self.assertEqual((root / "index.html").read_text(encoding="utf-8"), html)
+
 if __name__ == "__main__":
     unittest.main()
