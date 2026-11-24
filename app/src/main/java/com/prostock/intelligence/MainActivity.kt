@@ -2153,27 +2153,89 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
         .replace("&gt;", ">").replace("&quot;", "\"").replace("&#39;", "'").replace(Regex("\\s+"), " ").trim()
 
     private fun runScreenerQuery(query: String): JSONObject {
-        if (!screenerSessionIsValidated()) { val access = screenerConnectionTest(); if (!access.optBoolean("validated")) throw IOException(access.optString("message", "Screener session is not validated. Sign in through the official Screener page and run Check access before starting scans.")) }
-        val url = "https://www.screener.in/screen/raw/?query=" + URLEncoder.encode(query, "UTF-8")
-        val html = get(url)
-        val table = Regex("(?is)<table[^>]*>(.*?)</table>").find(html)?.groupValues?.get(1)
-            ?: throw IOException("Screener returned no results table. Confirm login and try again.")
-        val rowsHtml = Regex("(?is)<tr[^>]*>(.*?)</tr>").findAll(table).map { it.groupValues[1] }.toList()
+        if (!screenerSessionIsValidated()) {
+            val access = screenerConnectionTest()
+            if (!access.optBoolean("validated")) throw IOException(access.optString("message", "Screener session is not validated. Sign in through the official Screener page and run Check access before starting scans."))
+        }
+        val firstUrl = "https://www.screener.in/screen/raw/?query=" + URLEncoder.encode(query, "UTF-8")
+        var pageUrl: String? = firstUrl
+        val visited = mutableSetOf<String>()
         val columns = JSONArray()
         val resultRows = JSONArray()
-        var count = 0
-        rowsHtml.forEachIndexed { index, rowHtml ->
-            val cells = Regex("(?is)<t[hd][^>]*>(.*?)</t[hd]>").findAll(rowHtml).map { htmlEntities(cleanText(it.groupValues[1])) }.toList()
-            if (cells.isEmpty()) return@forEachIndexed
-            if (index == 0 && Regex("(?is)<th").containsMatchIn(rowHtml)) { cells.forEach { columns.put(it) }; return@forEachIndexed }
-            if (columns.length() == 0) return@forEachIndexed
-            val obj = JSONObject()
-            cells.forEachIndexed { i, cell -> if (i < columns.length()) obj.put(columns.getString(i), cell) }
-            if (obj.length() > 0) { count++; if (!obj.has("S.No.")) obj.put("S.No.", count); resultRows.put(obj) }
+        var pagesFetched = 0
+        var expectedTotal: Int? = null
+        var nextPageKnown = false
+        val maxPages = 20
+        while (pageUrl != null && pagesFetched < maxPages) {
+            val currentUrl = pageUrl
+            if (!visited.add(currentUrl)) {
+                nextPageKnown = true
+                break
+            }
+            val html = get(currentUrl)
+            val table = Regex("(?is)<table[^>]*>(.*?)</table>").find(html)?.groupValues?.get(1)
+                ?: throw IOException("Screener returned no results table on page ${pagesFetched + 1}. Confirm login and try again.")
+            val rowsHtml = Regex("(?is)<tr[^>]*>(.*?)</tr>").findAll(table).map { it.groupValues[1] }.toList()
+            rowsHtml.forEachIndexed { index, rowHtml ->
+                val cells = Regex("(?is)<t[hd][^>]*>(.*?)</t[hd]>").findAll(rowHtml)
+                    .map { htmlEntities(cleanText(it.groupValues[1])) }.toList()
+                if (cells.isEmpty()) return@forEachIndexed
+                if (columns.length() == 0 && Regex("(?is)<th").containsMatchIn(rowHtml)) {
+                    cells.forEach { columns.put(it) }
+                    return@forEachIndexed
+                }
+                if (columns.length() == 0) return@forEachIndexed
+                val obj = JSONObject()
+                cells.forEachIndexed { i, cell -> if (i < columns.length()) obj.put(columns.getString(i), cell) }
+                if (obj.length() > 0) {
+                    obj.put("S.No.", resultRows.length() + 1)
+                    resultRows.put(obj)
+                }
+            }
+            pagesFetched++
+            val visibleText = htmlEntities(cleanText(html))
+            val totalMatch = Regex("(?i)(?:showing\\s+)?[0-9,]+\\s*(?:to|-|–)\\s*[0-9,]+\\s+of\\s+([0-9,]+)").find(visibleText)
+            totalMatch?.groupValues?.getOrNull(1)?.replace(",", "")?.toIntOrNull()?.let { expectedTotal = it }
+
+            val nextAnchor = Regex("(?is)<a\\b([^>]*)>(.*?)</a>").findAll(html).firstOrNull { match ->
+                val attributes = Regex("(?i)([a-z-]+)\\s*=\\s*[\"']([^\"']*)[\"']")
+                    .findAll(match.groupValues[1]).associate { it.groupValues[1].lowercase(Locale.ROOT) to it.groupValues[2] }
+                val rel = attributes["rel"].orEmpty().lowercase(Locale.ROOT).split(Regex("\\s+"))
+                val css = attributes["class"].orEmpty().lowercase(Locale.ROOT)
+                val aria = attributes["aria-label"].orEmpty().lowercase(Locale.ROOT)
+                rel.contains("next") || css.split(Regex("\\s+")).any { it == "next" } ||
+                    aria.contains("next") || cleanText(match.groupValues[2]).equals("next", true)
+            }
+            val href = nextAnchor?.let { match ->
+                Regex("(?i)href\\s*=\\s*[\"']([^\"']+)[\"']")
+                    .find(match.groupValues[1])?.groupValues?.getOrNull(1)
+            }
+            if (href.isNullOrBlank()) {
+                pageUrl = null
+            } else {
+                val resolved = try { java.net.URL(currentUrl, href).toString() } catch (_: Exception) { "" }
+                if (!resolved.startsWith("https://www.screener.in/screen/raw/")) {
+                    nextPageKnown = true
+                    pageUrl = null
+                } else {
+                    pageUrl = resolved
+                    nextPageKnown = true
+                }
+            }
         }
-        return JSONObject().put("columns", columns).put("rows", resultRows).put("count", count)
-            .put("provider", "Screener.in authenticated session").put("pagesFetched", 1).put("allResultsLoaded", false)
-            .put("statusText", "Parsed first available Screener results table; pagination may be partial.")
+        val pageLimitReached = pageUrl != null && pagesFetched >= maxPages
+        val complete = expectedTotal != null && resultRows.length() >= (expectedTotal ?: Int.MAX_VALUE) && !pageLimitReached
+        val statusText = when {
+            complete -> "Loaded all ${resultRows.length()} Screener results across $pagesFetched page(s)."
+            pageLimitReached -> "Loaded ${resultRows.length()} rows across the $maxPages-page safety limit; more results may exist."
+            expectedTotal != null -> "Loaded ${resultRows.length()} of $expectedTotal reported Screener results; result set is partial."
+            nextPageKnown -> "Loaded ${resultRows.length()} rows; additional Screener pages may exist and completeness is not verified."
+            else -> "Loaded ${resultRows.length()} rows; Screener did not expose a verifiable total, so completeness is not claimed."
+        }
+        return JSONObject().put("columns", columns).put("rows", resultRows).put("count", resultRows.length())
+            .put("provider", "Screener.in authenticated session").put("pagesFetched", pagesFetched)
+            .put("totalResults", expectedTotal ?: JSONObject.NULL).put("allResultsLoaded", complete)
+            .put("statusText", statusText).put("marketDataStatus", if (complete) "VERIFIED" else "PARTIAL")
     }
 
     private fun technicalScan(kind: String): JSONObject {
