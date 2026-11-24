@@ -2215,8 +2215,8 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
                 val cells = Regex("(?is)<t[hd][^>]*>(.*?)</t[hd]>").findAll(rowHtml)
                     .map { htmlEntities(cleanText(it.groupValues[1])) }.toList()
                 if (cells.isEmpty()) return@forEachIndexed
-                if (columns.length() == 0 && Regex("(?is)<th").containsMatchIn(rowHtml)) {
-                    cells.forEach { columns.put(it) }
+                if (Regex("(?is)<th").containsMatchIn(rowHtml)) {
+                    if (columns.length() == 0) cells.forEach { columns.put(it) }
                     return@forEachIndexed
                 }
                 if (columns.length() == 0) return@forEachIndexed
