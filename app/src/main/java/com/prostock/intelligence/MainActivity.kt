@@ -2202,7 +2202,7 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
         var nextPageKnown = false
         val maxPages = 20
         while (pageUrl != null && pagesFetched < maxPages) {
-            val currentUrl = pageUrl
+            val currentUrl = pageUrl ?: break
             if (!visited.add(currentUrl)) {
                 nextPageKnown = true
                 break
@@ -2248,7 +2248,7 @@ private class NativeProvider(private val appAssets: AssetManager, private val ap
             if (href.isNullOrBlank()) {
                 pageUrl = null
             } else {
-                val resolved = try { java.net.URL(currentUrl, href).toString() } catch (_: Exception) { "" }
+                val resolved = try { java.net.URL(java.net.URL(currentUrl), href).toString() } catch (_: Exception) { "" }
                 if (!resolved.startsWith("https://www.screener.in/screen/raw/")) {
                     nextPageKnown = true
                     pageUrl = null
