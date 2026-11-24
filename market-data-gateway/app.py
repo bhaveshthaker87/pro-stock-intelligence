@@ -121,7 +121,7 @@ def android_history(symbol: str = Query(...), range: str = Query("1y")) -> dict[
     symbol = _symbol(symbol)
     from datetime import timedelta
     ist_today = datetime.now(ZoneInfo("Asia/Kolkata")).date()
-    supported_ranges = {"1d": 1, "1w": 7, "1mo": 31, "3mo": 93, "6mo": 186, "1y": 366, "3y": 1098, "5y": 1830}
+    supported_ranges = {"1d": 7, "1w": 7, "1mo": 31, "3mo": 93, "6mo": 186, "1y": 366, "3y": 1098, "5y": 1830}
     if range == "ytd":
         start_dt = ist_today.replace(month=1, day=1)
     elif range == "all":
@@ -149,8 +149,12 @@ def android_history(symbol: str = Query(...), range: str = Query("1y")) -> dict[
         except (ValueError, TypeError):
             continue
     rows.sort(key=lambda item: item["time"])
-    if len(rows) < 2:
-        raise HTTPException(status_code=503, detail="NSE historical endpoint returned fewer than two valid daily candles.")
+    # The 1D selection is one latest daily EOD candle, not intraday history.
+    if range == "1d" and rows:
+        rows = rows[-1:]
+    minimum_rows = 1 if range == "1d" else 2
+    if len(rows) < minimum_rows:
+        raise HTTPException(status_code=503, detail=f"NSE historical endpoint returned fewer than {minimum_rows} valid daily EOD candle(s) for range {range}.")
     return {"ok": True, "data": {"symbol": symbol, "source": "NSE public website (unofficial endpoint)", "asOf": datetime.now(timezone.utc).isoformat(), "interval": "1d", "rangeRequested": range, "rangeStart": start_dt.isoformat(), "rangeEnd": end_dt.isoformat(), "rows": rows, "live_data_verified": False}}
 
 
