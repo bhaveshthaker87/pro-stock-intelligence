@@ -1,7 +1,6 @@
 """V43.00 regression tests for preserving built-in Screener query definitions."""
 
 import json
-import re
 import unittest
 from pathlib import Path
 
