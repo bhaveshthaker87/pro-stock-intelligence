@@ -1,7 +1,7 @@
 {
   "source": "NSE CM-UDiFF Common Bhavcopy Final",
   "marketDataStatus": "EOD",
-  "updatedAt": "2026-11-26T23:15:23.681301+00:00",
+  "updatedAt": "2026-11-27T22:54:35.290378+00:00",
   "tradingDates": [
     {
       "tradingDate": "2025-10-20",
@@ -165,7 +165,7 @@
     },
     {
       "tradingDate": "2025-11-13",
-      "fetchedAt": "2026-11-26T23:15:23.314860+00:00",
+      "fetchedAt": "2026-11-27T22:54:35.290378+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251113_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -175,7 +175,7 @@
     },
     {
       "tradingDate": "2025-11-14",
-      "fetchedAt": "2026-11-26T23:15:22.926440+00:00",
+      "fetchedAt": "2026-11-27T22:54:34.766594+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251114_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -185,7 +185,7 @@
     },
     {
       "tradingDate": "2025-11-17",
-      "fetchedAt": "2026-11-26T23:15:22.512531+00:00",
+      "fetchedAt": "2026-11-27T22:54:34.280062+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251117_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -195,7 +195,7 @@
     },
     {
       "tradingDate": "2025-11-18",
-      "fetchedAt": "2026-11-26T23:15:22.151754+00:00",
+      "fetchedAt": "2026-11-27T22:54:33.728885+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251118_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -205,7 +205,7 @@
     },
     {
       "tradingDate": "2025-11-19",
-      "fetchedAt": "2026-11-26T23:15:21.797516+00:00",
+      "fetchedAt": "2026-11-27T22:54:33.199917+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251119_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -215,7 +215,7 @@
     },
     {
       "tradingDate": "2025-11-20",
-      "fetchedAt": "2026-11-26T23:15:21.442190+00:00",
+      "fetchedAt": "2026-11-27T22:54:32.609066+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251120_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -225,7 +225,7 @@
     },
     {
       "tradingDate": "2025-11-21",
-      "fetchedAt": "2026-11-26T23:15:21.066078+00:00",
+      "fetchedAt": "2026-11-27T22:54:31.973510+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251121_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -235,7 +235,7 @@
     },
     {
       "tradingDate": "2025-11-24",
-      "fetchedAt": "2026-11-26T23:15:20.724375+00:00",
+      "fetchedAt": "2026-11-27T22:54:31.426505+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251124_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -245,7 +245,7 @@
     },
     {
       "tradingDate": "2025-11-25",
-      "fetchedAt": "2026-11-26T23:15:20.352178+00:00",
+      "fetchedAt": "2026-11-27T22:54:30.902549+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251125_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -255,7 +255,7 @@
     },
     {
       "tradingDate": "2025-11-26",
-      "fetchedAt": "2026-11-26T23:15:19.970209+00:00",
+      "fetchedAt": "2026-11-27T22:54:30.355214+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251126_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -265,7 +265,7 @@
     },
     {
       "tradingDate": "2025-11-27",
-      "fetchedAt": "2026-11-26T23:15:19.574183+00:00",
+      "fetchedAt": "2026-11-27T22:54:29.777417+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251127_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -275,7 +275,7 @@
     },
     {
       "tradingDate": "2025-11-28",
-      "fetchedAt": "2026-11-26T23:15:19.195152+00:00",
+      "fetchedAt": "2026-11-27T22:54:29.277815+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251128_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -285,7 +285,7 @@
     },
     {
       "tradingDate": "2025-12-01",
-      "fetchedAt": "2026-11-26T23:15:18.849270+00:00",
+      "fetchedAt": "2026-11-27T22:54:28.779468+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251201_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -295,7 +295,7 @@
     },
     {
       "tradingDate": "2025-12-02",
-      "fetchedAt": "2026-11-26T23:15:18.514550+00:00",
+      "fetchedAt": "2026-11-27T22:54:28.270592+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251202_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -305,7 +305,7 @@
     },
     {
       "tradingDate": "2025-12-03",
-      "fetchedAt": "2026-11-26T23:15:18.005303+00:00",
+      "fetchedAt": "2026-11-27T22:54:27.757739+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251203_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -315,7 +315,7 @@
     },
     {
       "tradingDate": "2025-12-04",
-      "fetchedAt": "2026-11-26T23:15:17.588343+00:00",
+      "fetchedAt": "2026-11-27T22:54:27.204895+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251204_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -325,7 +325,7 @@
     },
     {
       "tradingDate": "2025-12-05",
-      "fetchedAt": "2026-11-26T23:15:17.203747+00:00",
+      "fetchedAt": "2026-11-27T22:54:26.668084+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251205_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -335,7 +335,7 @@
     },
     {
       "tradingDate": "2025-12-08",
-      "fetchedAt": "2026-11-26T23:15:16.808465+00:00",
+      "fetchedAt": "2026-11-27T22:54:26.116641+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251208_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -345,7 +345,7 @@
     },
     {
       "tradingDate": "2025-12-09",
-      "fetchedAt": "2026-11-26T23:15:16.281415+00:00",
+      "fetchedAt": "2026-11-27T22:54:25.619729+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251209_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -355,7 +355,7 @@
     },
     {
       "tradingDate": "2025-12-10",
-      "fetchedAt": "2026-11-26T23:15:15.870157+00:00",
+      "fetchedAt": "2026-11-27T22:54:25.108106+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251210_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -365,7 +365,7 @@
     },
     {
       "tradingDate": "2025-12-11",
-      "fetchedAt": "2026-11-26T23:15:15.269736+00:00",
+      "fetchedAt": "2026-11-27T22:54:24.579049+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251211_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -375,7 +375,7 @@
     },
     {
       "tradingDate": "2025-12-12",
-      "fetchedAt": "2026-11-26T23:15:14.755432+00:00",
+      "fetchedAt": "2026-11-27T22:54:23.973137+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251212_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -385,7 +385,7 @@
     },
     {
       "tradingDate": "2025-12-15",
-      "fetchedAt": "2026-11-26T23:15:14.286908+00:00",
+      "fetchedAt": "2026-11-27T22:54:23.425730+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251215_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -395,7 +395,7 @@
     },
     {
       "tradingDate": "2025-12-16",
-      "fetchedAt": "2026-11-26T23:15:13.782758+00:00",
+      "fetchedAt": "2026-11-27T22:54:22.921634+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251216_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -405,7 +405,7 @@
     },
     {
       "tradingDate": "2025-12-17",
-      "fetchedAt": "2026-11-26T23:15:13.251365+00:00",
+      "fetchedAt": "2026-11-27T22:54:22.415163+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251217_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -415,7 +415,7 @@
     },
     {
       "tradingDate": "2025-12-18",
-      "fetchedAt": "2026-11-26T23:15:12.327578+00:00",
+      "fetchedAt": "2026-11-27T22:54:21.938345+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251218_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -425,7 +425,7 @@
     },
     {
       "tradingDate": "2025-12-19",
-      "fetchedAt": "2026-11-26T23:15:11.887372+00:00",
+      "fetchedAt": "2026-11-27T22:54:21.467251+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251219_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -435,7 +435,7 @@
     },
     {
       "tradingDate": "2025-12-22",
-      "fetchedAt": "2026-11-26T23:15:11.455752+00:00",
+      "fetchedAt": "2026-11-27T22:54:20.992055+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251222_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -445,7 +445,7 @@
     },
     {
       "tradingDate": "2025-12-23",
-      "fetchedAt": "2026-11-26T23:15:11.030460+00:00",
+      "fetchedAt": "2026-11-27T22:54:20.458638+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251223_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -455,7 +455,7 @@
     },
     {
       "tradingDate": "2025-12-24",
-      "fetchedAt": "2026-11-26T23:15:10.462393+00:00",
+      "fetchedAt": "2026-11-27T22:54:19.965078+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251224_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -465,7 +465,7 @@
     },
     {
       "tradingDate": "2025-12-26",
-      "fetchedAt": "2026-11-26T23:15:09.612677+00:00",
+      "fetchedAt": "2026-11-27T22:54:18.885442+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251226_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -475,7 +475,7 @@
     },
     {
       "tradingDate": "2025-12-29",
-      "fetchedAt": "2026-11-26T23:15:09.108214+00:00",
+      "fetchedAt": "2026-11-27T22:54:18.386181+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251229_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -485,7 +485,7 @@
     },
     {
       "tradingDate": "2025-12-30",
-      "fetchedAt": "2026-11-26T23:15:08.694416+00:00",
+      "fetchedAt": "2026-11-27T22:54:17.900673+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251230_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -495,7 +495,7 @@
     },
     {
       "tradingDate": "2025-12-31",
-      "fetchedAt": "2026-11-26T23:15:08.246322+00:00",
+      "fetchedAt": "2026-11-27T22:54:17.388580+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20251231_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -505,7 +505,7 @@
     },
     {
       "tradingDate": "2026-01-01",
-      "fetchedAt": "2026-11-26T23:15:07.724303+00:00",
+      "fetchedAt": "2026-11-27T22:54:16.896778+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260101_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -515,7 +515,7 @@
     },
     {
       "tradingDate": "2026-01-02",
-      "fetchedAt": "2026-11-26T23:15:07.306339+00:00",
+      "fetchedAt": "2026-11-27T22:54:16.381974+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260102_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -525,7 +525,7 @@
     },
     {
       "tradingDate": "2026-01-05",
-      "fetchedAt": "2026-11-26T23:15:06.879246+00:00",
+      "fetchedAt": "2026-11-27T22:54:15.876455+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260105_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -535,7 +535,7 @@
     },
     {
       "tradingDate": "2026-01-06",
-      "fetchedAt": "2026-11-26T23:15:06.387047+00:00",
+      "fetchedAt": "2026-11-27T22:54:15.347957+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260106_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -545,7 +545,7 @@
     },
     {
       "tradingDate": "2026-01-07",
-      "fetchedAt": "2026-11-26T23:15:05.868420+00:00",
+      "fetchedAt": "2026-11-27T22:54:14.835290+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260107_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -555,7 +555,7 @@
     },
     {
       "tradingDate": "2026-01-08",
-      "fetchedAt": "2026-11-26T23:15:05.464368+00:00",
+      "fetchedAt": "2026-11-27T22:54:14.328848+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260108_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -565,7 +565,7 @@
     },
     {
       "tradingDate": "2026-01-09",
-      "fetchedAt": "2026-11-26T23:15:05.048995+00:00",
+      "fetchedAt": "2026-11-27T22:54:13.747963+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260109_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -575,7 +575,7 @@
     },
     {
       "tradingDate": "2026-01-12",
-      "fetchedAt": "2026-11-26T23:15:04.636383+00:00",
+      "fetchedAt": "2026-11-27T22:54:12.986839+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260112_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -585,7 +585,7 @@
     },
     {
       "tradingDate": "2026-01-13",
-      "fetchedAt": "2026-11-26T23:15:04.191121+00:00",
+      "fetchedAt": "2026-11-27T22:54:12.496357+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260113_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -595,7 +595,7 @@
     },
     {
       "tradingDate": "2026-01-14",
-      "fetchedAt": "2026-11-26T23:15:03.776904+00:00",
+      "fetchedAt": "2026-11-27T22:54:12.031911+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260114_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -605,7 +605,7 @@
     },
     {
       "tradingDate": "2026-01-16",
-      "fetchedAt": "2026-11-26T23:15:02.956003+00:00",
+      "fetchedAt": "2026-11-27T22:54:11.081051+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260116_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -615,7 +615,7 @@
     },
     {
       "tradingDate": "2026-01-19",
-      "fetchedAt": "2026-11-26T23:15:02.502716+00:00",
+      "fetchedAt": "2026-11-27T22:54:10.514982+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260119_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -625,7 +625,7 @@
     },
     {
       "tradingDate": "2026-01-20",
-      "fetchedAt": "2026-11-26T23:15:02.000113+00:00",
+      "fetchedAt": "2026-11-27T22:54:09.835970+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260120_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -635,7 +635,7 @@
     },
     {
       "tradingDate": "2026-01-21",
-      "fetchedAt": "2026-11-26T23:15:01.606449+00:00",
+      "fetchedAt": "2026-11-27T22:54:09.261660+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260121_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -645,7 +645,7 @@
     },
     {
       "tradingDate": "2026-01-22",
-      "fetchedAt": "2026-11-26T23:15:01.102096+00:00",
+      "fetchedAt": "2026-11-27T22:54:08.594768+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260122_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -655,7 +655,7 @@
     },
     {
       "tradingDate": "2026-01-23",
-      "fetchedAt": "2026-11-26T23:15:00.707967+00:00",
+      "fetchedAt": "2026-11-27T22:54:08.071165+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260123_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -665,7 +665,7 @@
     },
     {
       "tradingDate": "2026-01-27",
-      "fetchedAt": "2026-11-26T23:14:59.964204+00:00",
+      "fetchedAt": "2026-11-27T22:54:07.165019+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260127_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -675,7 +675,7 @@
     },
     {
       "tradingDate": "2026-01-28",
-      "fetchedAt": "2026-11-26T23:14:59.477243+00:00",
+      "fetchedAt": "2026-11-27T22:54:06.619160+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260128_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -685,7 +685,7 @@
     },
     {
       "tradingDate": "2026-01-29",
-      "fetchedAt": "2026-11-26T23:14:59.013336+00:00",
+      "fetchedAt": "2026-11-27T22:54:06.134826+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260129_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -695,7 +695,7 @@
     },
     {
       "tradingDate": "2026-01-30",
-      "fetchedAt": "2026-11-26T23:14:58.624565+00:00",
+      "fetchedAt": "2026-11-27T22:54:05.566957+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260130_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -705,7 +705,7 @@
     },
     {
       "tradingDate": "2026-02-02",
-      "fetchedAt": "2026-11-26T23:14:58.178288+00:00",
+      "fetchedAt": "2026-11-27T22:54:05.034429+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260202_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -715,7 +715,7 @@
     },
     {
       "tradingDate": "2026-02-03",
-      "fetchedAt": "2026-11-26T23:14:57.614164+00:00",
+      "fetchedAt": "2026-11-27T22:54:04.553302+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260203_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -725,7 +725,7 @@
     },
     {
       "tradingDate": "2026-02-04",
-      "fetchedAt": "2026-11-26T23:14:57.191856+00:00",
+      "fetchedAt": "2026-11-27T22:54:04.076387+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260204_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -735,7 +735,7 @@
     },
     {
       "tradingDate": "2026-02-05",
-      "fetchedAt": "2026-11-26T23:14:56.779117+00:00",
+      "fetchedAt": "2026-11-27T22:54:03.526158+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260205_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -745,7 +745,7 @@
     },
     {
       "tradingDate": "2026-02-06",
-      "fetchedAt": "2026-11-26T23:14:56.327448+00:00",
+      "fetchedAt": "2026-11-27T22:54:03.040432+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260206_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -755,7 +755,7 @@
     },
     {
       "tradingDate": "2026-02-09",
-      "fetchedAt": "2026-11-26T23:14:55.926119+00:00",
+      "fetchedAt": "2026-11-27T22:54:02.504969+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260209_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -765,7 +765,7 @@
     },
     {
       "tradingDate": "2026-02-10",
-      "fetchedAt": "2026-11-26T23:14:55.454828+00:00",
+      "fetchedAt": "2026-11-27T22:54:01.979744+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260210_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -775,7 +775,7 @@
     },
     {
       "tradingDate": "2026-02-11",
-      "fetchedAt": "2026-11-26T23:14:55.052323+00:00",
+      "fetchedAt": "2026-11-27T22:54:01.404715+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260211_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -785,7 +785,7 @@
     },
     {
       "tradingDate": "2026-02-12",
-      "fetchedAt": "2026-11-26T23:14:54.643562+00:00",
+      "fetchedAt": "2026-11-27T22:54:00.895189+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260212_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -795,7 +795,7 @@
     },
     {
       "tradingDate": "2026-02-13",
-      "fetchedAt": "2026-11-26T23:14:54.059357+00:00",
+      "fetchedAt": "2026-11-27T22:54:00.298052+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260213_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -805,7 +805,7 @@
     },
     {
       "tradingDate": "2026-02-16",
-      "fetchedAt": "2026-11-26T23:14:53.580616+00:00",
+      "fetchedAt": "2026-11-27T22:53:59.509060+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260216_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -815,7 +815,7 @@
     },
     {
       "tradingDate": "2026-02-17",
-      "fetchedAt": "2026-11-26T23:14:53.192008+00:00",
+      "fetchedAt": "2026-11-27T22:53:58.973475+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260217_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -825,7 +825,7 @@
     },
     {
       "tradingDate": "2026-02-18",
-      "fetchedAt": "2026-11-26T23:14:52.731204+00:00",
+      "fetchedAt": "2026-11-27T22:53:58.493564+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260218_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -835,7 +835,7 @@
     },
     {
       "tradingDate": "2026-02-19",
-      "fetchedAt": "2026-11-26T23:14:52.326532+00:00",
+      "fetchedAt": "2026-11-27T22:53:57.859932+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260219_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -845,7 +845,7 @@
     },
     {
       "tradingDate": "2026-02-20",
-      "fetchedAt": "2026-11-26T23:14:51.898719+00:00",
+      "fetchedAt": "2026-11-27T22:53:57.313478+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260220_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -855,7 +855,7 @@
     },
     {
       "tradingDate": "2026-02-23",
-      "fetchedAt": "2026-11-26T23:14:51.438454+00:00",
+      "fetchedAt": "2026-11-27T22:53:56.839847+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260223_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -865,7 +865,7 @@
     },
     {
       "tradingDate": "2026-02-24",
-      "fetchedAt": "2026-11-26T23:14:51.002186+00:00",
+      "fetchedAt": "2026-11-27T22:53:56.340091+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260224_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -875,7 +875,7 @@
     },
     {
       "tradingDate": "2026-02-25",
-      "fetchedAt": "2026-11-26T23:14:50.566381+00:00",
+      "fetchedAt": "2026-11-27T22:53:55.842176+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260225_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -885,7 +885,7 @@
     },
     {
       "tradingDate": "2026-02-26",
-      "fetchedAt": "2026-11-26T23:14:50.102646+00:00",
+      "fetchedAt": "2026-11-27T22:53:55.304929+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260226_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -895,7 +895,7 @@
     },
     {
       "tradingDate": "2026-02-27",
-      "fetchedAt": "2026-11-26T23:14:49.705388+00:00",
+      "fetchedAt": "2026-11-27T22:53:54.703050+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260227_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -905,7 +905,7 @@
     },
     {
       "tradingDate": "2026-03-02",
-      "fetchedAt": "2026-11-26T23:14:49.255988+00:00",
+      "fetchedAt": "2026-11-27T22:53:54.207322+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260302_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -915,7 +915,7 @@
     },
     {
       "tradingDate": "2026-03-04",
-      "fetchedAt": "2026-11-26T23:14:48.563757+00:00",
+      "fetchedAt": "2026-11-27T22:53:53.040913+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260304_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -925,7 +925,7 @@
     },
     {
       "tradingDate": "2026-03-05",
-      "fetchedAt": "2026-11-26T23:14:48.168936+00:00",
+      "fetchedAt": "2026-11-27T22:53:52.459240+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260305_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -935,7 +935,7 @@
     },
     {
       "tradingDate": "2026-03-06",
-      "fetchedAt": "2026-11-26T23:14:47.770482+00:00",
+      "fetchedAt": "2026-11-27T22:53:51.991906+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260306_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -945,7 +945,7 @@
     },
     {
       "tradingDate": "2026-03-09",
-      "fetchedAt": "2026-11-26T23:14:47.377688+00:00",
+      "fetchedAt": "2026-11-27T22:53:51.491128+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260309_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -955,7 +955,7 @@
     },
     {
       "tradingDate": "2026-03-10",
-      "fetchedAt": "2026-11-26T23:14:46.917083+00:00",
+      "fetchedAt": "2026-11-27T22:53:50.986250+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260310_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -965,7 +965,7 @@
     },
     {
       "tradingDate": "2026-03-11",
-      "fetchedAt": "2026-11-26T23:14:46.540067+00:00",
+      "fetchedAt": "2026-11-27T22:53:50.448081+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260311_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -975,7 +975,7 @@
     },
     {
       "tradingDate": "2026-03-12",
-      "fetchedAt": "2026-11-26T23:14:46.155376+00:00",
+      "fetchedAt": "2026-11-27T22:53:49.920656+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260312_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -985,7 +985,7 @@
     },
     {
       "tradingDate": "2026-03-13",
-      "fetchedAt": "2026-11-26T23:14:45.737479+00:00",
+      "fetchedAt": "2026-11-27T22:53:49.462841+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260313_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -995,7 +995,7 @@
     },
     {
       "tradingDate": "2026-03-16",
-      "fetchedAt": "2026-11-26T23:14:45.333406+00:00",
+      "fetchedAt": "2026-11-27T22:53:48.956144+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260316_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1005,7 +1005,7 @@
     },
     {
       "tradingDate": "2026-03-17",
-      "fetchedAt": "2026-11-26T23:14:44.904379+00:00",
+      "fetchedAt": "2026-11-27T22:53:48.454008+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260317_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1015,7 +1015,7 @@
     },
     {
       "tradingDate": "2026-03-18",
-      "fetchedAt": "2026-11-26T23:14:44.453323+00:00",
+      "fetchedAt": "2026-11-27T22:53:47.939086+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260318_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1025,7 +1025,7 @@
     },
     {
       "tradingDate": "2026-03-19",
-      "fetchedAt": "2026-11-26T23:14:43.978568+00:00",
+      "fetchedAt": "2026-11-27T22:53:47.434939+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260319_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1035,7 +1035,7 @@
     },
     {
       "tradingDate": "2026-03-20",
-      "fetchedAt": "2026-11-26T23:14:43.521268+00:00",
+      "fetchedAt": "2026-11-27T22:53:46.947833+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260320_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1045,7 +1045,7 @@
     },
     {
       "tradingDate": "2026-03-23",
-      "fetchedAt": "2026-11-26T23:14:43.093089+00:00",
+      "fetchedAt": "2026-11-27T22:53:46.444726+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260323_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1055,7 +1055,7 @@
     },
     {
       "tradingDate": "2026-03-24",
-      "fetchedAt": "2026-11-26T23:14:42.689167+00:00",
+      "fetchedAt": "2026-11-27T22:53:45.982447+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260324_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1065,7 +1065,7 @@
     },
     {
       "tradingDate": "2026-03-25",
-      "fetchedAt": "2026-11-26T23:14:42.306278+00:00",
+      "fetchedAt": "2026-11-27T22:53:45.490945+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260325_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1075,7 +1075,7 @@
     },
     {
       "tradingDate": "2026-03-27",
-      "fetchedAt": "2026-11-26T23:14:41.559161+00:00",
+      "fetchedAt": "2026-11-27T22:53:44.659237+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260327_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1085,7 +1085,7 @@
     },
     {
       "tradingDate": "2026-03-30",
-      "fetchedAt": "2026-11-26T23:14:41.116363+00:00",
+      "fetchedAt": "2026-11-27T22:53:44.174971+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260330_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1095,7 +1095,7 @@
     },
     {
       "tradingDate": "2026-04-01",
-      "fetchedAt": "2026-11-26T23:14:40.422690+00:00",
+      "fetchedAt": "2026-11-27T22:53:43.310866+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260401_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1105,7 +1105,7 @@
     },
     {
       "tradingDate": "2026-04-02",
-      "fetchedAt": "2026-11-26T23:14:39.964199+00:00",
+      "fetchedAt": "2026-11-27T22:53:42.808967+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260402_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1115,7 +1115,7 @@
     },
     {
       "tradingDate": "2026-04-06",
-      "fetchedAt": "2026-11-26T23:14:39.220230+00:00",
+      "fetchedAt": "2026-11-27T22:53:41.923185+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260406_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1125,7 +1125,7 @@
     },
     {
       "tradingDate": "2026-04-07",
-      "fetchedAt": "2026-11-26T23:14:38.812519+00:00",
+      "fetchedAt": "2026-11-27T22:53:41.392894+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260407_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1135,7 +1135,7 @@
     },
     {
       "tradingDate": "2026-04-08",
-      "fetchedAt": "2026-11-26T23:14:38.381512+00:00",
+      "fetchedAt": "2026-11-27T22:53:40.894626+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260408_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1145,7 +1145,7 @@
     },
     {
       "tradingDate": "2026-04-09",
-      "fetchedAt": "2026-11-26T23:14:37.933100+00:00",
+      "fetchedAt": "2026-11-27T22:53:40.414594+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260409_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1155,7 +1155,7 @@
     },
     {
       "tradingDate": "2026-04-10",
-      "fetchedAt": "2026-11-26T23:14:37.494186+00:00",
+      "fetchedAt": "2026-11-27T22:53:39.906672+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260410_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1165,7 +1165,7 @@
     },
     {
       "tradingDate": "2026-04-13",
-      "fetchedAt": "2026-11-26T23:14:37.110147+00:00",
+      "fetchedAt": "2026-11-27T22:53:39.440223+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260413_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1175,7 +1175,7 @@
     },
     {
       "tradingDate": "2026-04-15",
-      "fetchedAt": "2026-11-26T23:14:36.334998+00:00",
+      "fetchedAt": "2026-11-27T22:53:38.590920+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260415_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1185,7 +1185,7 @@
     },
     {
       "tradingDate": "2026-04-16",
-      "fetchedAt": "2026-11-26T23:14:35.925764+00:00",
+      "fetchedAt": "2026-11-27T22:53:38.064108+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260416_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1195,7 +1195,7 @@
     },
     {
       "tradingDate": "2026-04-17",
-      "fetchedAt": "2026-11-26T23:14:35.548831+00:00",
+      "fetchedAt": "2026-11-27T22:53:37.536311+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260417_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1205,7 +1205,7 @@
     },
     {
       "tradingDate": "2026-04-20",
-      "fetchedAt": "2026-11-26T23:14:35.129627+00:00",
+      "fetchedAt": "2026-11-27T22:53:37.045450+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260420_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1215,7 +1215,7 @@
     },
     {
       "tradingDate": "2026-04-21",
-      "fetchedAt": "2026-11-26T23:14:34.728073+00:00",
+      "fetchedAt": "2026-11-27T22:53:36.518185+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260421_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1225,7 +1225,7 @@
     },
     {
       "tradingDate": "2026-04-22",
-      "fetchedAt": "2026-11-26T23:14:34.284414+00:00",
+      "fetchedAt": "2026-11-27T22:53:36.009821+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260422_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1235,7 +1235,7 @@
     },
     {
       "tradingDate": "2026-04-23",
-      "fetchedAt": "2026-11-26T23:14:33.901389+00:00",
+      "fetchedAt": "2026-11-27T22:53:35.484100+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260423_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1245,7 +1245,7 @@
     },
     {
       "tradingDate": "2026-04-24",
-      "fetchedAt": "2026-11-26T23:14:33.483064+00:00",
+      "fetchedAt": "2026-11-27T22:53:34.962819+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260424_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1255,7 +1255,7 @@
     },
     {
       "tradingDate": "2026-04-27",
-      "fetchedAt": "2026-11-26T23:14:33.071963+00:00",
+      "fetchedAt": "2026-11-27T22:53:34.474880+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260427_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1265,7 +1265,7 @@
     },
     {
       "tradingDate": "2026-04-28",
-      "fetchedAt": "2026-11-26T23:14:32.686398+00:00",
+      "fetchedAt": "2026-11-27T22:53:33.911215+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260428_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1275,7 +1275,7 @@
     },
     {
       "tradingDate": "2026-04-29",
-      "fetchedAt": "2026-11-26T23:14:32.284461+00:00",
+      "fetchedAt": "2026-11-27T22:53:33.380820+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260429_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1285,7 +1285,7 @@
     },
     {
       "tradingDate": "2026-04-30",
-      "fetchedAt": "2026-11-26T23:14:31.866812+00:00",
+      "fetchedAt": "2026-11-27T22:53:32.874949+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260430_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1295,7 +1295,7 @@
     },
     {
       "tradingDate": "2026-05-04",
-      "fetchedAt": "2026-11-26T23:14:31.092660+00:00",
+      "fetchedAt": "2026-11-27T22:53:31.870537+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260504_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1305,7 +1305,7 @@
     },
     {
       "tradingDate": "2026-05-05",
-      "fetchedAt": "2026-11-26T23:14:30.695474+00:00",
+      "fetchedAt": "2026-11-27T22:53:31.281360+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260505_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1315,7 +1315,7 @@
     },
     {
       "tradingDate": "2026-05-06",
-      "fetchedAt": "2026-11-26T23:14:30.282592+00:00",
+      "fetchedAt": "2026-11-27T22:53:30.765920+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260506_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1325,7 +1325,7 @@
     },
     {
       "tradingDate": "2026-05-07",
-      "fetchedAt": "2026-11-26T23:14:29.851552+00:00",
+      "fetchedAt": "2026-11-27T22:53:30.155949+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260507_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1335,7 +1335,7 @@
     },
     {
       "tradingDate": "2026-05-08",
-      "fetchedAt": "2026-11-26T23:14:29.426443+00:00",
+      "fetchedAt": "2026-11-27T22:53:29.496460+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260508_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1345,7 +1345,7 @@
     },
     {
       "tradingDate": "2026-05-11",
-      "fetchedAt": "2026-11-26T23:14:28.955423+00:00",
+      "fetchedAt": "2026-11-27T22:53:28.947582+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260511_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1355,7 +1355,7 @@
     },
     {
       "tradingDate": "2026-05-12",
-      "fetchedAt": "2026-11-26T23:14:28.544512+00:00",
+      "fetchedAt": "2026-11-27T22:53:28.333292+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260512_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1365,7 +1365,7 @@
     },
     {
       "tradingDate": "2026-05-13",
-      "fetchedAt": "2026-11-26T23:14:28.108268+00:00",
+      "fetchedAt": "2026-11-27T22:53:27.604906+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260513_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1375,7 +1375,7 @@
     },
     {
       "tradingDate": "2026-05-14",
-      "fetchedAt": "2026-11-26T23:14:27.703918+00:00",
+      "fetchedAt": "2026-11-27T22:53:27.022892+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260514_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1385,7 +1385,7 @@
     },
     {
       "tradingDate": "2026-05-15",
-      "fetchedAt": "2026-11-26T23:14:27.272051+00:00",
+      "fetchedAt": "2026-11-27T22:53:26.514947+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260515_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1395,7 +1395,7 @@
     },
     {
       "tradingDate": "2026-05-18",
-      "fetchedAt": "2026-11-26T23:14:26.875044+00:00",
+      "fetchedAt": "2026-11-27T22:53:25.969315+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260518_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1405,7 +1405,7 @@
     },
     {
       "tradingDate": "2026-05-19",
-      "fetchedAt": "2026-11-26T23:14:26.475486+00:00",
+      "fetchedAt": "2026-11-27T22:53:25.441728+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260519_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1415,7 +1415,7 @@
     },
     {
       "tradingDate": "2026-05-20",
-      "fetchedAt": "2026-11-26T23:14:26.087973+00:00",
+      "fetchedAt": "2026-11-27T22:53:24.896227+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260520_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1425,7 +1425,7 @@
     },
     {
       "tradingDate": "2026-05-21",
-      "fetchedAt": "2026-11-26T23:14:25.633444+00:00",
+      "fetchedAt": "2026-11-27T22:53:24.307778+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260521_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1435,7 +1435,7 @@
     },
     {
       "tradingDate": "2026-05-22",
-      "fetchedAt": "2026-11-26T23:14:25.224315+00:00",
+      "fetchedAt": "2026-11-27T22:53:23.715311+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260522_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1445,7 +1445,7 @@
     },
     {
       "tradingDate": "2026-05-25",
-      "fetchedAt": "2026-11-26T23:14:24.817005+00:00",
+      "fetchedAt": "2026-11-27T22:53:23.176526+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260525_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1455,7 +1455,7 @@
     },
     {
       "tradingDate": "2026-05-26",
-      "fetchedAt": "2026-11-26T23:14:24.342864+00:00",
+      "fetchedAt": "2026-11-27T22:53:22.650398+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260526_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1465,7 +1465,7 @@
     },
     {
       "tradingDate": "2026-05-27",
-      "fetchedAt": "2026-11-26T23:14:23.917652+00:00",
+      "fetchedAt": "2026-11-27T22:53:22.008429+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260527_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1475,7 +1475,7 @@
     },
     {
       "tradingDate": "2026-05-29",
-      "fetchedAt": "2026-11-26T23:14:23.108338+00:00",
+      "fetchedAt": "2026-11-27T22:53:20.943911+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260529_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1485,7 +1485,7 @@
     },
     {
       "tradingDate": "2026-06-01",
-      "fetchedAt": "2026-11-26T23:14:22.650411+00:00",
+      "fetchedAt": "2026-11-27T22:53:20.354860+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260601_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1495,7 +1495,7 @@
     },
     {
       "tradingDate": "2026-06-02",
-      "fetchedAt": "2026-11-26T23:14:22.235562+00:00",
+      "fetchedAt": "2026-11-27T22:53:19.833545+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260602_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1505,7 +1505,7 @@
     },
     {
       "tradingDate": "2026-06-03",
-      "fetchedAt": "2026-11-26T23:14:21.817267+00:00",
+      "fetchedAt": "2026-11-27T22:53:19.257692+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260603_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1515,7 +1515,7 @@
     },
     {
       "tradingDate": "2026-06-04",
-      "fetchedAt": "2026-11-26T23:14:21.401275+00:00",
+      "fetchedAt": "2026-11-27T22:53:18.671866+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260604_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1525,7 +1525,7 @@
     },
     {
       "tradingDate": "2026-06-05",
-      "fetchedAt": "2026-11-26T23:14:21.011919+00:00",
+      "fetchedAt": "2026-11-27T22:53:18.125515+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260605_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1535,7 +1535,7 @@
     },
     {
       "tradingDate": "2026-06-08",
-      "fetchedAt": "2026-11-26T23:14:20.579155+00:00",
+      "fetchedAt": "2026-11-27T22:53:17.639473+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260608_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1545,7 +1545,7 @@
     },
     {
       "tradingDate": "2026-06-09",
-      "fetchedAt": "2026-11-26T23:14:20.153789+00:00",
+      "fetchedAt": "2026-11-27T22:53:17.098663+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260609_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1555,7 +1555,7 @@
     },
     {
       "tradingDate": "2026-06-10",
-      "fetchedAt": "2026-11-26T23:14:19.678500+00:00",
+      "fetchedAt": "2026-11-27T22:53:16.553050+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260610_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1565,7 +1565,7 @@
     },
     {
       "tradingDate": "2026-06-11",
-      "fetchedAt": "2026-11-26T23:14:19.230967+00:00",
+      "fetchedAt": "2026-11-27T22:53:15.976474+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260611_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1575,7 +1575,7 @@
     },
     {
       "tradingDate": "2026-06-12",
-      "fetchedAt": "2026-11-26T23:14:18.830254+00:00",
+      "fetchedAt": "2026-11-27T22:53:15.403830+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260612_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1585,7 +1585,7 @@
     },
     {
       "tradingDate": "2026-06-15",
-      "fetchedAt": "2026-11-26T23:14:18.445074+00:00",
+      "fetchedAt": "2026-11-27T22:53:14.693662+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260615_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1595,7 +1595,7 @@
     },
     {
       "tradingDate": "2026-06-16",
-      "fetchedAt": "2026-11-26T23:14:18.029936+00:00",
+      "fetchedAt": "2026-11-27T22:53:14.081376+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260616_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1605,7 +1605,7 @@
     },
     {
       "tradingDate": "2026-06-17",
-      "fetchedAt": "2026-11-26T23:14:17.623820+00:00",
+      "fetchedAt": "2026-11-27T22:53:13.560244+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260617_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1615,7 +1615,7 @@
     },
     {
       "tradingDate": "2026-06-18",
-      "fetchedAt": "2026-11-26T23:14:17.195931+00:00",
+      "fetchedAt": "2026-11-27T22:53:12.960971+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260618_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1625,7 +1625,7 @@
     },
     {
       "tradingDate": "2026-06-19",
-      "fetchedAt": "2026-11-26T23:14:16.801860+00:00",
+      "fetchedAt": "2026-11-27T22:53:12.461970+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260619_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1635,7 +1635,7 @@
     },
     {
       "tradingDate": "2026-06-22",
-      "fetchedAt": "2026-11-26T23:14:16.408970+00:00",
+      "fetchedAt": "2026-11-27T22:53:11.843707+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260622_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1645,7 +1645,7 @@
     },
     {
       "tradingDate": "2026-06-23",
-      "fetchedAt": "2026-11-26T23:14:16.022673+00:00",
+      "fetchedAt": "2026-11-27T22:53:11.342734+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260623_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1655,7 +1655,7 @@
     },
     {
       "tradingDate": "2026-06-24",
-      "fetchedAt": "2026-11-26T23:14:15.615838+00:00",
+      "fetchedAt": "2026-11-27T22:53:10.823386+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260624_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1665,7 +1665,7 @@
     },
     {
       "tradingDate": "2026-06-25",
-      "fetchedAt": "2026-11-26T23:14:15.177382+00:00",
+      "fetchedAt": "2026-11-27T22:53:10.317242+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260625_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1675,7 +1675,7 @@
     },
     {
       "tradingDate": "2026-06-29",
-      "fetchedAt": "2026-11-26T23:14:14.341772+00:00",
+      "fetchedAt": "2026-11-27T22:53:09.449468+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260629_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1685,7 +1685,7 @@
     },
     {
       "tradingDate": "2026-06-30",
-      "fetchedAt": "2026-11-26T23:14:13.887585+00:00",
+      "fetchedAt": "2026-11-27T22:53:08.955383+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260630_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1695,7 +1695,7 @@
     },
     {
       "tradingDate": "2026-07-01",
-      "fetchedAt": "2026-11-26T23:14:13.494324+00:00",
+      "fetchedAt": "2026-11-27T22:53:08.422027+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260701_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1705,7 +1705,7 @@
     },
     {
       "tradingDate": "2026-07-02",
-      "fetchedAt": "2026-11-26T23:14:13.045935+00:00",
+      "fetchedAt": "2026-11-27T22:53:07.941652+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260702_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1715,7 +1715,7 @@
     },
     {
       "tradingDate": "2026-07-03",
-      "fetchedAt": "2026-11-26T23:14:12.628098+00:00",
+      "fetchedAt": "2026-11-27T22:53:07.428196+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260703_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1725,7 +1725,7 @@
     },
     {
       "tradingDate": "2026-07-06",
-      "fetchedAt": "2026-11-26T23:14:12.216458+00:00",
+      "fetchedAt": "2026-11-27T22:53:06.905965+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260706_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1735,7 +1735,7 @@
     },
     {
       "tradingDate": "2026-07-07",
-      "fetchedAt": "2026-11-26T23:14:11.755621+00:00",
+      "fetchedAt": "2026-11-27T22:53:06.384972+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260707_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1745,7 +1745,7 @@
     },
     {
       "tradingDate": "2026-07-08",
-      "fetchedAt": "2026-11-26T23:14:11.332773+00:00",
+      "fetchedAt": "2026-11-27T22:53:05.852514+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260708_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1755,7 +1755,7 @@
     },
     {
       "tradingDate": "2026-07-09",
-      "fetchedAt": "2026-11-26T23:14:10.912087+00:00",
+      "fetchedAt": "2026-11-27T22:53:05.343937+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260709_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1765,7 +1765,7 @@
     },
     {
       "tradingDate": "2026-07-10",
-      "fetchedAt": "2026-11-26T23:14:10.507169+00:00",
+      "fetchedAt": "2026-11-27T22:53:04.843286+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260710_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1775,7 +1775,7 @@
     },
     {
       "tradingDate": "2026-07-13",
-      "fetchedAt": "2026-11-26T23:14:10.026719+00:00",
+      "fetchedAt": "2026-11-27T22:53:04.310607+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260713_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1785,7 +1785,7 @@
     },
     {
       "tradingDate": "2026-07-14",
-      "fetchedAt": "2026-11-26T23:14:09.613609+00:00",
+      "fetchedAt": "2026-11-27T22:53:03.827726+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260714_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1795,7 +1795,7 @@
     },
     {
       "tradingDate": "2026-07-15",
-      "fetchedAt": "2026-11-26T23:14:09.227108+00:00",
+      "fetchedAt": "2026-11-27T22:53:03.341030+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260715_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1805,7 +1805,7 @@
     },
     {
       "tradingDate": "2026-07-16",
-      "fetchedAt": "2026-11-26T23:14:08.822684+00:00",
+      "fetchedAt": "2026-11-27T22:53:02.846845+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260716_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1815,7 +1815,7 @@
     },
     {
       "tradingDate": "2026-07-17",
-      "fetchedAt": "2026-11-26T23:14:08.393700+00:00",
+      "fetchedAt": "2026-11-27T22:53:02.330872+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260717_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1825,7 +1825,7 @@
     },
     {
       "tradingDate": "2026-07-20",
-      "fetchedAt": "2026-11-26T23:14:07.987447+00:00",
+      "fetchedAt": "2026-11-27T22:53:01.806313+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260720_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1835,7 +1835,7 @@
     },
     {
       "tradingDate": "2026-07-21",
-      "fetchedAt": "2026-11-26T23:14:07.576961+00:00",
+      "fetchedAt": "2026-11-27T22:53:01.253555+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260721_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1845,7 +1845,7 @@
     },
     {
       "tradingDate": "2026-07-22",
-      "fetchedAt": "2026-11-26T23:14:07.110394+00:00",
+      "fetchedAt": "2026-11-27T22:53:00.686047+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260722_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1855,7 +1855,7 @@
     },
     {
       "tradingDate": "2026-07-23",
-      "fetchedAt": "2026-11-26T23:14:06.708782+00:00",
+      "fetchedAt": "2026-11-27T22:53:00.176701+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260723_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1865,7 +1865,7 @@
     },
     {
       "tradingDate": "2026-07-24",
-      "fetchedAt": "2026-11-26T23:14:06.303643+00:00",
+      "fetchedAt": "2026-11-27T22:52:59.638540+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260724_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1875,7 +1875,7 @@
     },
     {
       "tradingDate": "2026-07-27",
-      "fetchedAt": "2026-11-26T23:14:05.907159+00:00",
+      "fetchedAt": "2026-11-27T22:52:59.124061+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260727_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1885,7 +1885,7 @@
     },
     {
       "tradingDate": "2026-07-28",
-      "fetchedAt": "2026-11-26T23:14:05.498930+00:00",
+      "fetchedAt": "2026-11-27T22:52:58.589947+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260728_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1895,7 +1895,7 @@
     },
     {
       "tradingDate": "2026-07-29",
-      "fetchedAt": "2026-11-26T23:14:05.085756+00:00",
+      "fetchedAt": "2026-11-27T22:52:58.062660+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260729_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1905,7 +1905,7 @@
     },
     {
       "tradingDate": "2026-07-30",
-      "fetchedAt": "2026-11-26T23:14:04.667350+00:00",
+      "fetchedAt": "2026-11-27T22:52:57.572877+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260730_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1915,7 +1915,7 @@
     },
     {
       "tradingDate": "2026-07-31",
-      "fetchedAt": "2026-11-26T23:14:04.189406+00:00",
+      "fetchedAt": "2026-11-27T22:52:57.045566+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260731_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1925,7 +1925,7 @@
     },
     {
       "tradingDate": "2026-08-03",
-      "fetchedAt": "2026-11-26T23:14:03.711704+00:00",
+      "fetchedAt": "2026-11-27T22:52:56.390191+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260803_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1935,7 +1935,7 @@
     },
     {
       "tradingDate": "2026-08-04",
-      "fetchedAt": "2026-11-26T23:14:03.291719+00:00",
+      "fetchedAt": "2026-11-27T22:52:55.876968+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260804_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1945,7 +1945,7 @@
     },
     {
       "tradingDate": "2026-08-05",
-      "fetchedAt": "2026-11-26T23:14:02.886130+00:00",
+      "fetchedAt": "2026-11-27T22:52:55.378525+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260805_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1955,7 +1955,7 @@
     },
     {
       "tradingDate": "2026-08-06",
-      "fetchedAt": "2026-11-26T23:14:02.484160+00:00",
+      "fetchedAt": "2026-11-27T22:52:54.894194+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260806_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1965,7 +1965,7 @@
     },
     {
       "tradingDate": "2026-08-07",
-      "fetchedAt": "2026-11-26T23:14:02.076725+00:00",
+      "fetchedAt": "2026-11-27T22:52:54.388494+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260807_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1975,7 +1975,7 @@
     },
     {
       "tradingDate": "2026-08-10",
-      "fetchedAt": "2026-11-26T23:14:01.671065+00:00",
+      "fetchedAt": "2026-11-27T22:52:53.880990+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260810_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1985,7 +1985,7 @@
     },
     {
       "tradingDate": "2026-08-11",
-      "fetchedAt": "2026-11-26T23:14:01.249298+00:00",
+      "fetchedAt": "2026-11-27T22:52:53.352381+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260811_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -1995,7 +1995,7 @@
     },
     {
       "tradingDate": "2026-08-12",
-      "fetchedAt": "2026-11-26T23:14:00.854712+00:00",
+      "fetchedAt": "2026-11-27T22:52:52.863333+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260812_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2005,7 +2005,7 @@
     },
     {
       "tradingDate": "2026-08-13",
-      "fetchedAt": "2026-11-26T23:14:00.459107+00:00",
+      "fetchedAt": "2026-11-27T22:52:52.341466+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260813_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2015,7 +2015,7 @@
     },
     {
       "tradingDate": "2026-08-14",
-      "fetchedAt": "2026-11-26T23:14:00.012157+00:00",
+      "fetchedAt": "2026-11-27T22:52:51.792173+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260814_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2025,7 +2025,7 @@
     },
     {
       "tradingDate": "2026-08-17",
-      "fetchedAt": "2026-11-26T23:13:59.614082+00:00",
+      "fetchedAt": "2026-11-27T22:52:51.246406+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260817_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2035,7 +2035,7 @@
     },
     {
       "tradingDate": "2026-08-18",
-      "fetchedAt": "2026-11-26T23:13:59.211235+00:00",
+      "fetchedAt": "2026-11-27T22:52:50.694211+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260818_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2045,7 +2045,7 @@
     },
     {
       "tradingDate": "2026-08-19",
-      "fetchedAt": "2026-11-26T23:13:58.768457+00:00",
+      "fetchedAt": "2026-11-27T22:52:50.022693+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260819_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2055,7 +2055,7 @@
     },
     {
       "tradingDate": "2026-08-20",
-      "fetchedAt": "2026-11-26T23:13:58.365959+00:00",
+      "fetchedAt": "2026-11-27T22:52:49.472126+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260820_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2065,7 +2065,7 @@
     },
     {
       "tradingDate": "2026-08-21",
-      "fetchedAt": "2026-11-26T23:13:57.880328+00:00",
+      "fetchedAt": "2026-11-27T22:52:48.954921+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260821_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2075,7 +2075,7 @@
     },
     {
       "tradingDate": "2026-08-24",
-      "fetchedAt": "2026-11-26T23:13:57.433699+00:00",
+      "fetchedAt": "2026-11-27T22:52:48.128654+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260824_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2085,7 +2085,7 @@
     },
     {
       "tradingDate": "2026-08-25",
-      "fetchedAt": "2026-11-26T23:13:56.992950+00:00",
+      "fetchedAt": "2026-11-27T22:52:47.516195+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260825_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2095,7 +2095,7 @@
     },
     {
       "tradingDate": "2026-08-26",
-      "fetchedAt": "2026-11-26T23:13:56.575516+00:00",
+      "fetchedAt": "2026-11-27T22:52:46.942140+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260826_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2105,7 +2105,7 @@
     },
     {
       "tradingDate": "2026-08-27",
-      "fetchedAt": "2026-11-26T23:13:56.145791+00:00",
+      "fetchedAt": "2026-11-27T22:52:46.383959+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260827_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2115,7 +2115,7 @@
     },
     {
       "tradingDate": "2026-08-28",
-      "fetchedAt": "2026-11-26T23:13:55.752571+00:00",
+      "fetchedAt": "2026-11-27T22:52:45.817283+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260828_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2125,7 +2125,7 @@
     },
     {
       "tradingDate": "2026-08-31",
-      "fetchedAt": "2026-11-26T23:13:55.331728+00:00",
+      "fetchedAt": "2026-11-27T22:52:45.191979+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260831_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2135,7 +2135,7 @@
     },
     {
       "tradingDate": "2026-09-01",
-      "fetchedAt": "2026-11-26T23:13:54.912310+00:00",
+      "fetchedAt": "2026-11-27T22:52:44.557969+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260901_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2145,7 +2145,7 @@
     },
     {
       "tradingDate": "2026-09-02",
-      "fetchedAt": "2026-11-26T23:13:54.514760+00:00",
+      "fetchedAt": "2026-11-27T22:52:43.990960+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260902_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2155,7 +2155,7 @@
     },
     {
       "tradingDate": "2026-09-03",
-      "fetchedAt": "2026-11-26T23:13:54.119217+00:00",
+      "fetchedAt": "2026-11-27T22:52:43.456142+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260903_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2165,7 +2165,7 @@
     },
     {
       "tradingDate": "2026-09-04",
-      "fetchedAt": "2026-11-26T23:13:53.703579+00:00",
+      "fetchedAt": "2026-11-27T22:52:42.915773+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260904_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2175,7 +2175,7 @@
     },
     {
       "tradingDate": "2026-09-07",
-      "fetchedAt": "2026-11-26T23:13:53.289195+00:00",
+      "fetchedAt": "2026-11-27T22:52:42.335472+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260907_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2185,7 +2185,7 @@
     },
     {
       "tradingDate": "2026-09-08",
-      "fetchedAt": "2026-11-26T23:13:52.889796+00:00",
+      "fetchedAt": "2026-11-27T22:52:41.782146+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260908_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2195,7 +2195,7 @@
     },
     {
       "tradingDate": "2026-09-09",
-      "fetchedAt": "2026-11-26T23:13:52.482228+00:00",
+      "fetchedAt": "2026-11-27T22:52:41.167274+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260909_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2205,7 +2205,7 @@
     },
     {
       "tradingDate": "2026-09-10",
-      "fetchedAt": "2026-11-26T23:13:52.031240+00:00",
+      "fetchedAt": "2026-11-27T22:52:40.610628+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260910_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2215,7 +2215,7 @@
     },
     {
       "tradingDate": "2026-09-11",
-      "fetchedAt": "2026-11-26T23:13:51.675844+00:00",
+      "fetchedAt": "2026-11-27T22:52:40.100319+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260911_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2225,7 +2225,7 @@
     },
     {
       "tradingDate": "2026-09-15",
-      "fetchedAt": "2026-11-26T23:13:50.565382+00:00",
+      "fetchedAt": "2026-11-27T22:52:39.034007+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260915_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2235,7 +2235,7 @@
     },
     {
       "tradingDate": "2026-09-16",
-      "fetchedAt": "2026-11-26T23:13:50.214968+00:00",
+      "fetchedAt": "2026-11-27T22:52:38.410319+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260916_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2245,7 +2245,7 @@
     },
     {
       "tradingDate": "2026-09-17",
-      "fetchedAt": "2026-11-26T23:13:49.856805+00:00",
+      "fetchedAt": "2026-11-27T22:52:37.863162+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260917_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2255,7 +2255,7 @@
     },
     {
       "tradingDate": "2026-09-18",
-      "fetchedAt": "2026-11-26T23:13:49.498646+00:00",
+      "fetchedAt": "2026-11-27T22:52:37.252300+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260918_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2265,7 +2265,7 @@
     },
     {
       "tradingDate": "2026-09-21",
-      "fetchedAt": "2026-11-26T23:13:48.906609+00:00",
+      "fetchedAt": "2026-11-27T22:52:36.635396+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260921_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2275,7 +2275,7 @@
     },
     {
       "tradingDate": "2026-09-22",
-      "fetchedAt": "2026-11-26T23:13:48.547423+00:00",
+      "fetchedAt": "2026-11-27T22:52:36.083592+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260922_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2285,7 +2285,7 @@
     },
     {
       "tradingDate": "2026-09-23",
-      "fetchedAt": "2026-11-26T23:13:48.168250+00:00",
+      "fetchedAt": "2026-11-27T22:52:35.588783+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260923_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2295,7 +2295,7 @@
     },
     {
       "tradingDate": "2026-09-24",
-      "fetchedAt": "2026-11-26T23:13:47.800225+00:00",
+      "fetchedAt": "2026-11-27T22:52:35.021009+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260924_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2305,7 +2305,7 @@
     },
     {
       "tradingDate": "2026-09-25",
-      "fetchedAt": "2026-11-26T23:13:47.434566+00:00",
+      "fetchedAt": "2026-11-27T22:52:34.486536+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260925_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2315,7 +2315,7 @@
     },
     {
       "tradingDate": "2026-09-28",
-      "fetchedAt": "2026-11-26T23:13:47.080612+00:00",
+      "fetchedAt": "2026-11-27T22:52:33.968908+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260928_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2325,7 +2325,7 @@
     },
     {
       "tradingDate": "2026-09-29",
-      "fetchedAt": "2026-11-26T23:13:46.638954+00:00",
+      "fetchedAt": "2026-11-27T22:52:33.439910+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260929_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2335,7 +2335,7 @@
     },
     {
       "tradingDate": "2026-09-30",
-      "fetchedAt": "2026-11-26T23:13:46.194722+00:00",
+      "fetchedAt": "2026-11-27T22:52:32.937352+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20260930_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2345,7 +2345,7 @@
     },
     {
       "tradingDate": "2026-10-01",
-      "fetchedAt": "2026-11-26T23:13:45.825686+00:00",
+      "fetchedAt": "2026-11-27T22:52:32.339607+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261001_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2355,7 +2355,7 @@
     },
     {
       "tradingDate": "2026-10-05",
-      "fetchedAt": "2026-11-26T23:13:45.174344+00:00",
+      "fetchedAt": "2026-11-27T22:52:31.291400+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261005_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2365,7 +2365,7 @@
     },
     {
       "tradingDate": "2026-10-06",
-      "fetchedAt": "2026-11-26T23:13:44.782176+00:00",
+      "fetchedAt": "2026-11-27T22:52:30.785004+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261006_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2375,7 +2375,7 @@
     },
     {
       "tradingDate": "2026-10-07",
-      "fetchedAt": "2026-11-26T23:13:44.378825+00:00",
+      "fetchedAt": "2026-11-27T22:52:30.296323+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261007_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2385,7 +2385,7 @@
     },
     {
       "tradingDate": "2026-10-08",
-      "fetchedAt": "2026-11-26T23:13:44.013824+00:00",
+      "fetchedAt": "2026-11-27T22:52:29.714858+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261008_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2395,7 +2395,7 @@
     },
     {
       "tradingDate": "2026-10-09",
-      "fetchedAt": "2026-11-26T23:13:43.592692+00:00",
+      "fetchedAt": "2026-11-27T22:52:29.234363+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261009_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2405,7 +2405,7 @@
     },
     {
       "tradingDate": "2026-10-12",
-      "fetchedAt": "2026-11-26T23:13:43.212164+00:00",
+      "fetchedAt": "2026-11-27T22:52:28.700210+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261012_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2415,7 +2415,7 @@
     },
     {
       "tradingDate": "2026-10-13",
-      "fetchedAt": "2026-11-26T23:13:42.831965+00:00",
+      "fetchedAt": "2026-11-27T22:52:28.195926+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261013_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2425,7 +2425,7 @@
     },
     {
       "tradingDate": "2026-10-14",
-      "fetchedAt": "2026-11-26T23:13:42.443804+00:00",
+      "fetchedAt": "2026-11-27T22:52:27.670891+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261014_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2435,7 +2435,7 @@
     },
     {
       "tradingDate": "2026-10-15",
-      "fetchedAt": "2026-11-26T23:13:42.082686+00:00",
+      "fetchedAt": "2026-11-27T22:52:27.142103+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261015_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2445,7 +2445,7 @@
     },
     {
       "tradingDate": "2026-10-16",
-      "fetchedAt": "2026-11-26T23:13:41.682645+00:00",
+      "fetchedAt": "2026-11-27T22:52:26.579989+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261016_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2455,7 +2455,7 @@
     },
     {
       "tradingDate": "2026-10-19",
-      "fetchedAt": "2026-11-26T23:13:41.301543+00:00",
+      "fetchedAt": "2026-11-27T22:52:26.047804+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261019_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2465,7 +2465,7 @@
     },
     {
       "tradingDate": "2026-10-21",
-      "fetchedAt": "2026-11-26T23:13:40.656658+00:00",
+      "fetchedAt": "2026-11-27T22:52:25.080331+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261021_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2475,7 +2475,7 @@
     },
     {
       "tradingDate": "2026-10-22",
-      "fetchedAt": "2026-11-26T23:13:40.248828+00:00",
+      "fetchedAt": "2026-11-27T22:52:24.600707+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261022_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2485,7 +2485,7 @@
     },
     {
       "tradingDate": "2026-10-23",
-      "fetchedAt": "2026-11-26T23:13:39.904204+00:00",
+      "fetchedAt": "2026-11-27T22:52:24.052641+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261023_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2495,7 +2495,7 @@
     },
     {
       "tradingDate": "2026-10-26",
-      "fetchedAt": "2026-11-26T23:13:39.541005+00:00",
+      "fetchedAt": "2026-11-27T22:52:23.463634+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261026_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2505,7 +2505,7 @@
     },
     {
       "tradingDate": "2026-10-27",
-      "fetchedAt": "2026-11-26T23:13:39.143879+00:00",
+      "fetchedAt": "2026-11-27T22:52:22.972041+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261027_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2515,7 +2515,7 @@
     },
     {
       "tradingDate": "2026-10-28",
-      "fetchedAt": "2026-11-26T23:13:38.794133+00:00",
+      "fetchedAt": "2026-11-27T22:52:22.479310+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261028_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2525,7 +2525,7 @@
     },
     {
       "tradingDate": "2026-10-29",
-      "fetchedAt": "2026-11-26T23:13:38.371830+00:00",
+      "fetchedAt": "2026-11-27T22:52:21.951183+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261029_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2535,7 +2535,7 @@
     },
     {
       "tradingDate": "2026-10-30",
-      "fetchedAt": "2026-11-26T23:13:38.019972+00:00",
+      "fetchedAt": "2026-11-27T22:52:21.413681+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261030_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2545,7 +2545,7 @@
     },
     {
       "tradingDate": "2026-11-02",
-      "fetchedAt": "2026-11-26T23:13:37.618436+00:00",
+      "fetchedAt": "2026-11-27T22:52:20.931569+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261102_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2555,7 +2555,7 @@
     },
     {
       "tradingDate": "2026-11-03",
-      "fetchedAt": "2026-11-26T23:13:37.273592+00:00",
+      "fetchedAt": "2026-11-27T22:52:20.340341+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261103_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2565,7 +2565,7 @@
     },
     {
       "tradingDate": "2026-11-04",
-      "fetchedAt": "2026-11-26T23:13:36.923635+00:00",
+      "fetchedAt": "2026-11-27T22:52:19.760426+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261104_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2575,7 +2575,7 @@
     },
     {
       "tradingDate": "2026-11-05",
-      "fetchedAt": "2026-11-26T23:13:36.577946+00:00",
+      "fetchedAt": "2026-11-27T22:52:19.259294+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261105_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2585,7 +2585,7 @@
     },
     {
       "tradingDate": "2026-11-06",
-      "fetchedAt": "2026-11-26T23:13:36.233071+00:00",
+      "fetchedAt": "2026-11-27T22:52:18.729392+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261106_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2595,7 +2595,7 @@
     },
     {
       "tradingDate": "2026-11-09",
-      "fetchedAt": "2026-11-26T23:13:36.103594+00:00",
+      "fetchedAt": "2026-11-27T22:52:18.245664+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261109_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2605,7 +2605,7 @@
     },
     {
       "tradingDate": "2026-11-11",
-      "fetchedAt": "2026-11-26T23:13:35.482484+00:00",
+      "fetchedAt": "2026-11-27T22:52:17.416965+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261111_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2615,7 +2615,7 @@
     },
     {
       "tradingDate": "2026-11-12",
-      "fetchedAt": "2026-11-26T23:13:35.124990+00:00",
+      "fetchedAt": "2026-11-27T22:52:16.891502+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261112_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2625,7 +2625,7 @@
     },
     {
       "tradingDate": "2026-11-13",
-      "fetchedAt": "2026-11-26T23:13:34.753396+00:00",
+      "fetchedAt": "2026-11-27T22:52:16.411642+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261113_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2635,7 +2635,7 @@
     },
     {
       "tradingDate": "2026-11-16",
-      "fetchedAt": "2026-11-26T23:13:34.409590+00:00",
+      "fetchedAt": "2026-11-27T22:52:15.896247+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261116_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2645,7 +2645,7 @@
     },
     {
       "tradingDate": "2026-11-17",
-      "fetchedAt": "2026-11-26T23:13:34.036993+00:00",
+      "fetchedAt": "2026-11-27T22:52:15.381430+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261117_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2655,7 +2655,7 @@
     },
     {
       "tradingDate": "2026-11-18",
-      "fetchedAt": "2026-11-26T23:13:33.594328+00:00",
+      "fetchedAt": "2026-11-27T22:52:14.912619+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261118_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2665,7 +2665,7 @@
     },
     {
       "tradingDate": "2026-11-19",
-      "fetchedAt": "2026-11-26T23:13:33.245421+00:00",
+      "fetchedAt": "2026-11-27T22:52:14.322157+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261119_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2675,7 +2675,7 @@
     },
     {
       "tradingDate": "2026-11-20",
-      "fetchedAt": "2026-11-26T23:13:32.899801+00:00",
+      "fetchedAt": "2026-11-27T22:52:13.796419+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261120_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2685,7 +2685,7 @@
     },
     {
       "tradingDate": "2026-11-23",
-      "fetchedAt": "2026-11-26T23:13:32.767307+00:00",
+      "fetchedAt": "2026-11-27T22:52:13.320912+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261123_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2695,7 +2695,7 @@
     },
     {
       "tradingDate": "2026-11-25",
-      "fetchedAt": "2026-11-26T23:13:32.106185+00:00",
+      "fetchedAt": "2026-11-27T22:52:12.454572+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261125_F_0000.csv.zip",
       "marketDataStatus": "EOD",
@@ -2705,13 +2705,23 @@
     },
     {
       "tradingDate": "2026-11-26",
-      "fetchedAt": "2026-11-26T23:13:31.993540+00:00",
+      "fetchedAt": "2026-11-27T22:52:11.865541+00:00",
       "source": "NSE CM-UDiFF Common Bhavcopy Final",
       "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261126_F_0000.csv.zip",
       "marketDataStatus": "EOD",
       "rowCount": 2782,
       "sha256": "0790eb579c1cf37fee8aa96724f644594ef0a53ce79e6103e811ef1c1d74e737",
       "file": "2026-11-26.csv"
+    },
+    {
+      "tradingDate": "2026-11-27",
+      "fetchedAt": "2026-11-27T22:52:11.380189+00:00",
+      "source": "NSE CM-UDiFF Common Bhavcopy Final",
+      "sourceUrl": "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261127_F_0000.csv.zip",
+      "marketDataStatus": "EOD",
+      "rowCount": 2783,
+      "sha256": "bcccf336c474fc1ba098a210dc13eba11a2d20f2b5cbc99ec1720ca4dddf7124",
+      "file": "2026-11-27.csv"
     }
   ]
 }
